@@ -7,46 +7,53 @@ extends RefCounted
 ## собирала полностью совместимый со сценой боя словарь пачки.
 
 const UNITS := {
-	# --- Покупаемые юниты Земного флота -------------------------------------
+	# --- Покупаемые юниты Земного флота: 5 рангов, одно здание на ранг --------
 	"interceptor": {
-		"label": "Перехватчик", "role": "лёгкий истребитель (короткая дистанция)", "tier": 1,
-		"hull": 7, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
+		"label": "Перехватчик", "role": "истребитель 1 ранга (короткая дистанция)", "tier": 1,
+		"hull": 8, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
 		"move": 7, "range": 2, "initiative": 12, "sprite_width": 104.0,
 		"texture": preload("res://assets/ships/human/1_1.png"), "region": Rect2(50, 140, 1436, 700),
-		"kind": "dwelling", "dwelling": "fighter_hangar", "dwelling_level": 1,
-		"cost": {"credits": 40}, "weekly_growth": 10,
+		"kind": "dwelling", "dwelling": "fighter_yard", "dwelling_level": 1,
+		"cost": {"credits": 50}, "weekly_growth": 10,
 	},
-	"strike_fighter": {
-		"label": "Штурмовик", "role": "истребитель 2 уровня (короткая дистанция)", "tier": 2,
+	"heavy_interceptor": {
+		"label": "Тяжёлый истребитель", "role": "тяжёлый истребитель (короткая дистанция)", "tier": 1,
 		"hull": 14, "attack": 8, "defense": 7, "damage_min": 3, "damage_max": 6,
 		"move": 6, "range": 2, "initiative": 10, "sprite_width": 112.0,
 		"texture": preload("res://assets/ships/human/1_2.png"), "region": Rect2(60, 135, 1440, 690),
-		"kind": "dwelling", "dwelling": "fighter_hangar", "dwelling_level": 2,
-		"cost": {"credits": 110}, "weekly_growth": 5,
-	},
-	"assault_fighter": {
-		"label": "Ударный истребитель", "role": "истребитель 3 уровня (короткая дистанция)", "tier": 3,
-		"hull": 22, "attack": 10, "defense": 9, "damage_min": 5, "damage_max": 9,
-		"move": 6, "range": 3, "initiative": 9, "sprite_width": 120.0,
-		"texture": preload("res://assets/ships/human/1_3.png"), "region": Rect2(60, 120, 1560, 660),
-		"kind": "dwelling", "dwelling": "fighter_hangar", "dwelling_level": 3,
-		"cost": {"credits": 220}, "weekly_growth": 3,
+		"kind": "starting",
 	},
 	"corvette": {
-		"label": "Корвет", "role": "корабль 2 уровня (короткая дистанция)", "tier": 2,
-		"hull": 40, "attack": 10, "defense": 10, "damage_min": 8, "damage_max": 14,
-		"move": 4, "range": 2, "initiative": 7, "sprite_width": 124.0,
+		"label": "Корвет", "role": "корабль 2 ранга (короткая дистанция)", "tier": 2,
+		"hull": 20, "attack": 8, "defense": 8, "damage_min": 4, "damage_max": 7,
+		"move": 6, "range": 2, "initiative": 10, "sprite_width": 124.0,
 		"texture": preload("res://assets/ships/human/2_1.png"), "region": Rect2(50, 125, 1450, 750),
-		"kind": "dwelling", "dwelling": "corvette_hangar", "dwelling_level": 1,
-		"cost": {"credits": 500, "Руда": 5}, "weekly_growth": 2,
+		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 1,
+		"cost": {"credits": 150, "Руда": 5}, "weekly_growth": 6,
 	},
-	"heavy_corvette": {
-		"label": "Тяжёлый корвет", "role": "корабль 3 уровня (дальнобойный)", "tier": 3,
-		"hull": 65, "attack": 12, "defense": 12, "damage_min": 12, "damage_max": 20,
-		"move": 4, "range": 3, "initiative": 6, "sprite_width": 132.0,
-		"texture": preload("res://assets/ships/human/2_2.png"), "region": Rect2(50, 125, 1450, 750),
-		"kind": "dwelling", "dwelling": "corvette_hangar", "dwelling_level": 2,
-		"cost": {"credits": 950, "Руда": 10}, "weekly_growth": 1,
+	"frigate": {
+		"label": "Фрегат", "role": "корабль 3 ранга (дальнобойный)", "tier": 3,
+		"hull": 40, "attack": 11, "defense": 10, "damage_min": 8, "damage_max": 13,
+		"move": 5, "range": 3, "initiative": 8, "sprite_width": 140.0,
+		"texture": preload("res://assets/ships/human_new/layer-light-gray-spaceship.png"), "region": Rect2(0, 0, 537, 257),
+		"kind": "dwelling", "dwelling": "frigate_yard", "dwelling_level": 1,
+		"cost": {"credits": 400, "Руда": 10, "Топливо": 5}, "weekly_growth": 4,
+	},
+	"cruiser": {
+		"label": "Крейсер", "role": "корабль 4 ранга (дальнобойный)", "tier": 4,
+		"hull": 75, "attack": 14, "defense": 13, "damage_min": 14, "damage_max": 22,
+		"move": 4, "range": 3, "initiative": 6, "sprite_width": 155.0,
+		"texture": preload("res://assets/ships/human_new/layer-gray-spaceship.png"), "region": Rect2(0, 0, 668, 345),
+		"kind": "dwelling", "dwelling": "cruiser_yard", "dwelling_level": 1,
+		"cost": {"credits": 900, "Руда": 20, "Топливо": 10, "Энергокристаллы": 5}, "weekly_growth": 2,
+	},
+	"destroyer": {
+		"label": "Эсминец", "role": "корабль 5 ранга (дальнобойный)", "tier": 5,
+		"hull": 130, "attack": 18, "defense": 16, "damage_min": 24, "damage_max": 36,
+		"move": 3, "range": 4, "initiative": 5, "sprite_width": 170.0,
+		"texture": preload("res://assets/ships/human_new/layer-blue-spaceship (2).png"), "region": Rect2(0, 0, 835, 349),
+		"kind": "dwelling", "dwelling": "destroyer_yard", "dwelling_level": 1,
+		"cost": {"credits": 1800, "Руда": 35, "Топливо": 20, "Энергокристаллы": 15, "Радиоизотопы": 10}, "weekly_growth": 1,
 	},
 	# --- Стражи (только для составов нейтралов на карте) ---------------------
 	"raider": {

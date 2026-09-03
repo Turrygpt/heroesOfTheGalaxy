@@ -32,7 +32,7 @@ func _run() -> void:
 	_test_level_up_dialog()
 	_test_persistence()
 	if failures == 0:
-		print("PASS: таблица опыта, уровни, слоты навыков, множитель урона, книга протоколов, награда за бой, окно уровня, сохранение")
+		print("PASS: таблица опыта, уровни, слоты навыков, множитель урона, книга протоколов, награда за бой, итоги боя, окно уровня, сохранение")
 	quit(1 if failures > 0 else 0)
 
 
@@ -161,7 +161,7 @@ func _test_protocol_book() -> void:
 func _test_battle_rewards() -> void:
 	var units: Array = [
 		{"side": 1, "hp": 10, "max_hp": 10, "damage": 3},
-		{"side": 2, "hp": 18, "max_hp": 18, "damage": 4},
+		{"side": 2, "hp": 18, "max_hp": 18, "hull": 18, "count": 1, "start_count": 1, "damage": 4},
 		{"side": 2, "hull": 6, "count": 4, "hp": 24, "max_hp": 24, "damage_min": 2, "damage_max": 4, "attack": 5, "defense": 4, "move": 4, "initiative": 8},
 	]
 	_check(REWARDS.experience_for_battle(units, 1) == 0, "Пока потерь нет, опыта тоже нет")
@@ -177,6 +177,11 @@ func _test_battle_rewards() -> void:
 	var full: int = REWARDS.experience_for_battle(units, 1)
 	_check(full > partial + one_stack_ship, "Полный разгром даёт надбавку за победу")
 	_check(REWARDS.experience_for_battle(units, 2) == 0, "Проигравшая сторона потерь врага не нанесла")
+	var casualties: Array = REWARDS.side_casualties(units, 2)
+	_check(casualties.size() == 2, "Сводка потерь содержит оба вражеских отряда")
+	_check(int(casualties[0]["lost"]) == 1, "Одиночный корабль полностью потерян")
+	_check(int(casualties[1]["left"]) == 0, "Пачка уничтожена целиком")
+	_check(REWARDS.ships_lost(units, 2) >= 2, "Сумма потерь стороны считает корабли, а не отряды")
 
 
 func _test_level_up_dialog() -> void:
@@ -219,6 +224,12 @@ func _test_battle_integration() -> void:
 	_check(battle.battle_finished, "Уничтожение пиратов должно завершать бой")
 	_check(battle.experience_granted, "Флаг начисления опыта должен взводиться")
 	_check(player_hero.experience > experience_before, "Победа должна начислять герою опыт")
+	_check(battle.last_experience_gained == player_hero.experience - experience_before, "Итоги боя показывают фактически начисленный опыт")
+	var results_open := false
+	for child in battle.get_children():
+		if child.get_script() == preload("res://scripts/battle_results_dialog.gd"):
+			results_open = true
+	_check(results_open, "После победы открывается окно итогов боя")
 	var experience_after_first := player_hero.experience
 	battle._check_battle_end()
 	_check(player_hero.experience == experience_after_first, "Повторный вызов не должен начислять опыт дважды")

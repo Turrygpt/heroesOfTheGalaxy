@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=3]
+[gd_scene load_steps=29 format=3]
 
 [ext_resource type="Script" path="res://scripts/human_planet_screen.gd" id="1_script"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/bg.png" id="2_background"]
@@ -14,15 +14,13 @@
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/mage_guild.png" id="12_mage_guild"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/marketplace.png" id="13_marketplace"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/resource_silo.png" id="14_resource_silo"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/blacksmith.png" id="15_blacksmith"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/tavern.png" id="16_tavern"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/shipyard.png" id="17_shipyard"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/turret.png" id="18_turret"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/1_1.png" id="19_fighter_hangar1"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/1_2.png" id="20_fighter_hangar2"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/1_3.png" id="21_fighter_hangar3"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/corvette_hangar1.png" id="22_corvette_hangar1"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/corvette_hangar2.png" id="23_corvette_hangar2"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/fighter_yard.png" id="19_fighter_yard"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/corvette_yard.png" id="22_corvette_yard"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/frigate_yard.png" id="24_frigate_yard"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/cruiser_yard.png" id="25_cruiser_yard"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/destroyer_yard.png" id="26_destroyer_yard"]
 
 [sub_resource type="Shader" id="Shader_procedural_clouds"]
 code = "shader_type canvas_item;
@@ -581,21 +579,6 @@ icon = ExtResource("14_resource_silo")
 icon_max_width = 66
 expand_icon = true
 
-[node name="Blacksmith" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
-layout_mode = 2
-size_flags_horizontal = 3
-toggle_mode = true
-mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = SubResource("Style_action")
-theme_override_styles/hover = SubResource("Style_action_hover")
-theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Военный док"
-icon = ExtResource("15_blacksmith")
-icon_max_width = 66
-expand_icon = true
-
 [node name="Tavern" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
 custom_minimum_size = Vector2(88, 108)
 layout_mode = 2
@@ -608,21 +591,6 @@ theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
 text = "Офицерский клуб"
 icon = ExtResource("16_tavern")
-icon_max_width = 66
-expand_icon = true
-
-[node name="Shipyard" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
-layout_mode = 2
-size_flags_horizontal = 3
-toggle_mode = true
-mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = SubResource("Style_action")
-theme_override_styles/hover = SubResource("Style_action_hover")
-theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Орбитальная верфь"
-icon = ExtResource("17_shipyard")
 icon_max_width = 66
 expand_icon = true
 
@@ -641,7 +609,7 @@ icon = ExtResource("18_turret")
 icon_max_width = 66
 expand_icon = true
 
-[node name="FighterHangar1" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+[node name="FighterYard" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
 custom_minimum_size = Vector2(88, 108)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -651,12 +619,12 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Ангар истребителей I"
-icon = ExtResource("19_fighter_hangar1")
+text = "Верфь истребителей"
+icon = ExtResource("19_fighter_yard")
 icon_max_width = 66
 expand_icon = true
 
-[node name="FighterHangar2" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+[node name="CorvetteYard" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
 custom_minimum_size = Vector2(88, 108)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -666,12 +634,12 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Ангар истребителей II"
-icon = ExtResource("20_fighter_hangar2")
+text = "Верфь корветов"
+icon = ExtResource("22_corvette_yard")
 icon_max_width = 66
 expand_icon = true
 
-[node name="FighterHangar3" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+[node name="FrigateYard" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
 custom_minimum_size = Vector2(88, 108)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -681,12 +649,12 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Ангар истребителей III"
-icon = ExtResource("21_fighter_hangar3")
+text = "Верфь фрегатов"
+icon = ExtResource("24_frigate_yard")
 icon_max_width = 66
 expand_icon = true
 
-[node name="CorvetteHangar1" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+[node name="CruiserYard" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
 custom_minimum_size = Vector2(88, 108)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -696,12 +664,12 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Ангар корветов I"
-icon = ExtResource("22_corvette_hangar1")
+text = "Верфь крейсеров"
+icon = ExtResource("25_cruiser_yard")
 icon_max_width = 66
 expand_icon = true
 
-[node name="CorvetteHangar2" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+[node name="DestroyerYard" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
 custom_minimum_size = Vector2(88, 108)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -711,8 +679,8 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Ангар корветов II"
-icon = ExtResource("23_corvette_hangar2")
+text = "Верфь эсминцев"
+icon = ExtResource("26_destroyer_yard")
 icon_max_width = 66
 expand_icon = true
 

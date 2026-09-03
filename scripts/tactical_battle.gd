@@ -26,6 +26,7 @@ const CUBE_DIRECTIONS := [
 const SPACE_BACKDROP := preload("res://assets/space/tactical_backdrop.png")
 const BATTLE_HUD := preload("res://scripts/tactical_battle_hud.gd")
 const BATTLE_REWARDS := preload("res://scripts/battle_rewards.gd")
+const BATTLE_RESULTS_DIALOG := preload("res://scripts/battle_results_dialog.gd")
 const PROTOCOL_BOOK_HUD := preload("res://scripts/protocol_book_hud.gd")
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 
@@ -111,6 +112,7 @@ var floaters: Array = []
 var last_event := "Бой начался"
 var turn_pending := false
 var experience_granted := false
+var last_experience_gained := 0
 
 # --- Боевые протоколы героев (см. scripts/hero_protocols.gd) ---
 var heroes := {}
@@ -130,7 +132,12 @@ func _ready() -> void:
 	_rebuild_turn_order()
 	active_unit_index = turn_order[0]
 	heroes[1] = _make_hero(1)
-	heroes[2] = _make_hero(2)
+	# Стражи на карте (пираты/конвои) — рядовые капитаны без протоколов; каст
+	# доступен только настоящему герою-противнику (см. _make_hero, side == 2
+	# вне боя со стражем). guardian_index != -1 значит бой запущен из
+	# _open_guardian_battle (см. space_strategy_map.gd).
+	if guardian_index == -1:
+		heroes[2] = _make_hero(2)
 	# The battle can be opened over the strategic map, whose Camera2D would keep
 	# offsetting this board. Own camera pins world space to screen space 1:1.
 	battle_camera = Camera2D.new()
@@ -674,9 +681,9 @@ func _check_battle_end() -> void:
 	_grant_experience()
 
 
-## Опыт начисляется по нанесённым потерям (см. battle_rewards.gd), как в HoMM:
-## игрок получает окно повышения уровня, ИИ-противник применяет предложения
-## молча. Идемпотентно на случай повторного вызова _check_battle_end().
+## Опыт начисляется по нанесённым потерям (см. battle_rewards.gd), как в HoMM.
+## Сначала окно итогов. Победа: закрытие окна (и выбор навыков, если герой
+## вырос) возвращает на карту галактики. Поражение оставляет на поле боя.
 func _grant_experience() -> void:
 	if experience_granted:
 		return
@@ -686,15 +693,36 @@ func _grant_experience() -> void:
 	var enemy_hero: Hero = roster.enemy_hero() if roster != null else null
 	var player_experience := BATTLE_REWARDS.experience_for_battle(units, 1)
 	var enemy_experience := BATTLE_REWARDS.experience_for_battle(units, 2)
+	var xp_before := player_hero.experience if player_hero != null else 0
 	if roster != null:
 		roster.award_experience(player_hero, player_experience)
 		roster.award_experience(enemy_hero, enemy_experience)
 	elif player_hero != null and enemy_hero != null:
 		player_hero.gain_experience(player_experience)
 		enemy_hero.gain_experience(enemy_experience)
+	last_experience_gained = (player_hero.experience - xp_before) if player_hero != null else player_experience
 	BATTLE_REWARDS.auto_apply(enemy_hero)
+	_show_battle_results(player_hero, _side_alive(1), last_experience_gained)
+
+
+func _show_battle_results(player_hero: Hero, player_won: bool, xp_gained: int) -> void:
+	var dialog: CanvasLayer = BATTLE_RESULTS_DIALOG.new()
+	add_child(dialog)
+	dialog.setup(player_hero, units, player_won, xp_gained)
+	dialog.finished.connect(_on_battle_results_closed.bind(player_hero, player_won))
+
+
+func _on_battle_results_closed(player_hero: Hero, player_won: bool) -> void:
 	if player_hero != null and player_hero.has_pending_level_up():
-		BATTLE_REWARDS.show_level_ups(self, player_hero)
+		var level_up := BATTLE_REWARDS.show_level_ups(self, player_hero)
+		if player_won:
+			if level_up != null:
+				level_up.finished.connect(_return_to_map)
+			else:
+				_return_to_map()
+		return
+	if player_won:
+		_return_to_map()
 
 
 func _side_alive(side: int) -> bool:
@@ -916,6 +944,12 @@ func _cancel_targeting() -> void:
 
 func _try_cast_at_cell(cell: Vector2i) -> void:
 	if not _is_valid_target_cell(cell):
+		return
+	# Энергия проверялась при выборе протокола в книге (_on_protocol_chosen),
+	# но наведение цели — отдельный шаг; перепроверяем здесь, чтобы истраченная
+	# в этот же ход энергия не позволила скастовать второй протокол задним числом.
+	if not _can_cast(1, selected_protocol):
+		_cancel_targeting()
 		return
 	var protocol: Dictionary = PROTOCOLS.get_protocol(selected_protocol)
 	if protocol["target"] == "ally_then_cell" and teleport_unit < 0:
@@ -1510,7 +1544,8 @@ func _restart_battle() -> void:
 func _return_to_map() -> void:
 	if is_instance_valid(return_scene) and is_instance_valid(return_map):
 		if guardian_index >= 0 and return_map.has_method("_resolve_guardian_battle"):
-			return_map._resolve_guardian_battle(guardian_index, units, _side_alive(1))
+			var retreated := not battle_finished
+			return_map._resolve_guardian_battle(guardian_index, units, _side_alive(1), retreated)
 		return_scene.process_mode = return_process_mode
 		return_map.show()
 		return_map.get_node("HUD").show()

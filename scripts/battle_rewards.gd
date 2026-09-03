@@ -40,6 +40,33 @@ static func ships_destroyed(unit: Dictionary) -> int:
 	return clampi(lost, 0, int(unit.get("count", max_hp / maxi(hull, 1))))
 
 
+## Сводка потерь одной стороны: сколько кораблей было, сколько осталось.
+static func side_casualties(units: Array, side: int) -> Array:
+	var rows: Array = []
+	for unit in units:
+		if int(unit.get("side", 0)) != side:
+			continue
+		var hull := int(unit.get("hull", 1))
+		var start := int(unit.get("start_count", unit.get("count", 0)))
+		var left := 0
+		if int(unit.get("hp", 0)) > 0 and hull > 0:
+			left = int(ceil(float(unit["hp"]) / float(hull)))
+		rows.append({
+			"label": String(unit.get("label", "Отряд")),
+			"start": start,
+			"left": left,
+			"lost": maxi(0, start - left),
+		})
+	return rows
+
+
+static func ships_lost(units: Array, side: int) -> int:
+	var total := 0
+	for row in side_casualties(units, side):
+		total += int(row["lost"])
+	return total
+
+
 ## Опыт стороны hero_side за нанесённые потери. Полная победа даёт надбавку.
 static func experience_for_battle(units: Array, hero_side: int) -> int:
 	var total := 0

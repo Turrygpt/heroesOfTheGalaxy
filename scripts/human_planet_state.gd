@@ -7,14 +7,36 @@ extends RefCounted
 ## картой (недельный прирост, синхронизация уровня планетарного совета).
 
 const STATE_PATH := "user://human_planet_state.json"
+## Каждый уровень форта (см. BUILDING_DEFS["fort"]) добавляет +50% к
+## недельному приросту всех ангаров — I/II/III дают +50/+100/+150%.
+const FORT_GROWTH_BONUS_PER_LEVEL := 0.5
+## Доход планетарного совета по уровням I-IV — не линейный, а удваивается с
+## каждым уровнем. Общий источник для карты (SpaceStrategyMap) и экрана
+## планеты (HumanPlanetScreen), чтобы обе подписи всегда совпадали.
+const COUNCIL_INCOME_BY_LEVEL := [0, 500, 1000, 2000, 4000]
 
 
+static func council_income(level: int) -> int:
+	var index := clampi(level, 0, COUNCIL_INCOME_BY_LEVEL.size() - 1)
+	return COUNCIL_INCOME_BY_LEVEL[index]
+
+
+## Стартовое состояние новой игры: совет уже построен на уровне I (карта
+## всегда считает его минимум I уровня, см. SpaceStrategyMap._sync_council_level),
+## всё остальное ещё предстоит построить.
 static func default_state() -> Dictionary:
 	return {
-		"built_levels": {},
+		"built_levels": {"townhall": 1},
 		"garrison": {},
 		"available_growth": {},
 		"last_growth_day": 0,
+		# Захваченные пиратские базы (см. MapObjectDefs "pirate_base") дают
+		# постоянный доход сверх совета планеты.
+		"bonus_daily_income": 0,
+		# Юниты, чей еженедельный прирост идёт независимо от построенного
+		# ангара - захват заброшенной верфи (см. MapObjectDefs
+		# "abandoned_shipyard") открывает найм этого корабля без стройки.
+		"unlocked_dwellings": [],
 	}
 
 
@@ -39,6 +61,13 @@ static func load_state() -> Dictionary:
 	if available_growth is Dictionary:
 		state["available_growth"] = _int_dict(available_growth)
 	state["last_growth_day"] = int(parsed.get("last_growth_day", 0))
+	state["bonus_daily_income"] = int(parsed.get("bonus_daily_income", 0))
+	var unlocked_dwellings = parsed.get("unlocked_dwellings", [])
+	if unlocked_dwellings is Array:
+		var cleaned: Array[String] = []
+		for entry in unlocked_dwellings:
+			cleaned.append(String(entry))
+		state["unlocked_dwellings"] = cleaned
 	return state
 
 
@@ -56,9 +85,23 @@ static func _int_dict(source: Dictionary) -> Dictionary:
 	return result
 
 
+## Множитель прироста от уровня форта: I -> x1.5, II -> x2.0, III -> x2.5.
+static func fort_growth_multiplier(built_levels: Dictionary) -> float:
+	return 1.0 + FORT_GROWTH_BONUS_PER_LEVEL * int(built_levels.get("fort", 0))
+
+
+## Недельный прирост юнита с учётом бонуса форта, минимум 1.
+static func scaled_weekly_growth(unit_id: String, built_levels: Dictionary) -> int:
+	var base := int(UnitDefs.get_unit(unit_id).get("weekly_growth", 0))
+	if base <= 0:
+		return 0
+	return maxi(1, roundi(base * fort_growth_multiplier(built_levels)))
+
+
 ## Прирост за одну прошедшую неделю: ангар, построенный ровно до уровня N,
 ## добавляет недельный прирост юнита уровня N в пул доступных к найму — как
-## апгрейд жилища в HoMM меняет, а не суммирует, кого оно производит.
+## апгрейд жилища в HoMM меняет, а не суммирует, кого оно производит. Форт
+## усиливает этот прирост (см. fort_growth_multiplier).
 static func apply_weekly_growth(state: Dictionary, current_day: int) -> Dictionary:
 	var built_levels: Dictionary = state.get("built_levels", {})
 	var growth: Dictionary = state.get("available_growth", {})
@@ -67,7 +110,10 @@ static func apply_weekly_growth(state: Dictionary, current_day: int) -> Dictiona
 		var dwelling: String = unit["dwelling"]
 		var level := int(unit["dwelling_level"])
 		if int(built_levels.get(dwelling, 0)) == level:
-			growth[unit_id] = int(growth.get(unit_id, 0)) + int(unit["weekly_growth"])
+			growth[unit_id] = int(growth.get(unit_id, 0)) + scaled_weekly_growth(unit_id, built_levels)
+	var unlocked_dwellings: Array = state.get("unlocked_dwellings", [])
+	for unit_id in unlocked_dwellings:
+		growth[unit_id] = int(growth.get(unit_id, 0)) + scaled_weekly_growth(String(unit_id), built_levels)
 	state["available_growth"] = growth
 	state["last_growth_day"] = current_day
 	return state

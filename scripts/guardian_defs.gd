@@ -26,7 +26,19 @@ static func kind_for(template_id: String) -> String:
 	return KIND_FOR_TEMPLATE.get(template_id, "pirate")
 
 
-## Первый юнит отряда — используется для иконки стража на карте.
+## Самый сильный корабль отряда (по tier юнита, без учёта количества) —
+## используется как иконка стража на карте, чтобы "strong"-отряд узнавался по
+## своему флагману (ork_raider), а не по мелкому raider'у из того же списка.
 static func icon_unit_id(template_id: String) -> String:
 	var fleet: Array = TEMPLATES.get(template_id, [])
-	return fleet[0]["unit_id"] if not fleet.is_empty() else ""
+	if fleet.is_empty():
+		return ""
+	var best_id := String(fleet[0]["unit_id"])
+	var best_tier := int(UnitDefs.get_unit(best_id).get("tier", 0))
+	for entry in fleet:
+		var unit_id := String(entry["unit_id"])
+		var tier := int(UnitDefs.get_unit(unit_id).get("tier", 0))
+		if tier > best_tier:
+			best_tier = tier
+			best_id = unit_id
+	return best_id

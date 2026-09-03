@@ -18,6 +18,7 @@ var status_label: Label
 var hint_label: Label
 var end_button: Button
 var restart_button: Button
+var back_button: Button
 var queue_cards: Array[PanelContainer] = []
 var queue_counts: Array[Label] = []
 var roster_cards: Array[PanelContainer] = []
@@ -233,11 +234,11 @@ func _build_footer() -> void:
 	restart_button.pressed.connect(func(): restart_requested.emit())
 	restart_button.hide()
 	row.add_child(restart_button)
-	var back := _button("←  НА КАРТУ", MUTED)
-	back.position = Vector2(24, 992)
-	back.size = Vector2(280, 54)
-	back.pressed.connect(func(): return_requested.emit())
-	ui.add_child(back)
+	back_button = _button("←  СБЕЖАТЬ В ЗАМОК", MUTED)
+	back_button.position = Vector2(24, 992)
+	back_button.size = Vector2(280, 54)
+	back_button.pressed.connect(func(): return_requested.emit())
+	ui.add_child(back_button)
 	status_label = _label("", 13, MUTED)
 	status_label.position = Vector2(1616, 992)
 	status_label.size = Vector2(280, 56)
@@ -262,6 +263,7 @@ func update_state(units: Array[Dictionary], active_index: int, round_number: int
 	end_button.visible = not finished
 	end_button.disabled = locked or active["side"] != 1
 	restart_button.visible = finished
+	back_button.text = "←  НА КАРТУ" if finished else "←  СБЕЖАТЬ В ЗАМОК"
 	var roster_state: Array = [active_index, finished]
 	for unit in units:
 		roster_state.append(unit["hp"])
