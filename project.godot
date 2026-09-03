@@ -17,6 +17,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 [autoload]
 
 ShipEditor="*res://scripts/ship_editor.gd"
+HeroRoster="*res://scripts/hero_roster.gd"
 
 [display]
 

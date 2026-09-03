@@ -10,6 +10,14 @@ func _process(_delta: float) -> void:
 	queue_redraw()
 
 
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var strategy_map = get_node("../../../..")
+		if not strategy_map.is_moving:
+			strategy_map.camera.position = event.position / size * MAP_SIZE * CELL_SIZE
+		accept_event()
+
+
 func _draw() -> void:
 	var strategy_map = get_node("../../../..")
 	draw_rect(Rect2(Vector2.ZERO, size), Color("050912"))
@@ -21,14 +29,18 @@ func _draw() -> void:
 		draw_line(Vector2(0.0, y), Vector2(size.x, y), Color("172437"), 1.0)
 
 	for obstacle in strategy_map.obstacles:
-		var obstacle_rect: Rect2i = obstacle["rect"]
-		draw_rect(
-			Rect2(
-				Vector2(obstacle_rect.position) / MAP_SIZE * size,
-				Vector2(obstacle_rect.size) / MAP_SIZE * size
-			),
-			Color(SpaceObstacles.minimap_color(obstacle["kind"]), 0.85)
-		)
+		for cell in obstacle["cells"]:
+			draw_rect(Rect2(Vector2(cell) / MAP_SIZE * size, size / MAP_SIZE),
+				Color(SpaceObstacles.minimap_color(obstacle["kind"]), 0.85))
+		for passage in obstacle["passages"]:
+			if passage["rift"]:
+				var center := _cell_to_minimap(passage["cell"])
+				draw_circle(center, 2.5, Color("8ae0dc"))
+	if not strategy_map.planned_path.is_empty():
+		var route := PackedVector2Array([_cell_to_minimap(strategy_map.current_cell)])
+		for cell in strategy_map.planned_path:
+			route.append(_cell_to_minimap(cell))
+		draw_polyline(route, Color("77dfe9"), 1.5, true)
 
 	_draw_planet(strategy_map.HUMAN_PLANET_CENTER, PLAYER_ONE_COLOR)
 	_draw_planet(strategy_map.ORC_PLANET_CENTER, PLAYER_TWO_COLOR)
@@ -43,7 +55,7 @@ func _draw() -> void:
 	draw_circle(ship_point, 5.0, Color.WHITE)
 	draw_circle(ship_point, 3.0, PLAYER_ONE_COLOR)
 
-	var viewport_world_size: Vector2 = strategy_map.get_viewport_rect().size
+	var viewport_world_size: Vector2 = strategy_map.get_viewport_rect().size / strategy_map.camera.zoom
 	var viewport_world_position: Vector2 = (
 		strategy_map.camera.get_screen_center_position() - viewport_world_size * 0.5
 	)

@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3]
+[gd_scene load_steps=31 format=3]
 
 [ext_resource type="Script" path="res://scripts/human_planet_screen.gd" id="1_script"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/bg.png" id="2_background"]
@@ -21,6 +21,8 @@
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/1_1.png" id="19_fighter_hangar1"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/1_2.png" id="20_fighter_hangar2"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/1_3.png" id="21_fighter_hangar3"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/corvette_hangar1.png" id="22_corvette_hangar1"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/corvette_hangar2.png" id="23_corvette_hangar2"]
 
 [sub_resource type="Shader" id="Shader_procedural_clouds"]
 code = "shader_type canvas_item;
@@ -684,6 +686,36 @@ icon = ExtResource("21_fighter_hangar3")
 icon_max_width = 66
 expand_icon = true
 
+[node name="CorvetteHangar1" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(88, 108)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Ангар корветов I"
+icon = ExtResource("22_corvette_hangar1")
+icon_max_width = 66
+expand_icon = true
+
+[node name="CorvetteHangar2" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(88, 108)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Ангар корветов II"
+icon = ExtResource("23_corvette_hangar2")
+icon_max_width = 66
+expand_icon = true
+
 [node name="SizeTitle" type="Label" parent="Root/BuildingEditor/Margin/VBox"]
 visible = false
 layout_mode = 2
@@ -798,6 +830,154 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
 [node name="CloseButton" type="Button" parent="Root/ConstructionMenu/Margin/VBox"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 17
+theme_override_styles/normal = SubResource("Style_back")
+theme_override_styles/hover = SubResource("Style_action_hover")
+text = "ЗАКРЫТЬ"
+
+[node name="CouncilScreen" type="PanelContainer" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -220.0
+offset_right = 260.0
+offset_bottom = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("Style_info_panel")
+
+[node name="Margin" type="MarginContainer" parent="Root/CouncilScreen"]
+layout_mode = 2
+theme_override_constants/margin_left = 26
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 26
+theme_override_constants/margin_bottom = 22
+
+[node name="VBox" type="VBoxContainer" parent="Root/CouncilScreen/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Root/CouncilScreen/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.88, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "ПЛАНЕТАРНЫЙ СОВЕТ"
+horizontal_alignment = 1
+
+[node name="IncomeLabel" type="Label" parent="Root/CouncilScreen/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.82, 0.3, 1)
+theme_override_font_sizes/font_size = 18
+text = "Доход: +0 кредитов/день"
+horizontal_alignment = 1
+
+[node name="Separator" type="HSeparator" parent="Root/CouncilScreen/Margin/VBox"]
+layout_mode = 2
+
+[node name="RowHost" type="VBoxContainer" parent="Root/CouncilScreen/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="CloseButton" type="Button" parent="Root/CouncilScreen/Margin/VBox"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 17
+theme_override_styles/normal = SubResource("Style_back")
+theme_override_styles/hover = SubResource("Style_action_hover")
+text = "ЗАКРЫТЬ"
+
+[node name="GarrisonScreen" type="PanelContainer" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -380.0
+offset_top = -360.0
+offset_right = 380.0
+offset_bottom = 360.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("Style_info_panel")
+
+[node name="Margin" type="MarginContainer" parent="Root/GarrisonScreen"]
+layout_mode = 2
+theme_override_constants/margin_left = 26
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 26
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="Root/GarrisonScreen/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Root/GarrisonScreen/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.88, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "ГАРНИЗОН ПЛАНЕТЫ"
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="Root/GarrisonScreen/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.76, 0.84, 0.88, 1)
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 2
+horizontal_alignment = 1
+text = "Переброска между гарнизоном и флотом героя доступна, пока корабль пристыкован дома"
+
+[node name="RecruitSeparator" type="HSeparator" parent="Root/GarrisonScreen/Margin/VBox"]
+layout_mode = 2
+
+[node name="RecruitTitle" type="Label" parent="Root/GarrisonScreen/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.54, 0.85, 0.9, 1)
+theme_override_font_sizes/font_size = 16
+text = "НАЁМ КОРАБЛЕЙ"
+
+[node name="RecruitScroll" type="ScrollContainer" parent="Root/GarrisonScreen/Margin/VBox"]
+custom_minimum_size = Vector2(0, 280)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="RecruitList" type="VBoxContainer" parent="Root/GarrisonScreen/Margin/VBox/RecruitScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="FleetSeparator" type="HSeparator" parent="Root/GarrisonScreen/Margin/VBox"]
+layout_mode = 2
+
+[node name="FleetTitle" type="Label" parent="Root/GarrisonScreen/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.54, 0.85, 0.9, 1)
+theme_override_font_sizes/font_size = 16
+text = "ФЛОТ ГЕРОЯ"
+
+[node name="FleetScroll" type="ScrollContainer" parent="Root/GarrisonScreen/Margin/VBox"]
+custom_minimum_size = Vector2(0, 160)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="FleetList" type="VBoxContainer" parent="Root/GarrisonScreen/Margin/VBox/FleetScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="CloseButton" type="Button" parent="Root/GarrisonScreen/Margin/VBox"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 mouse_default_cursor_shape = 2
