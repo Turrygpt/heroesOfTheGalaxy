@@ -118,6 +118,10 @@ var selected_protocol := ""
 var teleport_unit := -1
 var cast_effects: Array = []
 var book_popup: CanvasLayer = null
+var mouse_move_throttle := 0.0
+var last_hovered_cell := INVALID_CELL
+var hex_center_cache := {}
+var path_distance_cache := {}
 
 
 func _ready() -> void:
@@ -141,7 +145,19 @@ func _ready() -> void:
 	hud.restart_requested.connect(_restart_battle)
 	hud.return_requested.connect(_return_to_map)
 	get_viewport().size_changed.connect(queue_redraw)
+	_precompute_hex_centers()
 	_begin_active_turn()
+
+
+func _precompute_hex_centers() -> void:
+	var origin := _grid_origin()
+	for column in range(GRID_COLUMNS):
+		for row in range(GRID_ROWS):
+			var cell := Vector2i(column, row)
+			hex_center_cache[cell] = origin + Vector2(
+				HEX_RADIUS + cell.x * HEX_RADIUS * 1.5,
+				HEX_HEIGHT * 0.5 + cell.y * HEX_HEIGHT + (cell.x % 2) * HEX_HEIGHT * 0.5
+			)
 
 
 ## Без override — прежний фиксированный состав UNIT_BLUEPRINTS (отладочный
@@ -292,6 +308,7 @@ func _process(delta: float) -> void:
 		animating = true
 		if cast_effects[index]["time"] >= CAST_DURATION:
 			cast_effects.remove_at(index)
+	mouse_move_throttle = maxf(0.0, mouse_move_throttle - delta)
 	if enemy_turn_delay >= 0.0:
 		enemy_turn_delay -= delta
 		if enemy_turn_delay <= 0.0:
@@ -314,9 +331,14 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		hovered_cell = _cell_at_position(event.position)
-		queue_redraw()
-		_update_hud()
+		if mouse_move_throttle <= 0.0:
+			var new_cell := _cell_at_position(event.position)
+			if new_cell != last_hovered_cell:
+				hovered_cell = new_cell
+				last_hovered_cell = new_cell
+				queue_redraw()
+				_update_hud()
+			mouse_move_throttle = 0.016
 	elif event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_handle_cell_click(_cell_at_position(event.position))
@@ -560,6 +582,7 @@ func _start_unit_move(unit: Dictionary, destination: Vector2i) -> void:
 	unit["cell"] = destination
 	unit["anim_t"] = 0.0
 	unit["moved"] = true
+	path_distance_cache.clear()
 
 
 func _best_enemy_move_cell(target_index: int) -> Vector2i:
@@ -567,18 +590,30 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 	var best_cell := current_cell
 	var best_distance := _hex_distance(current_cell, units[target_index]["cell"])
 	var move_budget := _stat(_active_unit(), "move")
-	for column in range(GRID_COLUMNS):
-		for row in range(GRID_ROWS):
-			var candidate := Vector2i(column, row)
-			if _unit_at_cell(candidate) >= 0 or obstacle_at.has(candidate):
-				continue
-			var reach := _path_distance(current_cell, candidate)
-			if reach < 0 or reach > move_budget:
-				continue
-			var target_distance := _hex_distance(candidate, units[target_index]["cell"])
-			if target_distance < best_distance:
-				best_distance = target_distance
-				best_cell = candidate
+	var target_cell: Vector2i = units[target_index]["cell"]
+	var blocked := {}
+	for cell in obstacle_at:
+		blocked[cell] = true
+	for unit in units:
+		if unit["hp"] > 0 and unit["cell"] != current_cell:
+			blocked[unit["cell"]] = true
+	var visited := {current_cell: true}
+	var frontier: Array[Vector2i] = [current_cell]
+	var distance := 0
+	while not frontier.is_empty() and distance < move_budget:
+		distance += 1
+		var next_frontier: Array[Vector2i] = []
+		for cell in frontier:
+			for neighbor in _hex_neighbors(cell):
+				if not _cell_in_grid(neighbor) or visited.has(neighbor) or blocked.has(neighbor):
+					continue
+				visited[neighbor] = true
+				next_frontier.append(neighbor)
+				var target_distance := _hex_distance(neighbor, target_cell)
+				if target_distance < best_distance:
+					best_distance = target_distance
+					best_cell = neighbor
+		frontier = next_frontier
 	return best_cell
 
 
@@ -749,6 +784,9 @@ func _hex_neighbors(cell: Vector2i) -> Array[Vector2i]:
 func _path_distance(from: Vector2i, to: Vector2i) -> int:
 	if from == to:
 		return 0
+	var cache_key := Vector2i(from.x * 100 + to.x, from.y * 100 + to.y)
+	if path_distance_cache.has(cache_key):
+		return path_distance_cache[cache_key]
 	var blocked := {}
 	for cell in obstacle_at:
 		blocked[cell] = true
@@ -764,12 +802,14 @@ func _path_distance(from: Vector2i, to: Vector2i) -> int:
 		for cell in frontier:
 			for neighbor in _hex_neighbors(cell):
 				if neighbor == to:
+					path_distance_cache[cache_key] = distance
 					return distance
 				if not _cell_in_grid(neighbor) or visited.has(neighbor) or blocked.has(neighbor):
 					continue
 				visited[neighbor] = true
 				next_frontier.append(neighbor)
 		frontier = next_frontier
+	path_distance_cache[cache_key] = -1
 	return -1
 
 
@@ -1314,6 +1354,8 @@ func _grid_origin() -> Vector2:
 
 
 func _hex_center(cell: Vector2i, origin: Vector2) -> Vector2:
+	if hex_center_cache.has(cell):
+		return hex_center_cache[cell]
 	return origin + Vector2(
 		HEX_RADIUS + cell.x * HEX_RADIUS * 1.5,
 		HEX_HEIGHT * 0.5 + cell.y * HEX_HEIGHT + (cell.x % 2) * HEX_HEIGHT * 0.5
@@ -1329,16 +1371,17 @@ func _hex_points(center: Vector2) -> PackedVector2Array:
 
 
 func _cell_at_position(position: Vector2) -> Vector2i:
-	var origin := _grid_origin()
 	var closest_cell := INVALID_CELL
 	var closest_distance := INF
 	for column in range(GRID_COLUMNS):
 		for row in range(GRID_ROWS):
 			var cell := Vector2i(column, row)
-			var distance := position.distance_to(_hex_center(cell, origin))
-			if distance < closest_distance and Geometry2D.is_point_in_polygon(position, _hex_points(_hex_center(cell, origin))):
-				closest_distance = distance
-				closest_cell = cell
+			var center := hex_center_cache.get(cell, Vector2.ZERO)
+			var distance := position.distance_to(center)
+			if distance < closest_distance and distance <= HEX_RADIUS + 2.0:
+				if Geometry2D.is_point_in_polygon(position, _hex_points(center)):
+					closest_distance = distance
+					closest_cell = cell
 	return closest_cell
 
 
