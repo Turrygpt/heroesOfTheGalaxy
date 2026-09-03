@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/SpaceStrategyMap.tscn" id="1_strategy"]
+
+[node name="StrategicMain" type="Node"]
+
+[node name="SpaceStrategyMap" parent="." instance=ExtResource("1_strategy")]
+open_tactical_when_run_directly = false

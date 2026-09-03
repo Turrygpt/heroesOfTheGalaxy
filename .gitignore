@@ -1,0 +1,19 @@
+# Godot generated cache and editor files.
+.godot/
+
+# Local engine binaries and exported builds.
+/Godot*.exe
+/build/
+/builds/
+/exports/
+
+# Python cache.
+__pycache__/
+*.py[cod]
+
+# Local environment and OS files.
+.env
+.env.*
+!.env.example
+Thumbs.db
+.DS_Store

@@ -1,0 +1,100 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/tactical_battle.gd" id="1_tactical"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_tactical_panel"]
+bg_color = Color(0.025, 0.045, 0.075, 0.96)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.73, 0.58, 0.27, 0.95)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="TacticalBattle" type="Node2D"]
+script = ExtResource("1_tactical")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="TopPanel" type="PanelContainer" parent="HUD"]
+offset_left = 18.0
+offset_top = 14.0
+offset_right = 1040.0
+offset_bottom = 112.0
+theme_override_styles/panel = SubResource("StyleBox_tactical_panel")
+
+[node name="Margin" type="MarginContainer" parent="HUD/TopPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="HUD/TopPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="RoundLabel" type="Label" parent="HUD/TopPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.73, 0.34, 1)
+theme_override_font_sizes/font_size = 20
+text = "РАУНД 1"
+
+[node name="ActiveLabel" type="Label" parent="HUD/TopPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+text = "Активный корабль"
+
+[node name="TurnOrderLabel" type="Label" parent="HUD/TopPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.78, 0.9, 1)
+text = "Очередь"
+
+[node name="BottomPanel" type="PanelContainer" parent="HUD"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 18.0
+offset_top = -106.0
+offset_right = -18.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBox_tactical_panel")
+
+[node name="Margin" type="MarginContainer" parent="HUD/BottomPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 12
+
+[node name="HBox" type="HBoxContainer" parent="HUD/BottomPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Text" type="VBoxContainer" parent="HUD/BottomPanel/Margin/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="StatusLabel" type="Label" parent="HUD/BottomPanel/Margin/HBox/Text"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.73, 0.34, 1)
+theme_override_font_sizes/font_size = 18
+text = "Бой начался"
+
+[node name="InstructionLabel" type="Label" parent="HUD/BottomPanel/Margin/HBox/Text"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "ЛКМ: перемещение / выстрел"
+
+[node name="EndTurnButton" type="Button" parent="HUD/BottomPanel/Margin/HBox"]
+custom_minimum_size = Vector2(230, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.83, 0.55, 1)
+theme_override_font_sizes/font_size = 18
+text = "Завершить ход корабля"
