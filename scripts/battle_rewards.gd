@@ -8,6 +8,8 @@ extends RefCounted
 const LEVEL_UP_DIALOG := preload("res://scripts/hero_level_up_dialog.gd")
 
 const VICTORY_BONUS_PERCENT := 20
+## Автоматическое управление даёт на 10% меньше опыта за те же потери.
+const AUTO_BATTLE_EXPERIENCE_FACTOR := 0.9
 
 
 ## Ценность одного корабля пачки. Считает и старый формат отряда (одно поле
@@ -20,7 +22,7 @@ static func ship_value(unit: Dictionary) -> int:
 	var hull := int(unit.get("hull", unit.get("max_hp", unit.get("hp", 1))))
 	var damage_min := int(unit.get("damage_min", unit.get("damage", 0)))
 	var damage_max := int(unit.get("damage_max", unit.get("damage", 0)))
-	var average_damage := float(damage_min + damage_max) * 0.5
+	var average_damage := float(damage_min + damage_max) * 0.5 * float(unit.get("damage_factor", 1.0))
 	var martial := int(unit.get("attack", 0)) + int(unit.get("defense", 0))
 	return maxi(
 		1,
@@ -67,19 +69,24 @@ static func ships_lost(units: Array, side: int) -> int:
 	return total
 
 
-## Опыт стороны hero_side за нанесённые потери. Полная победа даёт надбавку.
-static func experience_for_battle(units: Array, hero_side: int) -> int:
+## Опыт за нанесённые потери. Уничтоженная сторона не получает опыта.
+static func experience_for_battle(units: Array, hero_side: int, automated: bool = false) -> int:
 	var total := 0
 	var enemies_left := 0
+	var allies_left := 0
 	for unit in units:
 		if int(unit.get("side", 0)) == hero_side:
+			if int(unit.get("hp", 0)) > 0:
+				allies_left += 1
 			continue
 		total += ship_value(unit) * ships_destroyed(unit)
 		if int(unit.get("hp", 0)) > 0:
 			enemies_left += 1
+	if allies_left == 0:
+		return 0
 	if enemies_left == 0 and total > 0:
 		total = int(round(float(total) * (1.0 + float(VICTORY_BONUS_PERCENT) / 100.0)))
-	return total
+	return int(floor(total * AUTO_BATTLE_EXPERIENCE_FACTOR)) if automated else total
 
 
 ## Начисляет опыт и, если герой получил уровни, показывает окно выбора навыка.

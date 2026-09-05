@@ -130,5 +130,27 @@ func _run() -> void:
 	if growth.has("corvette") or growth.has("frigate") or growth.has("destroyer"):
 		_fail("Elite rank III-V hangars must replace ordinary production")
 		return
+	_check_fort_growth()
 	print("SHIP_BUILDINGS_REGRESSION_OK")
 	quit()
+
+
+## Форт добавляет к недельному приросту всех ангаров +25/+50/+100% по своим
+## уровням (см. HumanPlanetState.FORT_GROWTH_BONUS_BY_LEVEL). Проверяем на
+## истребителе: базовый прирост 10 в неделю.
+func _check_fort_growth() -> void:
+	var base := int(UnitDefs.get_unit("interceptor")["weekly_growth"])
+	var expected := [base, roundi(base * 1.25), roundi(base * 1.5), base * 2]
+	for level in range(expected.size()):
+		var built_levels := {"fighter_yard": 1}
+		if level > 0:
+			built_levels["fort"] = level
+		var actual := HumanPlanetState.scaled_weekly_growth("interceptor", built_levels)
+		if actual != expected[level]:
+			_fail("Fort level %d must give %d interceptors a week, got %d" % [level, expected[level], actual])
+			return
+	# Прирост орков считается той же функцией — бонус форта общий для фракций.
+	var orc_levels := {"ork_fighter_yard": 1, "fort": 3}
+	var orc_base := int(UnitDefs.get_unit("ork_fighter")["weekly_growth"])
+	if HumanPlanetState.scaled_weekly_growth("ork_fighter", orc_levels) != orc_base * 2:
+		_fail("Orc yards must get the same fort bonus")

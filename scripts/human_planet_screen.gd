@@ -148,6 +148,15 @@ const RESOURCE_SELL_RATE := {
 	"Радиоизотопы": 30,
 }
 const EXCHANGE_BUY_MARKUP := 1.25
+## Цена одной единицы редкого ресурса при прямом обмене.
+const BASIC_TO_RARE_COST := 6
+const RARE_TO_RARE_COST := 3
+const BASIC_RESOURCES := ["Продукты", "Руда"]
+var barter_source: OptionButton
+var barter_target: OptionButton
+var barter_amount: SpinBox
+var barter_quote: Label
+var barter_button: Button
 
 @onready var back_button: Button = $Root/TopBar/Margin/HBox/BackButton
 @onready var building_layer: Control = $Root/BuildingLayer
@@ -267,6 +276,7 @@ func _start_music() -> void:
 	music_player = AudioStreamPlayer.new()
 	music_player.stream = stream
 	music_player.volume_db = MUSIC_FADED_VOLUME_DB
+	GameSettings.attach_music(music_player)
 	add_child(music_player)
 	music_player.play()
 	var tween := create_tween()
@@ -333,6 +343,24 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		if building_modal.visible:
+			_close_building_modal()
+			get_viewport().set_input_as_handled()
+			return
+		if is_instance_valid(exchange_screen):
+			_close_exchange_screen()
+			get_viewport().set_input_as_handled()
+			return
+		if garrison_screen.visible:
+			_close_garrison_screen()
+			get_viewport().set_input_as_handled()
+			return
+		if editor_panel.visible:
+			_close_building_editor()
+			get_viewport().set_input_as_handled()
+			return
+		# Иначе Esc открывает меню настроек (GameSettings).
 	if event is InputEventKey and event.keycode == KEY_F7 and event.pressed and not event.echo:
 		_toggle_building_editor()
 		get_viewport().set_input_as_handled()
@@ -383,21 +411,6 @@ func _input(event: InputEvent) -> void:
 				_select_placed_building(building)
 				is_dragging_building = true
 				building_drag_offset = building.position - mouse_position
-		get_viewport().set_input_as_handled()
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
-		if building_modal.visible:
-			_close_building_modal()
-		elif is_instance_valid(exchange_screen):
-			_close_exchange_screen()
-		elif garrison_screen.visible:
-			_close_garrison_screen()
-		elif editor_panel.visible:
-			_close_building_editor()
-		else:
-			close_requested.emit()
 		get_viewport().set_input_as_handled()
 
 
@@ -839,7 +852,7 @@ func _close_exchange_screen() -> void:
 func _build_exchange_screen() -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.custom_minimum_size = Vector2(760, 620)
+	panel.custom_minimum_size = Vector2(900, 780)
 	panel.size = panel.custom_minimum_size
 	panel.position = -panel.custom_minimum_size * 0.5
 	panel.add_theme_stylebox_override("panel", _panel_row_style())
@@ -879,6 +892,7 @@ func _build_exchange_screen() -> PanelContainer:
 	exchange_list.add_theme_constant_override("separation", 8)
 	exchange_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(exchange_list)
+	_build_barter_controls(vbox)
 
 	var close_button := Button.new()
 	close_button.custom_minimum_size = Vector2(0, 44)
@@ -899,6 +913,81 @@ func _update_exchange_screen() -> void:
 	for resource_name in RESOURCE_REGIONS:
 		exchange_list.add_child(_build_exchange_row(resource_name))
 	_update_resource_bar()
+	_update_barter_quote()
+
+
+## Прямой обмен: количество в поле означает, сколько редкого ресурса получить.
+func _build_barter_controls(parent: VBoxContainer) -> void:
+	var heading := Label.new()
+	heading.text = "ОБМЕН РЕСУРСОВ · 3 редких или 6 продуктов/руды за 1 редкий"
+	parent.add_child(heading)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	parent.add_child(row)
+	barter_source = OptionButton.new()
+	barter_target = OptionButton.new()
+	for resource_name in RESOURCE_REGIONS:
+		barter_source.add_item(resource_name)
+		if not BASIC_RESOURCES.has(resource_name):
+			barter_target.add_item(resource_name)
+	row.add_child(barter_source)
+	var arrow := Label.new()
+	arrow.text = "→"
+	row.add_child(arrow)
+	row.add_child(barter_target)
+	barter_amount = SpinBox.new()
+	barter_amount.min_value = 1
+	barter_amount.max_value = 999
+	barter_amount.step = 1
+	barter_amount.value = 1
+	barter_amount.tooltip_text = "Количество получаемого ресурса"
+	row.add_child(barter_amount)
+	barter_button = Button.new()
+	barter_button.text = "ОБМЕНЯТЬ"
+	barter_button.pressed.connect(_exchange_resources)
+	row.add_child(barter_button)
+	barter_quote = Label.new()
+	barter_quote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(barter_quote)
+	barter_source.item_selected.connect(func(_index: int) -> void: _update_barter_quote())
+	barter_target.item_selected.connect(func(_index: int) -> void: _update_barter_quote())
+	barter_amount.value_changed.connect(func(_value: float) -> void: _update_barter_quote())
+
+
+static func resource_exchange_cost(source: String, target: String, amount: int) -> int:
+	if amount <= 0 or source == target or not RESOURCE_REGIONS.has(source) or not RESOURCE_REGIONS.has(target) or BASIC_RESOURCES.has(target):
+		return 0
+	return amount * (BASIC_TO_RARE_COST if BASIC_RESOURCES.has(source) else RARE_TO_RARE_COST)
+
+
+func _update_barter_quote() -> void:
+	if not is_instance_valid(barter_source):
+		return
+	var source := barter_source.get_item_text(barter_source.selected)
+	var target := barter_target.get_item_text(barter_target.selected)
+	var amount := int(barter_amount.value)
+	var cost := resource_exchange_cost(source, target, amount)
+	var owned := int(strategy_map.player_one_resources.get(source, 0)) if strategy_map != null else 0
+	barter_button.disabled = cost == 0 or owned < cost
+	barter_quote.text = "Отдать: %d %s (есть %d) → получить: %d %s" % [cost, source, owned, amount, target]
+	if source == target:
+		barter_quote.text = "Выберите разные ресурсы для обмена."
+	elif owned < cost:
+		barter_quote.text += " · Недостаточно ресурсов"
+
+
+func _exchange_resources() -> void:
+	if strategy_map == null:
+		return
+	var source := barter_source.get_item_text(barter_source.selected)
+	var target := barter_target.get_item_text(barter_target.selected)
+	var amount := int(barter_amount.value)
+	var cost := resource_exchange_cost(source, target, amount)
+	if cost <= 0 or not strategy_map.can_afford({source: cost}):
+		return
+	strategy_map.pay_cost({source: cost})
+	strategy_map.add_resource(target, amount)
+	_update_exchange_screen()
 
 
 func _build_exchange_row(resource_name: String) -> Control:

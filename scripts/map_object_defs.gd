@@ -11,6 +11,11 @@ extends RefCounted
 ## в map_objects вовсе — они регистрируются как обычные guardians с полем
 ## "reward", чтобы бесплатно переиспользовать бой/начисление трофея.
 
+## "fixed_guard": true — охрана берётся из "guard_template" как есть и НЕ
+## масштабируется удалённостью (см. _add_object_guardian). Нужно объектам,
+## которые обязаны быть одинаково опасны в любой точке карты: пиратской базе
+## и угловому схрону.
+##
 ## "size" — сторона квадратного футпринта в клетках (по умолчанию 1). Здания/
 ## станции занимают 2×2, как производственные постройки (см.
 ## PRODUCTION_FOOTPRINT в space_strategy_map.gd); мелкие объекты (ящики,
@@ -29,13 +34,24 @@ const KINDS := {
 	},
 	"pirate_base": {
 		"family": "guardian_reward", "name": "Пиратская база", "glyph": "☠", "size": 2,
-		"color": "ef5350", "guard_template": "strong", "reward_pool": ["income", "mercenaries"],
+		"color": "ef5350", "guard_template": "pirate_base", "fixed_guard": true,
+		"reward_pool": ["income", "mercenaries"],
 		"texture": preload("res://assets/map_objects/pirate_base.png"),
 	},
 	"abandoned_shipyard": {
 		"family": "guardian_reward", "name": "Заброшенная верфь", "glyph": "⚓", "size": 2,
 		"color": "e5b956", "guard_template": "medium", "reward_pool": ["unlock_dwelling"],
 		"texture": preload("res://assets/map_objects/abandoned_shipyard.png"),
+	},
+	## Угловой «схрон»: аналог утопии драконов из HoMM3. Стоит только в углах
+	## карты (см. CORNER_LAYOUT), охрана фиксированная и самая тяжёлая
+	## независимо от того, насколько угол близок к родной планете — иначе
+	## схрон у своего угла игрок фармил бы на второй день.
+	"void_vault": {
+		"family": "guardian_reward", "name": "Схрон Древних", "glyph": "✹", "size": 2,
+		"color": "ffd23f", "guard_template": "flagship", "fixed_guard": true,
+		"reward_pool": ["treasure"],
+		"texture": preload("res://assets/map_objects/void_vault.png"),
 	},
 	# --- Прокачка героя -------------------------------------------------------
 	"training_ground": {
@@ -70,6 +86,7 @@ const KINDS := {
 	},
 	"artifact_cache": {
 		"family": "artifact", "name": "Ящик с артефактами", "glyph": "☆", "color": "ffd23f",
+		"texture": preload("res://assets/map_objects/artifact_cache.png"),
 	},
 	"distress_signal": {
 		"family": "quest", "name": "Сигнал бедствия", "glyph": "!", "color": "ef5350",
@@ -107,6 +124,17 @@ const SPAWN_COUNT := {
 	"archive_station": 2,
 }
 const WORMHOLE_PAIR_COUNT := 2
+
+## Что ставить в каждом из четырёх углов карты (см. _generate_corner_objects
+## в space_strategy_map.gd). Схрон — приз, остальное делает угол живым: есть
+## ради чего лететь и чем поживиться по дороге. Виды берутся из общего KINDS,
+## сверх их SPAWN_COUNT.
+const CORNER_LAYOUT := ["void_vault", "artifact_cache", "cargo_container", "derelict_station"]
+## Сторона квадрата угловой зоны в клетках: в неё генератор и целится.
+const CORNER_BOX := 12
+## Отступ от края карты — у самой рамки объект некуда поставить, да и
+## маршрут к нему упирается в границу.
+const CORNER_MARGIN := 2
 
 const OBELISK_TARGET := 4
 

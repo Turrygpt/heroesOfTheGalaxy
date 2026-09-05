@@ -64,11 +64,14 @@ func setup(hero: Hero, units: Array, player_won: bool, xp_gained: int) -> void:
 			xp_column.add_child(_label("Навык «Обучение»: +%d%% к получаемому опыту" % learning, 12, MUTED, true))
 		if player_won:
 			xp_column.add_child(_label("Надбавка за победу: +%d%%" % REWARDS.VICTORY_BONUS_PERCENT, 12, MUTED, true))
-		var next_xp := hero.experience_for_next_level()
-		if hero.level >= DEFS.MAX_LEVEL:
+		xp_column.add_child(_label("Всего опыта: %d" % hero.experience, 13, INK, true))
+		# Опыт уже начислен, но hero.level растёт только после выбора навыков.
+		var earned_level := DEFS.level_for_experience(hero.experience)
+		if earned_level >= DEFS.MAX_LEVEL:
 			xp_column.add_child(_label("Максимальный уровень достигнут", 13, MUTED, true))
 		else:
-			xp_column.add_child(_label("До следующего уровня: %d / %d" % [hero.experience, next_xp], 13, INK, true))
+			var remaining := DEFS.experience_for_level(earned_level + 1) - hero.experience
+			xp_column.add_child(_label("До уровня %d осталось опыта: %d" % [earned_level + 1, remaining], 13, INK, true))
 		if hero.pending_level_ups > 0:
 			var level_hint := "Получено уровней: %d — сначала выберите навыки, затем вернётесь на карту" % hero.pending_level_ups \
 				if player_won else \

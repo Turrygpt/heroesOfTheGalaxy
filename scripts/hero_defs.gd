@@ -8,7 +8,9 @@ extends RefCounted
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 
 const MAX_LEVEL := 40
-const MAX_SKILL_SLOTS := 8
+## Как в HoMM: герой держит ограниченный набор умений. Когда все слоты
+## заняты, новые навыки больше не предлагаются — только повышение уже изученных.
+const MAX_SKILL_SLOTS := 6
 const MAX_SKILL_TIER := 3
 const SKILL_TIER_NAMES := ["—", "Базовый", "Продвинутый", "Экспертный"]
 

@@ -3,8 +3,24 @@ extends CanvasLayer
 signal end_turn_requested
 signal restart_requested
 signal return_requested
+signal auto_requested
 
-const HERO_ATLAS := preload("res://assets/heroes/ChatGPT Image 3 сент. 2026 г., 11_09_13.png")
+var auto_button: Button
+
+## Лист адмиралов: 4 колонки (люди, торговцы, орки, пираты) x 2 ряда
+## (мужской и женский портрет). Пока в игре по одному адмиралу на фракцию,
+## поэтому берётся только верхний ряд — женский ряд ждёт вторых героев,
+## менять придётся одну константу COMMANDER_ROW.
+const COMMANDER_SHEET := preload("res://assets/heroes/commanders.png")
+const COMMANDER_CELL := Vector2(448, 504)
+const COMMANDER_COLUMN := {"human": 0, "trader": 1, "orc": 2, "pirate": 3}
+const COMMANDER_ROW := 0
+## Подписи стороны 2 по фракциям: [флот, подразделение, командующий].
+const ENEMY_TITLES := {
+	"pirate": ["ПИРАТСКИЙ ФЛОТ", "ВОЛЬНЫЕ КАПЕРЫ", "КАПИТАН ПИРАТОВ"],
+	"trader": ["ТОРГОВЫЙ КОНВОЙ", "ВОЛЬНЫЕ ТОРГОВЦЫ", "СТАРШИНА КАРАВАНА"],
+	"orc": ["ОРДА ОРКОВ", "БОЕВОЙ КЛАН ПУСТОТЫ", "ВОЖДЬ ОРКОВ"],
+}
 const BLUE := Color("67c6f0")
 const RED := Color("f5826b")
 const GOLD := Color("e5b956")
@@ -148,29 +164,40 @@ func _build_header(units: Array[Dictionary], turn_order: Array[int]) -> void:
 		queue_cards[index] = card
 
 
+## Плитка адмирала нужной фракции из общего листа.
+static func _commander_portrait(faction: String) -> AtlasTexture:
+	var atlas := AtlasTexture.new()
+	atlas.atlas = COMMANDER_SHEET
+	var column := int(COMMANDER_COLUMN.get(faction, COMMANDER_COLUMN["pirate"]))
+	atlas.region = Rect2(
+		Vector2(column * COMMANDER_CELL.x, COMMANDER_ROW * COMMANDER_CELL.y),
+		COMMANDER_CELL
+	)
+	return atlas
+
+
 func _build_commander(side: int, units: Array[Dictionary]) -> void:
 	var color := BLUE if side == 1 else RED
 	var x := 24.0 if side == 1 else 1616.0
 	var panel := _panel(Rect2(x, 150, 280, 700), Color(color, 0.45))
 	commander_panels.append(panel)
 	var column := _column(panel, 8)
-	var title := _label("ЗЕМНОЙ ФЛОТ" if side == 1 else "ПИРАТСКИЙ ФЛОТ", 21, color)
+	var faction: String = enemy_faction(units)
+	var enemy_titles: Array = ENEMY_TITLES[faction]
+	var title := _label("ЗЕМНОЙ ФЛОТ" if side == 1 else String(enemy_titles[0]), 21, color)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(title)
-	var subheading := _label("ЭКСПЕДИЦИОННАЯ ГРУППА" if side == 1 else "ВОЛЬНЫЕ КАПЕРЫ", 11, MUTED)
+	var subheading := _label("ЭКСПЕДИЦИОННАЯ ГРУППА" if side == 1 else String(enemy_titles[1]), 11, MUTED)
 	subheading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(subheading)
 	var portrait := TextureRect.new()
-	var atlas := AtlasTexture.new()
-	atlas.atlas = HERO_ATLAS
-	atlas.region = Rect2(0 if side == 1 else 1024, 0, 512, 490)
-	portrait.texture = atlas
+	portrait.texture = _commander_portrait("human" if side == 1 else faction)
 	portrait.custom_minimum_size = Vector2(240, 190)
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait.flip_h = side == 1
 	column.add_child(portrait)
-	var hero_name := _label("АДМИРАЛ ЗЕМЛИ" if side == 1 else "КАПИТАН ПИРАТОВ", 17, INK)
+	var hero_name := _label("АДМИРАЛ ЗЕМЛИ" if side == 1 else String(enemy_titles[2]), 17, INK)
 	hero_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(hero_name)
 	column.add_child(HSeparator.new())
@@ -239,6 +266,12 @@ func _build_footer() -> void:
 	back_button.size = Vector2(280, 54)
 	back_button.pressed.connect(func(): return_requested.emit())
 	ui.add_child(back_button)
+	auto_button = _button("АВТОБИТВА", GOLD)
+	auto_button.tooltip_text = "ИИ управляет вашим флотом. Опыт за этот бой снижается на 10%, даже после возврата ручного управления."
+	auto_button.position = Vector2(24, 926)
+	auto_button.size = Vector2(280, 54)
+	auto_button.pressed.connect(func(): auto_requested.emit())
+	ui.add_child(auto_button)
 	status_label = _label("", 13, MUTED)
 	status_label.position = Vector2(1616, 992)
 	status_label.size = Vector2(280, 56)
@@ -246,11 +279,33 @@ func _build_footer() -> void:
 	ui.add_child(status_label)
 
 
+## Фракция стороны 2: "orc" | "trader" | "pirate". Определяется по самим
+## пачкам (поле faction, см. unit_defs.gd), а не по режиму боя — в одном бою
+## противник всегда одной фракции. Пачки без поля считаются пиратами: так
+## ведёт себя отладочный состав UNIT_BLUEPRINTS.
+static func enemy_faction(units: Array[Dictionary]) -> String:
+	for unit in units:
+		if int(unit.get("side", 0)) != 2:
+			continue
+		var faction := String(unit.get("faction", ""))
+		if ENEMY_TITLES.has(faction):
+			return faction
+	return "pirate"
+
+
+const ENEMY_FACTION_NAMES := {"orc": "ОРКИ", "trader": "ТОРГОВЦЫ", "pirate": "ПИРАТЫ"}
+
+
+static func _enemy_faction_name(units: Array[Dictionary]) -> String:
+	return String(ENEMY_FACTION_NAMES[enemy_faction(units)])
+
+
 func update_state(units: Array[Dictionary], active_index: int, round_number: int, event_text: String, finished: bool, locked: bool, hint: String) -> void:
 	var active := units[active_index]
-	round_label.text = "РАУНД %02d  /  %s" % [round_number, "ЗЕМЛЯНЕ" if active["side"] == 1 else "ПИРАТЫ"]
+	var enemy_name := _enemy_faction_name(units)
+	round_label.text = "РАУНД %02d  /  %s" % [round_number, "ЗЕМЛЯНЕ" if active["side"] == 1 else enemy_name]
 	active_label.text = event_text if finished else "%s ×%d  ·  %s" % [
-		active["label"], _stack_size(active), "ВАШ ХОД" if active["side"] == 1 else "ХОД ПИРАТОВ"
+		active["label"], _stack_size(active), "ВАШ ХОД" if active["side"] == 1 else "ХОД: %s" % enemy_name
 	]
 	stats_label.text = "Атака %d · Защита %d · Урон %d–%d за корабль · Залп отряда %d–%d · Скорость %d · Дальность %d · Иниц %d   |   Манёвр: %s   Залп: %s" % [
 		active["attack"], active["defense"], active["damage_min"], active["damage_max"],
@@ -259,6 +314,10 @@ func update_state(units: Array[Dictionary], active_index: int, round_number: int
 		"—" if active["moved"] else "готов", "—" if active["shot"] else "готов",
 	]
 	hint_label.text = hint
+	if float(active.get("damage_factor", 1.0)) > 1.0:
+		# Фракция может подписать свой бонус сама (см. OrcDefs.DAMAGE_HINT);
+		# у пиратов поля нет, поэтому остаётся исходный текст.
+		stats_label.text += " · " + String(active.get("damage_hint", "Пиратские орудия: +10% урона"))
 	status_label.text = event_text
 	end_button.visible = not finished
 	end_button.disabled = locked or active["side"] != 1

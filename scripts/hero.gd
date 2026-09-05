@@ -104,11 +104,15 @@ func apply_level_up(offer: Dictionary, chosen_skill_id: String = "") -> void:
 	energy = max_energy()
 
 
+func can_learn_new_skill() -> bool:
+	return skills.size() < DEFS.MAX_SKILL_SLOTS
+
+
 func learn_skill(skill_id: String) -> void:
 	var tier := int(skills.get(skill_id, 0))
 	if tier >= DEFS.MAX_SKILL_TIER:
 		return
-	if tier == 0 and skills.size() >= DEFS.MAX_SKILL_SLOTS:
+	if tier == 0 and not can_learn_new_skill():
 		return
 	skills[skill_id] = tier + 1
 
@@ -164,18 +168,20 @@ func roll_skill_offer() -> Array:
 
 
 ## Одно предложение — повышение уже известного навыка, второе — новый навык
-## (если остались свободные слоты). Если один из списков пуст, оба варианта
-## берутся из другого.
+## (если остались свободные слоты). Когда все MAX_SKILL_SLOTS заняты, новые
+## умения не предлагаются — оба варианта берутся из уже изученных.
+## Если один из списков пуст, оба варианта добираются из другого.
 func _roll_skill_options() -> Array:
 	var upgrades: Array = []
 	var fresh: Array = []
+	var allow_new := can_learn_new_skill()
 	for skill_id in DEFS.SKILLS:
 		var weight := int((DEFS.SKILLS[skill_id]["weights"] as Dictionary).get(class_id, 0))
 		if weight <= 0:
 			continue
 		var tier := int(skills.get(skill_id, 0))
 		if tier == 0:
-			if skills.size() < DEFS.MAX_SKILL_SLOTS:
+			if allow_new:
 				fresh.append({"id": skill_id, "weight": weight})
 		elif tier < DEFS.MAX_SKILL_TIER:
 			upgrades.append({"id": skill_id, "weight": weight})
@@ -267,6 +273,21 @@ func protocol_book() -> Array:
 func energy_regen() -> int:
 	var percent := skill_value("energy_core") + DEFS.artifact_bonus(artifacts, "energy_regen_percent")
 	return maxi(1, int(round(2.0 * (1.0 + float(percent) / 100.0))))
+
+
+## В начале нового сола реактор восстанавливает базовые 2 единицы энергии.
+## Навык «Энергетика» и артефакты усиливают это значение через energy_regen().
+func recharge_energy() -> int:
+	var before := energy
+	energy = mini(max_energy(), energy + energy_regen())
+	return energy - before
+
+
+## Планетарная энергосеть в родном замке заряжает реактор полностью.
+func refill_energy() -> int:
+	var before := energy
+	energy = max_energy()
+	return energy - before
 
 
 ## Представление героя для тактического боя — той же формы, что
@@ -409,8 +430,11 @@ static func from_dict(data: Dictionary) -> Hero:
 		if hero.stats.has(stat_id):
 			hero.stats[stat_id] = int(data["stats"][stat_id])
 	for skill_id in (data.get("skills", {}) as Dictionary):
-		if DEFS.SKILLS.has(skill_id):
-			hero.skills[skill_id] = clampi(int(data["skills"][skill_id]), 1, DEFS.MAX_SKILL_TIER)
+		if not DEFS.SKILLS.has(skill_id):
+			continue
+		if hero.skills.size() >= DEFS.MAX_SKILL_SLOTS:
+			break
+		hero.skills[skill_id] = clampi(int(data["skills"][skill_id]), 1, DEFS.MAX_SKILL_TIER)
 	for artifact_id in (data.get("artifacts", {}) as Dictionary):
 		if DEFS.ARTIFACTS.has(artifact_id):
 			hero.artifacts[artifact_id] = true

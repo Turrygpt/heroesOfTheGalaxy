@@ -9,11 +9,11 @@ signal closed
 
 const GOLD := Color("e5b956")
 const INK := Color("e7f0f5")
-const PANEL_SIZE := Vector2(420, 260)
+const PANEL_SIZE := Vector2(620, 300)
 
 
 func setup(title: String, description: String, texture: Texture2D = null) -> void:
-	layer = 9
+	layer = 20
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -23,13 +23,13 @@ func setup(title: String, description: String, texture: Texture2D = null) -> voi
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.add_child(shade)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(center)
 	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = PANEL_SIZE
-	panel.size = PANEL_SIZE
-	panel.position = -PANEL_SIZE * 0.5
 	panel.add_theme_stylebox_override("panel", _style(GOLD))
-	root.add_child(panel)
+	center.add_child(panel)
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 8)
 	margin.add_theme_constant_override("margin_right", 8)
@@ -43,6 +43,7 @@ func setup(title: String, description: String, texture: Texture2D = null) -> voi
 	if texture != null:
 		var icon := TextureRect.new()
 		icon.texture = texture
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.custom_minimum_size = Vector2(64, 64)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -63,6 +64,7 @@ func setup(title: String, description: String, texture: Texture2D = null) -> voi
 	close_button.add_theme_stylebox_override("pressed", _style(GOLD, Color(0.12, 0.21, 0.28, 1.0)))
 	close_button.pressed.connect(_on_close)
 	body.add_child(close_button)
+	close_button.grab_focus()
 
 
 func _style(border: Color, background: Color = Color(0.022, 0.045, 0.07, 0.97)) -> StyleBoxFlat:

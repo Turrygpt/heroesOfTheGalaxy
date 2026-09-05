@@ -97,10 +97,13 @@ func _show_next_level() -> void:
 	stat_column.add_child(_label(DEFS.STAT_HINTS[stat_id], 12, MUTED, true))
 	var options: Array = current_offer["skills"]
 	if options.is_empty():
-		_body.add_child(_label("Свободных слотов навыков не осталось", 14, MUTED, true))
+		_body.add_child(_label("Все слоты навыков заняты, изученные уже экспертные", 14, MUTED, true))
 		_body.add_child(_choice_button("ПРИНЯТЬ", ""))
 		return
-	_body.add_child(_label("ВЫБЕРИТЕ НАВЫК", 15, BLUE, true))
+	if hero.can_learn_new_skill():
+		_body.add_child(_label("ВЫБЕРИТЕ НАВЫК", 15, BLUE, true))
+	else:
+		_body.add_child(_label("Слоты заполнены — можно только повысить изученные", 15, BLUE, true))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL

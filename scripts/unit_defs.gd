@@ -5,6 +5,19 @@ extends RefCounted
 ## стражей на карте. Форма записи — та же, что у UNIT_BLUEPRINTS в
 ## tactical_battle.gd (label/role/hull/attack/...), чтобы make_blueprint()
 ## собирала полностью совместимый со сценой боя словарь пачки.
+##
+## Корабли орков лежат отдельно, в scripts/orc_defs.gd, но доступны через
+## get_unit()/make_blueprint() наравне с земными - бою, наградам и превью
+## флотов всё равно, чьей фракции пачка.
+##
+## Поле "faction" ("pirate" | "trader" | "orc") нужно только интерфейсу боя:
+## по нему HUD выбирает подписи и портрет командующего стороны 2
+## (см. tactical_battle_hud.gd:enemy_faction). У земных кораблей его нет —
+## они всегда сторона 1.
+
+## Явный preload вместо class_name: свежий class_name не виден до
+## пересканирования проекта редактором, а так работает и headless-CLI.
+const ORC_DEFS := preload("res://scripts/orc_defs.gd")
 
 const UNITS := {
 # --- Покупаемые юниты Земного флота ----------------------------------------
@@ -90,41 +103,121 @@ const UNITS := {
 	},
 	# --- Стражи (только для составов нейтралов на карте) ---------------------
 	"raider": {
-		"label": "Рейдер", "role": "пиратский перехватчик (короткая дистанция)", "tier": 1,
-		"hull": 8, "attack": 6, "defense": 5, "damage_min": 2, "damage_max": 4,
-		"move": 6, "range": 2, "initiative": 11, "sprite_width": 108.0, "weapon_type": "machine_gun",
-		"texture": preload("res://assets/ships/random/ChatGPT Image 3 сент. 2026 г., 10_59_34 (1).png"),
-		"region": Rect2(20, 235, 1220, 770), "kind": "guardian",
+		# I–V: обычные корабли людей. VI–VII: элитный эсминец ×1,35/×1,8 по корпусу и урону.
+		# Корпус и защита ×0,7 с округлением. Урон ×1,1 применяется к итоговому залпу.
+		"label": "Охотник", "role": "пиратский истребитель", "tier": 1,
+		"hull": 6, "attack": 6, "defense": 4, "damage_min": 1, "damage_max": 3, "move": 7, "range": 2, "initiative": 12,
+		"sprite_width": 112.0, "weapon_type": "machine_gun",
+		"texture": preload("res://assets/ships/pirates/tier_1.png"),
+		"region": Rect2(0, 0, 1139, 568), "kind": "guardian", "faction": "pirate",
+		"damage_factor": 1.1,
+	},
+	"pirate_gunship": {
+		"label": "Абордажник", "role": "пиратский штурмовик", "tier": 2,
+		"hull": 14, "attack": 8, "defense": 6, "damage_min": 4, "damage_max": 7, "move": 6, "range": 2, "initiative": 10,
+		"sprite_width": 124.0, "weapon_type": "rocket",
+		"texture": preload("res://assets/ships/pirates/tier_2.png"),
+		"region": Rect2(0, 0, 1278, 488), "kind": "guardian", "faction": "pirate",
+		"damage_factor": 1.1,
+	},
+	"pirate_corvette": {
+		"label": "Капер", "role": "пиратский корвет", "tier": 3,
+		"hull": 28, "attack": 11, "defense": 7, "damage_min": 8, "damage_max": 13, "move": 5, "range": 3, "initiative": 8,
+		"sprite_width": 136.0, "weapon_type": "cannon",
+		"texture": preload("res://assets/ships/pirates/tier_3.png"),
+		"region": Rect2(0, 0, 1568, 622), "kind": "guardian", "faction": "pirate",
+		"damage_factor": 1.1,
 	},
 	"pirate_frigate": {
-		"label": "Пиратский фрегат", "role": "крупный корабль (дальнобойный)", "tier": 2,
-		"hull": 30, "attack": 8, "defense": 7, "damage_min": 5, "damage_max": 9,
-		"move": 4, "range": 4, "initiative": 8, "sprite_width": 136.0, "weapon_type": "cannon",
-		"texture": preload("res://assets/ships/random/pirate_frigate.png"),
-		"region": Rect2(170, 10, 1220, 305), "kind": "guardian",
+		"label": "Приватир", "role": "пиратский фрегат", "tier": 4,
+		"hull": 53, "attack": 14, "defense": 9, "damage_min": 14, "damage_max": 22, "move": 4, "range": 3, "initiative": 6,
+		"sprite_width": 148.0, "weapon_type": "cannon",
+		"texture": preload("res://assets/ships/pirates/tier_4.png"),
+		"region": Rect2(0, 0, 1641, 540), "kind": "guardian", "faction": "pirate",
+		"damage_factor": 1.1,
 	},
-	"trader_escort": {
-		"label": "Конвойный корвет", "role": "охрана торгового каравана (короткая дистанция)", "tier": 1,
-		"hull": 20, "attack": 5, "defense": 8, "damage_min": 2, "damage_max": 5,
-		"move": 4, "range": 2, "initiative": 9, "sprite_width": 118.0, "weapon_type": "machine_gun",
-		"texture": preload("res://assets/ships/random/merchant_frigate.png"),
-		"region": Rect2(170, 10, 1220, 305), "kind": "guardian",
+	"pirate_destroyer": {
+		"label": "Пиратский эсминец", "role": "пиратский эсминец", "tier": 5,
+		"hull": 91, "attack": 18, "defense": 11, "damage_min": 24, "damage_max": 36, "move": 3, "range": 4, "initiative": 5,
+		"sprite_width": 160.0, "weapon_type": "laser",
+		"texture": preload("res://assets/ships/pirates/tier_5.png"),
+		"region": Rect2(0, 0, 1636, 689), "kind": "guardian", "faction": "pirate",
+		"damage_factor": 1.1,
+	},
+	"pirate_battleship": {
+		"label": "Пиратский крейсер", "role": "пиратский крейсер", "tier": 6,
+		"hull": 165, "attack": 21, "defense": 13, "damage_min": 42, "damage_max": 61, "move": 4, "range": 5, "initiative": 6,
+		"sprite_width": 172.0, "weapon_type": "laser",
+		"texture": preload("res://assets/ships/pirates/tier_6.png"),
+		"region": Rect2(0, 0, 1710, 573), "kind": "guardian", "faction": "pirate",
+		"damage_factor": 1.1,
+	},
+	"pirate_dreadnought": {
+		"label": "Пиратский линкор", "role": "пиратский линкор", "tier": 7,
+		"hull": 221, "attack": 21, "defense": 13, "damage_min": 56, "damage_max": 81, "move": 4, "range": 5, "initiative": 6,
+		"sprite_width": 184.0, "weapon_type": "laser",
+		"texture": preload("res://assets/ships/pirates/tier_7.png"),
+		"region": Rect2(0, 0, 1732, 591), "kind": "guardian", "faction": "pirate",
+		"damage_factor": 1.1,
+	},
+	# Торговцы: корпус как у землян, оружие −20% (damage_factor), скорость −10%.
+	"trader_fighter": {
+		"label": "Торговый истребитель", "role": "конвойный истребитель", "tier": 1,
+		"hull": 8, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
+		"move": 6, "range": 2, "initiative": 11, "sprite_width": 112.0, "weapon_type": "machine_gun",
+		"texture": preload("res://assets/ships/traders/tier_1.png"),
+		"region": Rect2(0, 0, 1185, 462), "kind": "guardian", "faction": "trader",
+		"damage_factor": 0.8,
+	},
+	"trader_gunship": {
+		"label": "Торговый штурмовик", "role": "конвойный штурмовик", "tier": 2,
+		"hull": 20, "attack": 8, "defense": 8, "damage_min": 4, "damage_max": 7,
+		"move": 5, "range": 2, "initiative": 9, "sprite_width": 124.0, "weapon_type": "rocket",
+		"texture": preload("res://assets/ships/traders/tier_2.png"),
+		"region": Rect2(0, 0, 1172, 446), "kind": "guardian", "faction": "trader",
+		"damage_factor": 0.8,
+	},
+	"trader_corvette": {
+		"label": "Торговый корвет", "role": "конвойный корвет", "tier": 3,
+		"hull": 40, "attack": 11, "defense": 10, "damage_min": 8, "damage_max": 13,
+		"move": 5, "range": 3, "initiative": 7, "sprite_width": 136.0, "weapon_type": "cannon",
+		"texture": preload("res://assets/ships/traders/tier_3.png"),
+		"region": Rect2(0, 0, 1507, 631), "kind": "guardian", "faction": "trader",
+		"damage_factor": 0.8,
+	},
+	"trader_frigate": {
+		"label": "Торговый фрегат", "role": "конвойный фрегат", "tier": 4,
+		"hull": 75, "attack": 14, "defense": 13, "damage_min": 14, "damage_max": 22,
+		"move": 4, "range": 3, "initiative": 5, "sprite_width": 148.0, "weapon_type": "cannon",
+		"texture": preload("res://assets/ships/traders/tier_4.png"),
+		"region": Rect2(0, 0, 1333, 532), "kind": "guardian", "faction": "trader",
+		"damage_factor": 0.8,
+	},
+	"trader_destroyer": {
+		"label": "Торговый эсминец", "role": "конвойный эсминец", "tier": 5,
+		"hull": 130, "attack": 18, "defense": 16, "damage_min": 24, "damage_max": 36,
+		"move": 3, "range": 4, "initiative": 5, "sprite_width": 160.0, "weapon_type": "laser",
+		"texture": preload("res://assets/ships/traders/tier_5.png"),
+		"region": Rect2(0, 0, 1681, 579), "kind": "guardian", "faction": "trader",
+		"damage_factor": 0.8,
 	},
 	"ork_raider": {
 		"label": "Оркский торпедный крейсер", "role": "тяжёлый корабль (дальнобойный)", "tier": 3,
 		"hull": 50, "attack": 11, "defense": 9, "damage_min": 10, "damage_max": 16,
 		"move": 5, "range": 3, "initiative": 9, "sprite_width": 140.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/random/ork_torpedo_cruiser.png"),
-		"region": Rect2(170, 10, 1220, 306), "kind": "guardian",
+		"region": Rect2(170, 10, 1220, 306), "kind": "guardian", "faction": "pirate",
 	},
 }
 
 
 static func get_unit(unit_id: String) -> Dictionary:
-	return UNITS.get(unit_id, {})
+	return UNITS.get(unit_id, ORC_DEFS.UNITS.get(unit_id, {}))
 
 
-## Юниты, доступные к найму в ангарах (кроме стражей).
+## Юниты, доступные к найму в ангарах игрока (kind == "dwelling"). Орочьи
+## корабли помечены "orc_dwelling" и сюда не попадают — их недельный прирост
+## считает ИИ (см. orc_ai.gd), а не HumanPlanetState.
 static func recruitable_ids() -> Array:
 	var result: Array = []
 	for unit_id in UNITS:

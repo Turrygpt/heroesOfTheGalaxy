@@ -47,9 +47,15 @@ func setup(target_hero: Hero, credits_cost: int) -> void:
 
 	var options: Array = hero.roll_skill_offer()
 	if options.is_empty():
-		body.add_child(_label("Герой уже знает все доступные навыки.", 14, MUTED, true))
+		var empty_text := "Все слоты навыков заняты, изученные уже экспертные." \
+			if not hero.can_learn_new_skill() else \
+			"Герой уже знает все доступные навыки."
+		body.add_child(_label(empty_text, 14, MUTED, true))
 	else:
-		body.add_child(_label("ВЫБЕРИТЕ НАВЫК ДЛЯ ОБУЧЕНИЯ", 15, BLUE, true))
+		if hero.can_learn_new_skill():
+			body.add_child(_label("ВЫБЕРИТЕ НАВЫК ДЛЯ ОБУЧЕНИЯ", 15, BLUE, true))
+		else:
+			body.add_child(_label("Слоты заполнены — можно только повысить изученные", 15, BLUE, true))
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 12)
 		row.size_flags_vertical = Control.SIZE_EXPAND_FILL

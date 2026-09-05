@@ -366,7 +366,7 @@ mouse_filter = 2
 offset_left = 16.0
 offset_top = 72.0
 offset_right = 340.0
-offset_bottom = 240.0
+offset_bottom = 228.0
 
 [node name="Margin" type="MarginContainer" parent="HUD/TurnPanel"]
 layout_mode = 2

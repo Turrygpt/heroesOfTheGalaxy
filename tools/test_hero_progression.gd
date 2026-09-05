@@ -24,15 +24,17 @@ func _check(condition: bool, message: String) -> void:
 func _run() -> void:
 	_test_experience_table()
 	_test_level_ups()
+	_test_skill_slot_cap()
 	_test_long_career()
 	_test_damage_multiplier()
 	_test_protocol_book()
+	_test_energy_recharge()
 	_test_battle_rewards()
 	_test_battle_integration()
 	_test_level_up_dialog()
 	_test_persistence()
 	if failures == 0:
-		print("PASS: таблица опыта, уровни, слоты навыков, множитель урона, книга протоколов, награда за бой, итоги боя, окно уровня, сохранение")
+		print("PASS: таблица опыта, уровни, шесть слотов навыков, множитель урона, книга протоколов, перезарядка энергии, награда за бой, итоги боя, окно уровня, сохранение")
 	quit(1 if failures > 0 else 0)
 
 
@@ -97,6 +99,38 @@ func _test_level_ups() -> void:
 	_check(student.experience == before + 1150, "Экспертное «Обучение» даёт +15%% опыта")
 
 
+func _test_skill_slot_cap() -> void:
+	var hero := Hero.create("slot_cap", "Капитан", "admiral")
+	var class_skills: Array[String] = []
+	for skill_id in DEFS.SKILLS:
+		if int((DEFS.SKILLS[skill_id]["weights"] as Dictionary).get("admiral", 0)) > 0:
+			class_skills.append(String(skill_id))
+	_check(class_skills.size() > DEFS.MAX_SKILL_SLOTS, "У адмирала больше шести доступных навыков")
+	hero.skills.clear()
+	for i in range(DEFS.MAX_SKILL_SLOTS):
+		hero.skills[class_skills[i]] = 1
+	_check(hero.skills.size() == DEFS.MAX_SKILL_SLOTS, "Герой занимает все шесть слотов")
+	_check(not hero.can_learn_new_skill(), "Новые навыки недоступны при полных слотах")
+	var extra: String = class_skills[DEFS.MAX_SKILL_SLOTS]
+	hero.learn_skill(extra)
+	_check(hero.skills.size() == DEFS.MAX_SKILL_SLOTS, "learn_skill не открывает седьмой слот")
+	_check(not hero.skills.has(extra), "Седьмой навык не изучается")
+	var known: String = class_skills[0]
+	hero.learn_skill(known)
+	_check(hero.skill_tier(known) == 2, "Имеющийся навык прокачивается при полных слотах")
+	hero.gain_experience(1000)
+	var offer := hero.roll_level_up()
+	var options: Array = offer["skills"]
+	_check(not options.is_empty(), "При полных слотах предлагаются повышения")
+	for option in options:
+		_check(not option["is_new"], "При полных слотах нет новых навыков в предложении")
+		_check(hero.skills.has(option["id"]), "Предложение только из уже изученных")
+	for skill_id in hero.skills.keys():
+		hero.skills[skill_id] = DEFS.MAX_SKILL_TIER
+	var maxed := hero.roll_skill_offer()
+	_check(maxed.is_empty(), "Когда все шесть экспертные — выбирать нечего")
+
+
 func _test_long_career() -> void:
 	for class_id in DEFS.CLASSES:
 		var hero := Hero.create("career_%s" % class_id, "Ветеран", class_id)
@@ -110,7 +144,7 @@ func _test_long_career() -> void:
 			var pick: String = options[0]["id"] if not options.is_empty() else ""
 			hero.apply_level_up(offer, pick)
 		_check(hero.level == DEFS.MAX_LEVEL, "Герой доходит до потолка уровня (%s)" % class_id)
-		_check(hero.skills.size() <= DEFS.MAX_SKILL_SLOTS, "Слотов навыков не больше восьми (%s)" % class_id)
+		_check(hero.skills.size() <= DEFS.MAX_SKILL_SLOTS, "Слотов навыков не больше шести (%s)" % class_id)
 		var total_stats := 0
 		for stat_id in DEFS.PRIMARY_STATS:
 			total_stats += hero.stat(stat_id)
@@ -154,6 +188,20 @@ func _test_protocol_book() -> void:
 	_check(battle_hero["max_energy"] == hero.max_energy(), "Запас энергии считается от Мудрости")
 
 
+func _test_energy_recharge() -> void:
+	var hero := Hero.create("test_reactor", "Энергетик", "engineer")
+	hero.energy = 0
+	var base_regen := hero.energy_regen()
+	_check(hero.recharge_energy() == base_regen, "В начале сола герой восстанавливает расчётный запас энергии")
+	_check(hero.energy == base_regen, "Восстановленная энергия сохраняется у героя")
+	hero.skills["energy_core"] = 3
+	_check(hero.energy_regen() > base_regen, "Навык «Энергетика» ускоряет посуточную перезарядку")
+	hero.energy = hero.max_energy() - 1
+	_check(hero.recharge_energy() == 1 and hero.energy == hero.max_energy(), "Перезарядка не превышает максимальный запас")
+	hero.energy = 0
+	_check(hero.refill_energy() == hero.max_energy(), "На планете реактор заряжается полностью")
+
+
 ## Формула награды — на синтетическом составе флота, покрывающем оба формата
 ## юнитов боевого кода: одиночный корабль (hp/max_hp/damage) и пачку
 ## (hull/count). Сквозная проверка через реальную сцену боя — ниже,
@@ -169,12 +217,14 @@ func _test_battle_rewards() -> void:
 	single_ship["hp"] = 0
 	var partial: int = REWARDS.experience_for_battle(units, 1)
 	_check(partial == REWARDS.ship_value(single_ship), "Опыт равен ценности уничтоженного корабля")
+	_check(REWARDS.experience_for_battle(units, 1, true) == int(floor(partial * 0.9)), "Автобой снижает опыт за частичные потери на 10%")
 	var stack: Dictionary = units[2]
 	stack["hp"] = int(stack["max_hp"]) - int(stack["hull"])
 	var one_stack_ship: int = REWARDS.experience_for_battle(units, 1) - partial
 	_check(one_stack_ship == REWARDS.ship_value(stack), "Опыт за пачку считается по одному кораблю пачки")
 	stack["hp"] = 0
 	var full: int = REWARDS.experience_for_battle(units, 1)
+	_check(REWARDS.experience_for_battle(units, 1, true) == int(floor(full * 0.9)), "Автобой снижает полную награду с бонусом за победу на 10%")
 	_check(full > partial + one_stack_ship, "Полный разгром даёт надбавку за победу")
 	_check(REWARDS.experience_for_battle(units, 2) == 0, "Проигравшая сторона потерь врага не нанесла")
 	var casualties: Array = REWARDS.side_casualties(units, 2)
@@ -182,6 +232,11 @@ func _test_battle_rewards() -> void:
 	_check(int(casualties[0]["lost"]) == 1, "Одиночный корабль полностью потерян")
 	_check(int(casualties[1]["left"]) == 0, "Пачка уничтожена целиком")
 	_check(REWARDS.ships_lost(units, 2) >= 2, "Сумма потерь стороны считает корабли, а не отряды")
+	units[0]["hp"] = 0
+	units[2]["hp"] = 6
+	_check(REWARDS.experience_for_battle(units, 1) == 0, "Поражение не даёт опыта даже за уничтоженные корабли")
+	_check(REWARDS.experience_for_battle(units, 1, true) == 0, "Поражение в автобою не даёт опыта")
+	_check(REWARDS.experience_for_battle(units, 2) > 0, "Победившая сторона получает опыт")
 
 
 func _test_level_up_dialog() -> void:
@@ -233,6 +288,29 @@ func _test_battle_integration() -> void:
 	var experience_after_first := player_hero.experience
 	battle._check_battle_end()
 	_check(player_hero.experience == experience_after_first, "Повторный вызов не должен начислять опыт дважды")
+	battle.free()
+	roster.reset_to_default()
+	player_hero = roster.player_hero()
+	battle = scene.instantiate()
+	battle.auto_battle = true
+	battle.quick_battle = true
+	root.add_child(battle)
+	battle.set_process(false)
+	_check(battle.auto_battle_used, "Быстрый бой сразу помечает использование ИИ")
+	battle._toggle_auto_battle()
+	_check(battle.auto_battle_used, "Возврат ручного управления сохраняет снижение опыта")
+	for unit in battle.units:
+		if int(unit["side"]) == 2:
+			unit["hp"] = 0
+	var expected := int(floor(REWARDS.experience_for_battle(battle.units, 1) * 0.9))
+	var expected_hero := Hero.from_dict(player_hero.to_dict())
+	var expected_before := expected_hero.experience
+	expected_hero.gain_experience(expected)
+	battle._check_battle_end()
+	_check(battle.last_experience_gained == expected_hero.experience - expected_before, "Начисление и итоги учитывают скидку автобоя и навык героя")
+	var awarded := player_hero.experience
+	battle._check_battle_end()
+	_check(player_hero.experience == awarded, "Автобой не начисляет награду повторно")
 	battle.free()
 	roster.reset_to_default()
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bdo1qcpenils0"
-path="res://.godot/imported/merchant_frigate.png-864a1a33043018193c7ef12778389074.ctex"
+uid="uid://db87eaiex5ayf"
+path="res://.godot/imported/elite_shark.png-e2ec16d150ff0e7dbafdf4341cc5ee9c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ships/random/merchant_frigate.png"
-dest_files=["res://.godot/imported/merchant_frigate.png-864a1a33043018193c7ef12778389074.ctex"]
+source_file="res://assets/ships/orc/elite_shark.png"
+dest_files=["res://.godot/imported/elite_shark.png-e2ec16d150ff0e7dbafdf4341cc5ee9c.ctex"]
 
 [params]
 

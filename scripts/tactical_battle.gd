@@ -23,6 +23,43 @@ const CUBE_DIRECTIONS := [
 	Vector3i(1, -1, 0), Vector3i(1, 0, -1), Vector3i(0, 1, -1),
 	Vector3i(-1, 1, 0), Vector3i(-1, 0, 1), Vector3i(0, -1, 1),
 ]
+## --- Заход с тыла ---------------------------------------------------------
+## Корабль «смотрит» туда, куда в последний раз летел (см. _start_unit_move);
+## залп не разворачивает пачку — развернуться можно только манёвром, иначе
+## обойти кого-то с тыла было бы невозможно.
+## Тыловая дуга — 120° позади: косинус угла между курсом цели и направлением
+## на стрелка меньше -0.5.
+const REAR_ARC_COS := -0.5
+## Удар в корму бьёт сильнее и не получает ответного залпа — это и есть
+## награда за манёвр вместо лобового сближения.
+const REAR_DAMAGE_BONUS := 0.25
+## Курс по умолчанию: земляне смотрят вправо, противник — влево (стороны
+## стоят по краям поля, см. SIDE1_CELLS/SIDE2_CELLS).
+const DEFAULT_FACING := {1: Vector2.RIGHT, 2: Vector2.LEFT}
+
+## --- Веса выбора клетки для манёвра (см. _best_enemy_move_cell) ------------
+## Замысел ровно один: держать цель в дальности залпа и по возможности зайти
+## ей в корму. Разрывать дистанцию корабль НЕ пытается — пятиться от каждого
+## встречного он не должен. Единственное исключение — окружение: когда
+## вплотную стоит SURROUNDED_LIMIT кораблей и больше, пачка выходит из клещей,
+## а преследователям приходится тратить ход на догон.
+##
+## Возможность отстреляться в этот же ход дороже всего остального вместе.
+const MOVE_SCORE_CAN_SHOOT := 1000.0
+## Премия за клетку в тыловой дуге цели — главный мотив манёвра.
+const MOVE_SCORE_REAR := 120.0
+## Со скольких соседей клетка считается окружением.
+const SURROUNDED_LIMIT := 2
+## Штраф за каждого лишнего соседа сверх порога. Подобран так, чтобы двое
+## вплотную ещё не перевесили заход в корму, а трое — уже перевесили.
+const MOVE_SCORE_ENCIRCLED := 90.0
+## При прочих равных — ближе к цели.
+const MOVE_SCORE_DISTANCE := 1.0
+## Если отстреляться нельзя ни из одной доступной клетки, сближение важнее
+## всего: иначе обе стороны пятятся друг от друга и бой не заканчивается
+## вовсе (ровно это и произошло на первом прогоне).
+const MOVE_SCORE_APPROACH := 50.0
+
 const SPACE_BACKDROP := preload("res://assets/space/tactical_backdrop.png")
 const BATTLE_HUD := preload("res://scripts/tactical_battle_hud.gd")
 const BATTLE_REWARDS := preload("res://scripts/battle_rewards.gd")
@@ -74,20 +111,8 @@ const UNIT_BLUEPRINTS := [
 		"move": 4, "range": 2, "initiative": 7, "sprite_width": 124.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/human_new/corvette.png"), "region": Rect2(236, 316, 1420, 540),
 	},
-	{
-		"cell": Vector2i(13, 2), "side": 2, "count": 17, "tier": 1,
-		"label": "Рейдер", "role": "пиратский перехватчик (короткая дистанция)",
-		"hull": 8, "attack": 6, "defense": 5, "damage_min": 2, "damage_max": 4,
-		"move": 6, "range": 2, "initiative": 11, "sprite_width": 108.0, "weapon_type": "machine_gun",
-		"texture": preload("res://assets/ships/random/ChatGPT Image 3 сент. 2026 г., 10_59_34 (1).png"), "region": Rect2(20, 235, 1220, 770),
-	},
-	{
-		"cell": Vector2i(13, 6), "side": 2, "count": 4, "tier": 2,
-		"label": "Пиратский фрегат", "role": "крупный корабль (дальнобойный)",
-		"hull": 30, "attack": 8, "defense": 7, "damage_min": 5, "damage_max": 9,
-		"move": 4, "range": 4, "initiative": 8, "sprite_width": 136.0, "weapon_type": "cannon",
-		"texture": preload("res://assets/ships/random/pirate_frigate.png"), "region": Rect2(170, 10, 1220, 305),
-	},
+	{"unit_id": "raider", "cell": Vector2i(13, 2), "side": 2, "count": 17},
+	{"unit_id": "pirate_gunship", "cell": Vector2i(13, 6), "side": 2, "count": 4},
 ]
 
 ## Составы для боя со стражем на карте (см. _open_guardian_battle в
@@ -100,6 +125,12 @@ const SIDE2_CELLS := [Vector2i(13, 1), Vector2i(13, 3), Vector2i(13, 5), Vector2
 var player_units_override: Array[Dictionary] = []
 var enemy_units_override: Array[Dictionary] = []
 
+## Быстрый бой выполняет обычные ходы без ожидания анимаций.
+var auto_battle := false
+var quick_battle := false
+## Запоминаем использование ИИ до конца боя, даже после возврата ручного управления.
+var auto_battle_used := false
+
 var hud: CanvasLayer
 var battle_camera: Camera2D
 var music_player: AudioStreamPlayer
@@ -107,6 +138,11 @@ var return_scene: Node
 var return_map: Node2D
 var return_process_mode: int
 var guardian_index := -1
+## Непустая строка — бой с фракцией орков, запущенный картой: "hero"
+## (столкновение флотов), "planet" (орки штурмуют планету игрока),
+## "orc_planet" (игрок штурмует базу орков). Итог разбирает
+## space_strategy_map.gd:_resolve_orc_battle.
+var orc_battle_kind := ""
 
 var units: Array[Dictionary] = []
 var obstacle_at := {}
@@ -139,6 +175,7 @@ var path_distance_cache: Dictionary = {}
 
 
 func _ready() -> void:
+	auto_battle_used = auto_battle or quick_battle
 	_build_units()
 	_generate_obstacles()
 	_rebuild_turn_order()
@@ -163,6 +200,7 @@ func _ready() -> void:
 	hud.end_turn_requested.connect(_end_active_turn)
 	hud.restart_requested.connect(_restart_battle)
 	hud.return_requested.connect(_return_to_map)
+	hud.auto_requested.connect(_toggle_auto_battle)
 	get_viewport().size_changed.connect(queue_redraw)
 	_precompute_hex_centers()
 	_start_music()
@@ -175,6 +213,7 @@ func _start_music() -> void:
 	music_player = AudioStreamPlayer.new()
 	music_player.stream = stream
 	music_player.volume_db = MUSIC_FADED_VOLUME_DB
+	GameSettings.attach_music(music_player)
 	add_child(music_player)
 	music_player.play()
 	var tween := create_tween()
@@ -211,7 +250,10 @@ func _precompute_hex_centers() -> void:
 func _build_units() -> void:
 	if player_units_override.is_empty() and enemy_units_override.is_empty():
 		for blueprint in UNIT_BLUEPRINTS:
-			units.append(_finalize_unit(blueprint.duplicate(true)))
+			var resolved: Dictionary = blueprint.duplicate(true)
+			if blueprint.has("unit_id"):
+				resolved = UnitDefs.make_blueprint(blueprint["unit_id"], blueprint["count"], blueprint["cell"], blueprint["side"])
+			units.append(_finalize_unit(resolved))
 		return
 	for index in range(player_units_override.size()):
 		var blueprint := _override_blueprint(player_units_override[index], 1, index)
@@ -240,6 +282,7 @@ func _finalize_unit(unit: Dictionary) -> Dictionary:
 	unit["anim_from"] = unit["cell"]
 	unit["anim_t"] = 1.0
 	unit["effects"] = []
+	unit["facing"] = DEFAULT_FACING[int(unit["side"])]
 	return unit
 
 
@@ -324,7 +367,37 @@ func _board_connected() -> bool:
 	return visited.has(goal)
 
 
+func _toggle_auto_battle() -> void:
+	if battle_finished:
+		return
+	auto_battle = not auto_battle
+	auto_battle_used = auto_battle_used or auto_battle
+	quick_battle = false
+	_cancel_targeting()
+	if is_instance_valid(book_popup):
+		book_popup.queue_free()
+		book_popup = null
+	if _active_unit()["side"] == 1:
+		enemy_turn_delay = 0.1 if auto_battle and not turn_pending and enemy_attack_delay < 0.0 else -1.0
+	_update_hud()
+
+
 func _process(delta: float) -> void:
+	if quick_battle and not battle_finished:
+		# Ограничиваем работу кадра, чтобы интерфейс оставался отзывчивым.
+		var deadline := Time.get_ticks_msec() + 12
+		while not battle_finished and Time.get_ticks_msec() < deadline:
+			_tick_battle(10.0)
+			if round_number >= 200:
+				quick_battle = false
+				auto_battle = false
+				last_event = "Быстрый бой затянулся. Продолжите вручную."
+				break
+	else:
+		_tick_battle(delta)
+
+
+func _tick_battle(delta: float) -> void:
 	var animating := false
 	for unit in units:
 		if unit["anim_t"] < 1.0:
@@ -376,6 +449,13 @@ func _process(delta: float) -> void:
 		_advance_turn()
 
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_ESCAPE and selected_protocol != "":
+			_cancel_targeting()
+			get_viewport().set_input_as_handled()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if mouse_move_throttle <= 0.0:
@@ -394,10 +474,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_cancel_targeting()
 			get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE and selected_protocol != "":
-			_cancel_targeting()
-			get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_Q:
+		if event.keycode == KEY_Q:
 			_toggle_book()
 			get_viewport().set_input_as_handled()
 
@@ -440,9 +517,10 @@ func _stack_top_hp(unit: Dictionary) -> int:
 # Атака против защиты: +5% за очко перевеса атаки (до x4), -2.5% за очко перевеса защиты (до x0.3).
 func _damage_multiplier(attacker: Dictionary, target: Dictionary) -> float:
 	var difference: int = _stat(attacker, "attack") - _stat(target, "defense")
+	var faction_factor := float(attacker.get("damage_factor", 1.0))
 	if difference >= 0:
-		return minf(1.0 + 0.05 * difference, 4.0)
-	return maxf(1.0 + 0.025 * difference, 0.3)
+		return minf(1.0 + 0.05 * difference, 4.0) * faction_factor
+	return maxf(1.0 + 0.025 * difference, 0.3) * faction_factor
 
 
 # Залп в упор (там же срабатывает ответный залп) — полный урон; с любой большей
@@ -451,7 +529,7 @@ func _range_penalty(distance: int) -> float:
 	return 1.0 if distance <= POINT_BLANK_DISTANCE else 0.7
 
 
-func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int) -> int:
+func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int, from_rear: bool = false) -> int:
 	var count := _stack_count(attacker)
 	var damage_min := _stat(attacker, "damage_min")
 	var damage_max := _stat(attacker, "damage_max")
@@ -462,6 +540,8 @@ func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int)
 	else:
 		base = count * (damage_min + damage_max) * 0.5
 	var total := base * _damage_multiplier(attacker, target) * _range_penalty(distance)
+	if from_rear:
+		total *= 1.0 + REAR_DAMAGE_BONUS
 	return maxi(1, int(round(total)))
 
 
@@ -509,7 +589,7 @@ func _begin_active_turn() -> void:
 		queue_redraw()
 		return
 	last_event = "Ход: %s ×%d" % [unit["label"], _stack_count(unit)]
-	if unit["side"] == 2:
+	if unit["side"] == 2 or auto_battle:
 		enemy_turn_delay = 0.7
 	_update_hud()
 	queue_redraw()
@@ -550,11 +630,9 @@ func _advance_turn() -> void:
 		order_position += 1
 
 
-# Новый раунд: реакторы героев копят энергию, отработавшие протоколы спадают.
+# Новый раунд: отработавшие протоколы спадают. Энергия восстанавливается
+# только в начале нового сола или полностью на родной планете.
 func _begin_round() -> void:
-	for side in heroes:
-		var hero: Dictionary = heroes[side]
-		hero["energy"] = mini(int(hero["max_energy"]), int(hero["energy"]) + int(hero["regen"]))
 	for unit in units:
 		var kept: Array = []
 		for effect in unit.get("effects", []):
@@ -567,9 +645,12 @@ func _begin_round() -> void:
 
 
 func _run_enemy_turn() -> void:
-	if battle_finished or _active_unit()["side"] != 2:
+	if battle_finished or (_active_unit()["side"] != 2 and not auto_battle):
 		return
-	if _enemy_hero_cast():
+	if _active_unit()["side"] == 1 and _visuals_busy():
+		enemy_turn_delay = 0.1
+		return
+	if _active_unit()["side"] == 2 and _enemy_hero_cast():
 		enemy_turn_delay = 0.9
 		return
 	var target_index := _best_enemy_target()
@@ -577,7 +658,7 @@ func _run_enemy_turn() -> void:
 		return
 	var moved := false
 	var destination := _best_enemy_move_cell(target_index)
-	if destination != _active_unit()["cell"]:
+	if not _active_unit()["moved"] and destination != _active_unit()["cell"]:
 		_start_unit_move(_active_unit(), destination)
 		moved = true
 	if moved:
@@ -648,33 +729,77 @@ func _best_enemy_target() -> int:
 
 func _start_unit_move(unit: Dictionary, destination: Vector2i) -> void:
 	unit["anim_from"] = unit["cell"]
+	_update_facing(unit, unit["cell"], destination)
 	unit["cell"] = destination
 	unit["anim_t"] = 0.0
 	unit["moved"] = true
 	path_distance_cache.clear()
-	ProceduralSfx.play_move(unit)
+	if not quick_battle:
+		ProceduralSfx.play_move(unit)
 
 
-# Сколько живых кораблей противоположной от defender_side стороны потенциально
-# дотянутся до cell в свой следующий ход (манёвр + дальность, без учёта LoS —
-# грубая, но дешёвая оценка открытости позиции).
-func _count_potential_attackers(cell: Vector2i, defender_side: int) -> int:
+## Курс пачки — направление последнего перелёта в экранных координатах.
+## Считаем по центрам гексов, а не по кубическим направлениям: так «тыл»
+## совпадает с тем, что игрок видит на поле.
+func _update_facing(unit: Dictionary, from_cell: Vector2i, to_cell: Vector2i) -> void:
+	if from_cell == to_cell:
+		return
+	var origin := _grid_origin()
+	var delta := _hex_center(to_cell, origin) - _hex_center(from_cell, origin)
+	if delta.length_squared() > 0.0:
+		unit["facing"] = delta.normalized()
+
+
+## Стреляют ли по цели с кормы. Дистанция роли не играет: тыл прикрыт хуже и
+## для залпа издалека тоже.
+func _is_rear_attack(attacker: Dictionary, target: Dictionary) -> bool:
+	var facing: Vector2 = target.get("facing", DEFAULT_FACING[int(target["side"])])
+	if facing.length_squared() <= 0.0:
+		return false
+	var origin := _grid_origin()
+	var to_attacker := _hex_center(attacker["cell"], origin) - _hex_center(target["cell"], origin)
+	if to_attacker.length_squared() <= 0.0:
+		return false
+	return facing.normalized().dot(to_attacker.normalized()) < REAR_ARC_COS
+
+
+## Окажется ли клетка в тыловой дуге цели — тот же расчёт, но для клетки, в
+## которую ИИ только собирается лететь.
+func _cell_is_in_rear_arc(cell: Vector2i, target: Dictionary) -> bool:
+	var facing: Vector2 = target.get("facing", DEFAULT_FACING[int(target["side"])])
+	if facing.length_squared() <= 0.0:
+		return false
+	var origin := _grid_origin()
+	var to_cell := _hex_center(cell, origin) - _hex_center(target["cell"], origin)
+	if to_cell.length_squared() <= 0.0:
+		return false
+	return facing.normalized().dot(to_cell.normalized()) < REAR_ARC_COS
+
+
+## Сколько живых кораблей противоположной стороны стоит вплотную к клетке.
+## Считаем именно соседей, а не «кто дотянется»: при скорости 7 на поле 15x9
+## дотягивается почти каждый, и такая метрика ничего не различает.
+func _adjacent_enemies(cell: Vector2i, defender_side: int) -> int:
 	var count := 0
 	for unit in units:
 		if unit["side"] == defender_side or unit["hp"] <= 0:
 			continue
-		var reach: int = _stat(unit, "move") + _stat(unit, "range")
-		if _hex_distance(unit["cell"], cell) <= reach:
+		if _hex_distance(unit["cell"], cell) <= 1:
 			count += 1
 	return count
 
 
-## ИИ выбирает клетку в два приоритета. Если залп в эту цель возможен из
-## нескольких клеток, среди них берётся та, где под ответный огонь подставится
-## меньше всего кораблей игрока — идеально, если только один. Но возможность
-## атаковать всегда важнее осторожности: если целиться некуда, клетка
-## выбирается так, чтобы просто подойти ближе к цели, иначе корабль вместо
-## сближения отступает в безопасный угол карты, так и не решаясь атаковать.
+## Штраф за окружение: до SURROUNDED_LIMIT соседей это нормальная схватка и
+## штрафа нет, дальше он растёт за каждого лишнего.
+func _encirclement_penalty(cell: Vector2i, defender_side: int) -> float:
+	var neighbors := _adjacent_enemies(cell, defender_side)
+	if neighbors < SURROUNDED_LIMIT:
+		return 0.0
+	return MOVE_SCORE_ENCIRCLED * float(neighbors - SURROUNDED_LIMIT + 1)
+
+
+## ИИ выбирает клетку по одной оценке (см. _move_cell_score): держать цель в
+## дальности залпа, по возможности зайти ей в корму и не стоять в клещах.
 func _best_enemy_move_cell(target_index: int) -> Vector2i:
 	var active := _active_unit()
 	var current_cell: Vector2i = active["cell"]
@@ -702,35 +827,33 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 				next_frontier.append(neighbor)
 		frontier = next_frontier
 
+	var target: Dictionary = units[target_index]
 	var best_cell: Vector2i = current_cell
-	var best_can_shoot := false
-	var best_target_distance := 999
-	var best_threats := 999
+	var best_score := -INF
 	for cell in reachable:
-		var target_distance := _hex_distance(cell, target_cell)
-		var can_shoot := target_distance <= shot_range and _has_line_of_sight(cell, target_cell)
-		var threats := _count_potential_attackers(cell, active["side"])
-		var better := false
-		if can_shoot != best_can_shoot:
-			better = can_shoot
-		elif can_shoot:
-			# Из клеток, откуда уже можно стрелять, выбираем самую безопасную.
-			if threats != best_threats:
-				better = threats < best_threats
-			else:
-				better = target_distance < best_target_distance
-		else:
-			# Стрелять всё равно некуда — приоритет сближению, а не безопасности.
-			if target_distance != best_target_distance:
-				better = target_distance < best_target_distance
-			else:
-				better = threats < best_threats
-		if better:
+		var score := _move_cell_score(cell, active, target, shot_range)
+		if score > best_score:
+			best_score = score
 			best_cell = cell
-			best_can_shoot = can_shoot
-			best_threats = threats
-			best_target_distance = target_distance
 	return best_cell
+
+
+## Оценка клетки для манёвра. Возможность отстреляться перевешивает всё
+## остальное; среди стреляющих клеток лучшая — в тыловой дуге цели. Разрывать
+## дистанцию корабль не пытается: единственная причина уйти — окружение.
+func _move_cell_score(cell: Vector2i, active: Dictionary, target: Dictionary, shot_range: int) -> float:
+	var target_cell: Vector2i = target["cell"]
+	var target_distance := _hex_distance(cell, target_cell)
+	var can_shoot := target_distance <= shot_range and _has_line_of_sight(cell, target_cell)
+	var encircled := _encirclement_penalty(cell, int(active["side"]))
+	if not can_shoot:
+		# Стрелять неоткуда: сближаемся, окружение — лишь уточнение между
+		# одинаково близкими клетками.
+		return -MOVE_SCORE_APPROACH * float(target_distance) - encircled
+	var score := MOVE_SCORE_CAN_SHOOT - encircled - MOVE_SCORE_DISTANCE * float(target_distance)
+	if _cell_is_in_rear_arc(cell, target):
+		score += MOVE_SCORE_REAR
+	return score
 
 
 func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) -> void:
@@ -738,11 +861,13 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 	var target: Dictionary = units[target_index]
 	var origin := _grid_origin()
 	var distance := _hex_distance(attacker["cell"], target["cell"])
-	var damage := _roll_stack_damage(attacker, target, distance)
+	var from_rear := _is_rear_attack(attacker, target)
+	var damage := _roll_stack_damage(attacker, target, distance, from_rear)
 	var losses := _casualties_for(target, damage)
 	var delay := BEAM_DURATION if is_retaliation else 0.0
-	ProceduralSfx.play_shot(attacker, delay)
-	if losses > 0:
+	if not quick_battle:
+		ProceduralSfx.play_shot(attacker, delay)
+	if losses > 0 and not quick_battle:
 		ProceduralSfx.play_destroyed(target, delay)
 	beams.append({
 		"start": _hex_center(attacker["cell"], origin),
@@ -762,7 +887,7 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 	attacker["shot"] = true
 	if is_retaliation:
 		attacker["retaliated"] = true
-	var prefix := "Ответный залп · " if is_retaliation else ""
+	var prefix := "Ответный залп · " if is_retaliation else ("Заход с тыла · " if from_rear else "")
 	if target["hp"] <= 0:
 		last_event = "%s%s уничтожает отряд «%s»" % [prefix, attacker["label"], target["label"]]
 	elif losses > 0:
@@ -770,7 +895,8 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 	else:
 		last_event = "%s%s: %d урона" % [prefix, attacker["label"], damage]
 	# Ответный залп — только в упор и один раз за раунд, как контратака в HoMM3.
-	if not is_retaliation and distance <= 1 and target["hp"] > 0 and not target["retaliated"]:
+	# Удар в корму ответа не получает: цель не успевает довернуть орудия.
+	if not is_retaliation and not from_rear and distance <= 1 and target["hp"] > 0 and not target["retaliated"]:
 		_attack_unit(target_index, attacker_index, true)
 		return
 	_check_battle_end()
@@ -788,31 +914,39 @@ func _check_battle_end() -> void:
 	enemy_turn_delay = -1.0
 	enemy_attack_delay = -1.0
 	turn_pending = false
-	last_event = "ПОБЕДА ЗЕМНОГО ФЛОТА" if player_alive else "ПОБЕДА ПИРАТОВ"
+	last_event = "ПОБЕДА ЗЕМНОГО ФЛОТА" if player_alive else "ПОБЕДА %s" % _enemy_faction_genitive()
 	_grant_experience()
 
 
-## Опыт начисляется по нанесённым потерям (см. battle_rewards.gd), как в HoMM.
+## Победителю начисляется опыт за потери противника; проигравшему — ноль.
 ## Сначала окно итогов. Победа: закрытие окна (и выбор навыков, если герой
 ## вырос) возвращает на карту галактики. Поражение оставляет на поле боя.
 func _grant_experience() -> void:
 	if experience_granted:
 		return
 	experience_granted = true
+	_sync_hero_energy_to_roster()
 	var roster := get_node_or_null("/root/HeroRoster")
 	var player_hero: Hero = roster.player_hero() if roster != null else null
 	var enemy_hero: Hero = roster.enemy_hero() if roster != null else null
-	var player_experience := BATTLE_REWARDS.experience_for_battle(units, 1)
-	var enemy_experience := BATTLE_REWARDS.experience_for_battle(units, 2)
+	var player_experience := BATTLE_REWARDS.experience_for_battle(units, 1, auto_battle_used)
+	# Опыт стороне 2 идёт, только если ею действительно командовал герой
+	# (см. _make_hero): в бою со стражами вождь орков ни при чём и расти на
+	# чужих схватках не должен.
+	var enemy_commanded: bool = heroes.has(2)
+	var enemy_experience := BATTLE_REWARDS.experience_for_battle(units, 2) if enemy_commanded else 0
 	var xp_before := player_hero.experience if player_hero != null else 0
 	if roster != null:
 		roster.award_experience(player_hero, player_experience)
-		roster.award_experience(enemy_hero, enemy_experience)
-	elif player_hero != null and enemy_hero != null:
+		if enemy_commanded:
+			roster.award_experience(enemy_hero, enemy_experience)
+	elif player_hero != null:
 		player_hero.gain_experience(player_experience)
-		enemy_hero.gain_experience(enemy_experience)
+		if enemy_commanded and enemy_hero != null:
+			enemy_hero.gain_experience(enemy_experience)
 	last_experience_gained = (player_hero.experience - xp_before) if player_hero != null else player_experience
-	BATTLE_REWARDS.auto_apply(enemy_hero)
+	if enemy_commanded:
+		BATTLE_REWARDS.auto_apply(enemy_hero)
 	_show_battle_results(player_hero, _side_alive(1), last_experience_gained)
 
 
@@ -826,14 +960,28 @@ func _show_battle_results(player_hero: Hero, player_won: bool, xp_gained: int) -
 func _on_battle_results_closed(player_hero: Hero, player_won: bool) -> void:
 	if player_hero != null and player_hero.has_pending_level_up():
 		var level_up := BATTLE_REWARDS.show_level_ups(self, player_hero)
-		if player_won:
+		if player_won or quick_battle:
 			if level_up != null:
 				level_up.finished.connect(_return_to_map)
 			else:
 				_return_to_map()
 		return
-	if player_won:
+	if player_won or quick_battle:
 		_return_to_map()
+
+
+## Как звать противника в подписях боя. Фракцию определяет HUD по самим
+## пачкам (см. tactical_battle_hud.enemy_faction), чтобы источник был один.
+const ENEMY_TITLE_BY_FACTION := {"orc": "Орки", "trader": "Торговцы", "pirate": "Пираты"}
+const ENEMY_GENITIVE_BY_FACTION := {"orc": "ОРКОВ", "trader": "ТОРГОВЦЕВ", "pirate": "ПИРАТОВ"}
+
+
+func _enemy_faction_title() -> String:
+	return String(ENEMY_TITLE_BY_FACTION[BATTLE_HUD.enemy_faction(units)])
+
+
+func _enemy_faction_genitive() -> String:
+	return String(ENEMY_GENITIVE_BY_FACTION[BATTLE_HUD.enemy_faction(units)])
 
 
 func _side_alive(side: int) -> bool:
@@ -1472,6 +1620,10 @@ func _is_attackable_cell(cell: Vector2i) -> bool:
 	return target_index >= 0 and _can_shoot_unit(target_index)
 
 
+## Ширина кораблей по тирам: VII в 2,3 раза крупнее I, без растяжения спрайта.
+const TACTICAL_SHIP_WIDTHS := [80.0, 98.0, 116.0, 134.0, 152.0, 170.0, 184.0]
+
+
 func _draw_unit(index: int, origin: Vector2) -> void:
 	var unit: Dictionary = units[index]
 	var center := _unit_visual_center(unit, origin)
@@ -1483,13 +1635,28 @@ func _draw_unit(index: int, origin: Vector2) -> void:
 	if index == teleport_unit:
 		draw_arc(center, 44.0, 0.0, TAU, 48, PROTOCOLS.school_color(selected_protocol), 2.5, true)
 	var region: Rect2 = unit["region"]
-	var ship_size := region.size * (float(unit["sprite_width"]) / region.size.x)
+	var tier_index := clampi(int(unit.get("tier", 1)) - 1, 0, TACTICAL_SHIP_WIDTHS.size() - 1)
+	var ship_size: Vector2 = region.size * (TACTICAL_SHIP_WIDTHS[tier_index] / region.size.x)
 	# All source ships face left. Earth ships face the pirates on the right.
 	draw_set_transform(center, 0.0, Vector2(-1.0 if is_player else 1.0, 1.0))
 	draw_texture_rect_region(unit["texture"], Rect2(-ship_size * 0.5, ship_size), region)
 	draw_set_transform(Vector2.ZERO)
+	_draw_rear_arc(center, unit)
 	_draw_stack_badge(center, unit, color, index == active_unit_index)
 	_draw_effect_pips(center, unit)
+
+
+## Уязвимая корма: дуга 120° позади курса пачки. Рисуется у всех, чтобы
+## обход с тыла можно было планировать, а не обнаруживать по факту
+## (см. _is_rear_attack).
+func _draw_rear_arc(center: Vector2, unit: Dictionary) -> void:
+	var facing: Vector2 = unit.get("facing", DEFAULT_FACING[int(unit["side"])])
+	if facing.length_squared() <= 0.0:
+		return
+	var rear_angle := (-facing).angle()
+	var half_arc := acos(-REAR_ARC_COS)
+	draw_arc(center, 34.0, rear_angle - half_arc, rear_angle + half_arc, 20,
+		Color(1.0, 0.42, 0.32, 0.55), 3.0, true)
 
 
 func _draw_effect_pips(center: Vector2, unit: Dictionary) -> void:
@@ -1582,6 +1749,8 @@ func _cell_at_position(position: Vector2) -> Vector2i:
 
 func _update_hud() -> void:
 	if is_instance_valid(hud):
+		hud.auto_button.text = "РУЧНОЙ БОЙ" if auto_battle else "АВТОБИТВА"
+		hud.auto_button.disabled = battle_finished
 		hud.update_state(units, active_unit_index, round_number, last_event, battle_finished, _actions_locked(), _hover_hint())
 
 
@@ -1595,7 +1764,7 @@ func _visuals_busy() -> bool:
 
 
 func _actions_locked() -> bool:
-	return turn_pending or _visuals_busy()
+	return auto_battle or turn_pending or enemy_attack_delay >= 0.0 or _visuals_busy()
 
 
 func _hover_hint() -> String:
@@ -1606,7 +1775,7 @@ func _hover_hint() -> String:
 		var stage := "точку выхода" if teleport_unit >= 0 else _target_hint(protocol["target"])
 		return "%s — укажите %s.  ПКМ/ESC — отмена." % [protocol["name"], stage]
 	if _active_unit()["side"] == 2:
-		return "Пираты выполняют манёвр. Дождитесь своего хода."
+		return "%s выполняют манёвр. Дождитесь своего хода." % _enemy_faction_title()
 	if _actions_locked():
 		return "Выполнение приказа…"
 	var hero: Dictionary = heroes.get(1, {})
@@ -1702,10 +1871,13 @@ func _restart_battle() -> void:
 
 
 func _return_to_map() -> void:
+	_sync_hero_energy_to_roster()
 	if is_instance_valid(return_scene) and is_instance_valid(return_map):
+		var retreated := not battle_finished
 		if guardian_index >= 0 and return_map.has_method("_resolve_guardian_battle"):
-			var retreated := not battle_finished
 			return_map._resolve_guardian_battle(guardian_index, units, _side_alive(1), retreated)
+		elif orc_battle_kind != "" and return_map.has_method("_resolve_orc_battle"):
+			return_map._resolve_orc_battle(orc_battle_kind, units, _side_alive(1), retreated)
 		return_scene.process_mode = return_process_mode
 		return_map.show()
 		return_map.get_node("HUD").show()
@@ -1716,3 +1888,18 @@ func _return_to_map() -> void:
 		queue_free()
 	else:
 		get_tree().change_scene_to_file("res://scenes/StrategicMain.tscn")
+
+
+## Бой работает со словарём-снимком героя; при завершении или отступлении
+## переносим фактический остаток энергии обратно в постоянный HeroRoster.
+func _sync_hero_energy_to_roster() -> void:
+	var roster := get_node_or_null("/root/HeroRoster")
+	if roster == null:
+		return
+	for side in heroes:
+		var battle_hero: Dictionary = heroes[side]
+		var hero_id := String(battle_hero.get("hero_id", ""))
+		var persistent_hero: Hero = roster.get_hero(hero_id)
+		if persistent_hero != null:
+			persistent_hero.energy = clampi(int(battle_hero.get("energy", persistent_hero.energy)), 0, persistent_hero.max_energy())
+	roster.save_state()

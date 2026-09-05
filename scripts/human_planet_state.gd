@@ -7,9 +7,14 @@ extends RefCounted
 ## картой (недельный прирост, синхронизация уровня планетарного совета).
 
 const STATE_PATH := "user://human_planet_state.json"
-## Каждый уровень форта (см. BUILDING_DEFS["fort"]) добавляет +50% к
-## недельному приросту всех ангаров — I/II/III дают +50/+100/+150%.
-const FORT_GROWTH_BONUS_PER_LEVEL := 0.5
+## Прибавка форта (см. BUILDING_DEFS["fort"]) к недельному приросту всех
+## ангаров, по уровням: I даёт +25%, II +50%, III +100%. Индекс массива —
+## уровень форта, нулевой элемент — форта нет. Таблица, а не множитель на
+## уровень: прибавка растёт неравномерно, последний уровень ощутимо дороже
+## и ощутимо щедрее.
+## Общая для обеих фракций: орочий ИИ считает свой прирост этой же функцией
+## (см. orc_ai.gd:_apply_weekly_growth).
+const FORT_GROWTH_BONUS_BY_LEVEL := [0.0, 0.25, 0.5, 1.0]
 ## Доход планетарного совета по уровням I-IV — не линейный, а удваивается с
 ## каждым уровнем. Общий источник для карты (SpaceStrategyMap) и экрана
 ## планеты (HumanPlanetScreen), чтобы обе подписи всегда совпадали.
@@ -91,9 +96,10 @@ static func _int_dict(source: Dictionary) -> Dictionary:
 	return result
 
 
-## Множитель прироста от уровня форта: I -> x1.5, II -> x2.0, III -> x2.5.
+## Множитель прироста от уровня форта: I -> x1.25, II -> x1.5, III -> x2.0.
 static func fort_growth_multiplier(built_levels: Dictionary) -> float:
-	return 1.0 + FORT_GROWTH_BONUS_PER_LEVEL * int(built_levels.get("fort", 0))
+	var level := clampi(int(built_levels.get("fort", 0)), 0, FORT_GROWTH_BONUS_BY_LEVEL.size() - 1)
+	return 1.0 + FORT_GROWTH_BONUS_BY_LEVEL[level]
 
 
 ## Недельный прирост юнита с учётом бонуса форта, минимум 1.

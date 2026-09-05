@@ -18,6 +18,7 @@ var _next_player := 0
 func _ready() -> void:
 	for i in range(PLAYER_POOL_SIZE):
 		var player := AudioStreamPlayer.new()
+		player.bus = "SFX"
 		add_child(player)
 		_players.append(player)
 
