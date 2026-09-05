@@ -1,0 +1,13 @@
+{
+	"version": 1,
+	"id": "heavy_interceptor",
+	"name": "Элитный истребитель",
+	"texture_path": "res://assets/ships/human_new/heavy_interceptor.png",
+	"sprite_scale": 1.0,
+	"engines": [
+		{"x": 641.0, "y": -22.0, "power": 1.2, "emitter": "plasma"}
+	],
+	"weapons": [
+		{"x": -641.0, "y": 15.0, "type": "machine_gun"}
+	]
+}

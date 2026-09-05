@@ -1,0 +1,13 @@
+{
+	"version": 1,
+	"id": "corvette",
+	"name": "Корвет",
+	"texture_path": "res://assets/ships/human_new/frigate.png",
+	"sprite_scale": 1.0,
+	"engines": [
+		{"x": 791.0, "y": 4.0, "power": 1.0, "emitter": "chemical"}
+	],
+	"weapons": [
+		{"x": -799.0, "y": 26.0, "type": "cannon"}
+	]
+}

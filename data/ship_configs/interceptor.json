@@ -1,0 +1,13 @@
+{
+	"version": 1,
+	"id": "interceptor",
+	"name": "Истребитель",
+	"texture_path": "res://assets/ships/human_new/interceptor.png",
+	"sprite_scale": 1.0,
+	"engines": [
+		{"x": 641.0, "y": -22.0, "power": 1.0, "emitter": "chemical"}
+	],
+	"weapons": [
+		{"x": -639.0, "y": 14.0, "type": "machine_gun"}
+	]
+}

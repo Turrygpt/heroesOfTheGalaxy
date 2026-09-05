@@ -52,8 +52,8 @@ func _run() -> void:
 	# Атака против защиты и штраф дальности.
 	_check(battle._damage_multiplier(battle.units[2], battle.units[3]) > 1.0, "Higher attack must raise damage")
 	_check(battle._damage_multiplier(battle.units[0], battle.units[2]) < 1.0, "Higher defence must lower damage")
-	_check(battle._range_penalty(8) == 0.5, "Long shots must be halved")
-	_check(battle._range_penalty(3) == 1.0, "Close shots must be at full strength")
+	_check(battle._range_penalty(3) == 0.7, "Shots beyond point-blank must fall to 70%")
+	_check(battle._range_penalty(1) == 1.0, "Point-blank shots must be at full strength")
 
 	# Очередь ходов идёт по инициативе, а не по порядку в массиве.
 	var initiatives := []

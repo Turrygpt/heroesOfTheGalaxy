@@ -15,6 +15,7 @@ var level := 1
 var experience := 0
 var stats := {"attack": 0, "defense": 0, "power": 0, "wisdom": 0}
 var skills := {}  # skill_id -> ранг 1..3
+var artifacts := {}  # artifact_id (см. HeroDefs.ARTIFACTS) -> true, без тиров
 var energy := 0
 var army := {}  # unit_id (см. unit_defs.gd) -> количество кораблей
 ## Сколько уровней получено, но ещё не подтверждено выбором навыка.
@@ -110,6 +111,35 @@ func learn_skill(skill_id: String) -> void:
 	if tier == 0 and skills.size() >= DEFS.MAX_SKILL_SLOTS:
 		return
 	skills[skill_id] = tier + 1
+
+
+# --- Артефакты -----------------------------------------------------------
+
+func has_artifact(artifact_id: String) -> bool:
+	return artifacts.has(artifact_id)
+
+
+## Добавляет артефакт герою. Возвращает false, если он уже был подобран
+## (артефакты не копятся стеками, в отличие от навыков — см. DEFS.ARTIFACTS).
+func add_artifact(artifact_id: String) -> bool:
+	if not DEFS.ARTIFACTS.has(artifact_id) or has_artifact(artifact_id):
+		return false
+	artifacts[artifact_id] = true
+	return true
+
+
+## Артефакты для интерфейса, отсортированы по названию — см. skill_lines().
+func artifact_lines() -> Array:
+	var lines: Array = []
+	for artifact_id in artifacts:
+		var def: Dictionary = DEFS.ARTIFACTS.get(artifact_id, {})
+		lines.append({
+			"id": artifact_id,
+			"name": String(def.get("name", artifact_id)),
+			"description": String(def.get("description", "")),
+		})
+	lines.sort_custom(func(a, b): return a["name"] < b["name"])
+	return lines
 
 
 func _roll_primary_stat(for_level: int) -> String:
@@ -235,7 +265,8 @@ func protocol_book() -> Array:
 
 
 func energy_regen() -> int:
-	return maxi(1, int(round(2.0 * (1.0 + float(skill_value("energy_core")) / 100.0))))
+	var percent := skill_value("energy_core") + DEFS.artifact_bonus(artifacts, "energy_regen_percent")
+	return maxi(1, int(round(2.0 * (1.0 + float(percent) / 100.0))))
 
 
 ## Представление героя для тактического боя — той же формы, что
@@ -257,18 +288,18 @@ func to_battle_hero(side: int) -> Dictionary:
 
 ## Бонус к урону корабля в процентах: артиллерия всегда, абордаж — в упор.
 func damage_bonus_percent(distance: int = 99) -> int:
-	var bonus := skill_value("gunnery")
+	var bonus := skill_value("gunnery") + DEFS.artifact_bonus(artifacts, "damage_percent")
 	if distance <= 1:
 		bonus += skill_value("boarding")
 	return bonus
 
 
 func hp_bonus_percent() -> int:
-	return skill_value("armor_plating")
+	return skill_value("armor_plating") + DEFS.artifact_bonus(artifacts, "hp_percent")
 
 
 func range_bonus() -> int:
-	return skill_value("targeting")
+	return skill_value("targeting") + DEFS.artifact_bonus(artifacts, "range_flat")
 
 
 func move_bonus() -> int:
@@ -276,11 +307,11 @@ func move_bonus() -> int:
 
 
 func luck_chance() -> float:
-	return float(skill_value("luck")) / 100.0
+	return float(skill_value("luck") + DEFS.artifact_bonus(artifacts, "luck_percent")) / 100.0
 
 
 func morale_chance() -> float:
-	return float(skill_value("leadership")) / 100.0
+	return float(skill_value("leadership") + DEFS.artifact_bonus(artifacts, "morale_percent")) / 100.0
 
 
 func map_movement_multiplier() -> float:
@@ -357,6 +388,7 @@ func to_dict() -> Dictionary:
 		"experience": experience,
 		"stats": stats.duplicate(),
 		"skills": skills.duplicate(),
+		"artifacts": artifacts.duplicate(),
 		"energy": energy,
 		"pending_level_ups": pending_level_ups,
 		"army": army.duplicate(),
@@ -379,6 +411,9 @@ static func from_dict(data: Dictionary) -> Hero:
 	for skill_id in (data.get("skills", {}) as Dictionary):
 		if DEFS.SKILLS.has(skill_id):
 			hero.skills[skill_id] = clampi(int(data["skills"][skill_id]), 1, DEFS.MAX_SKILL_TIER)
+	for artifact_id in (data.get("artifacts", {}) as Dictionary):
+		if DEFS.ARTIFACTS.has(artifact_id):
+			hero.artifacts[artifact_id] = true
 	hero.energy = int(data.get("energy", hero.max_energy()))
 	hero.pending_level_ups = int(data.get("pending_level_ups", 0))
 	for unit_id in (data.get("army", {}) as Dictionary):

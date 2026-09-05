@@ -1,0 +1,13 @@
+{
+	"version": 1,
+	"id": "destroyer",
+	"name": "Эсминец",
+	"texture_path": "res://assets/ships/human_new/destroyer.png",
+	"sprite_scale": 1.0,
+	"engines": [
+		{"x": 869.0, "y": 154.0, "power": 1.0, "emitter": "chemical"}
+	],
+	"weapons": [
+		{"x": -855.0, "y": 64.0, "type": "laser"}
+	]
+}

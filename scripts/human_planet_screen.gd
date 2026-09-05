@@ -6,6 +6,17 @@ signal close_requested
 ## space_strategy_map.gd) - нужна, чтобы наём кораблей мог списывать кредиты
 ## и ресурсы игрока. Без неё найм просто недоступен.
 var strategy_map: Node2D
+var music_player: AudioStreamPlayer
+
+## Тема экрана планеты. Карта (space_strategy_map.gd:SPACE_MUSIC) на это время
+## затихает через strategy_map.pause_music() (см. _open_human_planet), а при
+## закрытии экрана этот трек затухает симметрично (см. fade_out_music).
+const PLANET_MUSIC := preload("res://music/Human Castle.mp3")
+const PLANET_MUSIC_VOLUME_DB := -8.0
+## Общая длительность кроссфейда — тот же интервал, что у карты и боя
+## (space_strategy_map.gd:MUSIC_FADE_DURATION, tactical_battle.gd:BATTLE_MUSIC_FADE_DURATION).
+const MUSIC_FADE_DURATION := 0.6
+const MUSIC_FADED_VOLUME_DB := -40.0
 
 const BUILDING_CATALOG := [
 	{"kind": "townhall", "level": 1, "texture": preload("res://assets/planet_surface/human/townhall1.png")},
@@ -15,16 +26,19 @@ const BUILDING_CATALOG := [
 	{"kind": "fort", "level": 1, "texture": preload("res://assets/planet_surface/human/fort1.png")},
 	{"kind": "fort", "level": 2, "texture": preload("res://assets/planet_surface/human/fort2.png")},
 	{"kind": "fort", "level": 3, "texture": preload("res://assets/planet_surface/human/fort3.png")},
-	{"kind": "mage_guild", "level": 1, "texture": preload("res://assets/planet_surface/human/mage_guild.png")},
-	{"kind": "marketplace", "level": 1, "texture": preload("res://assets/planet_surface/human/marketplace.png")},
-	{"kind": "resource_silo", "level": 1, "texture": preload("res://assets/planet_surface/human/resource_silo.png")},
+	{"kind": "fighter_yard", "level": 1, "texture": preload("res://assets/planet_surface/human/fighter_hangar_rank1.png")},
+	{"kind": "fighter_yard", "level": 2, "texture": preload("res://assets/planet_surface/human/fighter_hangar_rank1_elite.png")},
+	{"kind": "gunship_yard", "level": 1, "texture": preload("res://assets/planet_surface/human/corvette_hangar_rank2.png")},
+	{"kind": "gunship_yard", "level": 2, "texture": preload("res://assets/planet_surface/human/corvette_hangar_rank2_elite.png")},
+	{"kind": "corvette_yard", "level": 1, "texture": preload("res://assets/planet_surface/human/frigate_hangar_rank3.png")},
+	{"kind": "corvette_yard", "level": 2, "texture": preload("res://assets/planet_surface/human/frigate_hangar_rank3_elite.png")},
+	{"kind": "frigate_yard", "level": 1, "texture": preload("res://assets/planet_surface/human/cruiser_dock_rank4.png")},
+	{"kind": "frigate_yard", "level": 2, "texture": preload("res://assets/planet_surface/human/cruiser_dock_rank4_elite.png")},
+	{"kind": "destroyer_yard", "level": 1, "texture": preload("res://assets/planet_surface/human/destroyer_hangar_rank5.png")},
+	{"kind": "destroyer_yard", "level": 2, "texture": preload("res://assets/planet_surface/human/destroyer_hangar_rank5_elite.png")},
 	{"kind": "tavern", "level": 1, "texture": preload("res://assets/planet_surface/human/tavern.png")},
-	{"kind": "turret", "level": 1, "texture": preload("res://assets/planet_surface/human/turret.png")},
-	{"kind": "fighter_yard", "level": 1, "texture": preload("res://assets/planet_surface/human/fighter_yard.png")},
-	{"kind": "corvette_yard", "level": 1, "texture": preload("res://assets/planet_surface/human/corvette_yard.png")},
-	{"kind": "frigate_yard", "level": 1, "texture": preload("res://assets/planet_surface/human/frigate_yard.png")},
-	{"kind": "cruiser_yard", "level": 1, "texture": preload("res://assets/planet_surface/human/cruiser_yard.png")},
-	{"kind": "destroyer_yard", "level": 1, "texture": preload("res://assets/planet_surface/human/destroyer_yard.png")},
+	{"kind": "marketplace", "level": 1, "texture": preload("res://assets/planet_surface/human/marketplace.png")},
+	{"kind": "mage_guild", "level": 1, "texture": preload("res://assets/planet_surface/human/mage_guild.png")},
 ]
 # Definitions drive both the construction menu and save/load - every buildable
 # kind (chained or single-tier) is listed here once, in the order it should
@@ -43,54 +57,72 @@ const BUILDING_DEFS := {
 		],
 	},
 	"fort": {
-		"name": "Планетарный гарнизон", "max_level": 3, "level_names": ["I", "II", "III"],
+		"name": "Форт", "max_level": 3, "level_names": ["I", "II", "III"],
 		"costs": [
 			{"credits": 600, "Руда": 8},
 			{"credits": 1500, "Руда": 15, "Энергокристаллы": 5},
 			{"credits": 3500, "Руда": 25, "Энергокристаллы": 15, "Радиоизотопы": 10},
 		],
 	},
-	"mage_guild": {
-		"name": "Научный институт", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 1000, "Научные данные": 10}],
+	"fighter_yard": {
+		"name": "Ангар истребителей · I ранг", "max_level": 2, "level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
+		"costs": [
+			{"credits": 400, "Руда": 5},
+			{"credits": 900, "Руда": 12, "Научные данные": 5},
+		],
 	},
-	"marketplace": {
-		"name": "Галактическая биржа", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 500, "Продукты": 5}],
+	"gunship_yard": {
+		"name": "Ангар штурмовиков · II ранг", "max_level": 2,
+		"level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
+		"costs": [
+			{"credits": 900, "Руда": 12, "Топливо": 5},
+			{"credits": 1800, "Руда": 22, "Топливо": 10, "Энергокристаллы": 5},
+		],
 	},
-	"resource_silo": {
-		"name": "Промышленный синтезатор", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 700, "Руда": 10}],
+	"corvette_yard": {
+		"name": "Ангар корветов · III ранг", "max_level": 2,
+		"level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
+		"costs": [
+			{"credits": 3000, "Руда": 35, "Топливо": 15, "Энергокристаллы": 10},
+			{"credits": 5500, "Руда": 55, "Топливо": 25, "Энергокристаллы": 18},
+		],
+	},
+	"frigate_yard": {
+		"name": "Ангар фрегатов · IV ранг", "max_level": 2,
+		"level_names": ["ОБЫЧНАЯ", "ЭЛИТНАЯ"],
+		"costs": [
+			{"credits": 5000, "Руда": 50, "Топливо": 25, "Энергокристаллы": 15, "Радиоизотопы": 5},
+			{"credits": 8500, "Руда": 80, "Топливо": 40, "Энергокристаллы": 25, "Радиоизотопы": 10},
+		],
+	},
+	"destroyer_yard": {
+		"name": "Ангар эсминцев · V ранг", "max_level": 2,
+		"level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
+		"costs": [
+			{"credits": 7000, "Руда": 65, "Топливо": 35, "Энергокристаллы": 25, "Радиоизотопы": 18},
+			{"credits": 11000, "Руда": 90, "Топливо": 55, "Энергокристаллы": 40, "Радиоизотопы": 30},
+		],
 	},
 	"tavern": {
 		"name": "Офицерский клуб", "max_level": 1, "level_names": ["I"],
 		"costs": [{"credits": 400, "Продукты": 5}],
 	},
-	"turret": {
-		"name": "Оборонительная турель", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 500, "Руда": 8}],
+	"marketplace": {
+		"name": "Биржа", "max_level": 1, "level_names": ["I"],
+		"costs": [{"credits": 500, "Продукты": 5}],
 	},
-	"fighter_yard": {
-		"name": "Верфь истребителей", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 300, "Руда": 5}],
-	},
-	"corvette_yard": {
-		"name": "Верфь корветов", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 700, "Руда": 10, "Топливо": 5}],
-	},
-	"frigate_yard": {
-		"name": "Верфь фрегатов", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 1400, "Руда": 20, "Топливо": 10, "Энергокристаллы": 5}],
-	},
-	"cruiser_yard": {
-		"name": "Верфь крейсеров", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 2600, "Руда": 30, "Топливо": 15, "Энергокристаллы": 10}],
-	},
-	"destroyer_yard": {
-		"name": "Верфь эсминцев", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 4500, "Руда": 45, "Топливо": 25, "Энергокристаллы": 15, "Радиоизотопы": 10}],
+	"mage_guild": {
+		"name": "Галактический университет", "max_level": 1, "level_names": ["I"],
+		"costs": [{"credits": 1000, "Научные данные": 10}],
 	},
 }
+const SHIP_BUILDING_KINDS := [
+	"fighter_yard",
+	"gunship_yard",
+	"corvette_yard",
+	"frigate_yard",
+	"destroyer_yard",
+]
 const BUILDING_LAYOUT_PATH := "res://data/human_planet_buildings.json"
 const BUILDING_HOVER_SCALE := 1.035
 const BUILDING_HOVER_SPEED := 12.0
@@ -148,6 +180,13 @@ const EXCHANGE_BUY_MARKUP := 1.25
 @onready var recruit_list: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/RecruitScroll/RecruitList
 @onready var fleet_list: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/FleetScroll/FleetList
 @onready var garrison_close: Button = $Root/GarrisonScreen/Margin/VBox/CloseButton
+@onready var resource_bar_credits: Label = $Root/ResourceBar/Margin/HBox/CreditsLabel
+@onready var resource_bar_products: Label = $Root/ResourceBar/Margin/HBox/ProductsSlot/Value
+@onready var resource_bar_ore: Label = $Root/ResourceBar/Margin/HBox/OreSlot/Value
+@onready var resource_bar_science: Label = $Root/ResourceBar/Margin/HBox/ScienceSlot/Value
+@onready var resource_bar_crystals: Label = $Root/ResourceBar/Margin/HBox/CrystalsSlot/Value
+@onready var resource_bar_fuel: Label = $Root/ResourceBar/Margin/HBox/FuelSlot/Value
+@onready var resource_bar_isotopes: Label = $Root/ResourceBar/Margin/HBox/IsotopesSlot/Value
 
 var building_buttons: Array[Button] = []
 var built_levels := {}
@@ -182,17 +221,22 @@ func _ready() -> void:
 		buttons_root.get_node("Fort1"),
 		buttons_root.get_node("Fort2"),
 		buttons_root.get_node("Fort3"),
-		buttons_root.get_node("MageGuild"),
-		buttons_root.get_node("Marketplace"),
-		buttons_root.get_node("ResourceSilo"),
+		buttons_root.get_node("FighterYard1"),
+		buttons_root.get_node("FighterYard2"),
+		buttons_root.get_node("CorvetteYard1"),
+		buttons_root.get_node("CorvetteYard2"),
+		buttons_root.get_node("FrigateYard1"),
+		buttons_root.get_node("FrigateYard2"),
+		buttons_root.get_node("CruiserYard1"),
+		buttons_root.get_node("CruiserYard2"),
+		buttons_root.get_node("DestroyerYard1"),
+		buttons_root.get_node("DestroyerYard2"),
 		buttons_root.get_node("Tavern"),
-		buttons_root.get_node("Turret"),
-		buttons_root.get_node("FighterYard"),
-		buttons_root.get_node("CorvetteYard"),
-		buttons_root.get_node("FrigateYard"),
-		buttons_root.get_node("CruiserYard"),
-		buttons_root.get_node("DestroyerYard"),
+		buttons_root.get_node("Marketplace"),
+		buttons_root.get_node("MageGuild"),
 	]
+	for index in range(building_buttons.size()):
+		buttons_root.move_child(building_buttons[index], index)
 	back_button.pressed.connect(_request_close)
 	for index in range(building_buttons.size()):
 		building_buttons[index].pressed.connect(_select_building.bind(index))
@@ -211,8 +255,35 @@ func _ready() -> void:
 	_load_planet_state()
 	_rebuild_building_visuals()
 	_update_planet_info()
+	_update_resource_bar()
 	_update_size_label()
 	moon_origin = moon.position
+	_start_music()
+
+
+func _start_music() -> void:
+	var stream: AudioStreamMP3 = PLANET_MUSIC.duplicate()
+	stream.loop = true
+	music_player = AudioStreamPlayer.new()
+	music_player.stream = stream
+	music_player.volume_db = MUSIC_FADED_VOLUME_DB
+	add_child(music_player)
+	music_player.play()
+	var tween := create_tween()
+	tween.tween_property(music_player, "volume_db", PLANET_MUSIC_VOLUME_DB, MUSIC_FADE_DURATION)
+
+
+## Вызывается извне (space_strategy_map.gd:_close_human_planet) перед
+## queue_free() этого экрана. Плеер переносится в корень дерева, чтобы Tween
+## доиграл фейд-аут уже после уничтожения экрана.
+func fade_out_music() -> void:
+	if not is_instance_valid(music_player):
+		return
+	remove_child(music_player)
+	get_tree().root.add_child(music_player)
+	var tween := music_player.create_tween()
+	tween.tween_property(music_player, "volume_db", MUSIC_FADED_VOLUME_DB, MUSIC_FADE_DURATION)
+	tween.finished.connect(music_player.queue_free)
 
 
 func _setup_catalog_button_visuals() -> void:
@@ -220,11 +291,13 @@ func _setup_catalog_button_visuals() -> void:
 	# the same Texture2D draws fine as a Sprite2D or TextureRect), so build each
 	# catalog button's icon/label ourselves instead of relying on Button.icon/text.
 	var short_names := [
-		"Таун-холл I", "Таун-холл II", "Таун-холл III", "Таун-холл IV",
-		"Гарнизон I", "Гарнизон II", "Гарнизон III", "Научный институт",
-		"Биржа", "Синтезатор", "Военный док", "Офицерский клуб", "Верфь", "Турель",
-		"Ангар истреб. I", "Ангар истреб. II", "Ангар истреб. III",
-		"Ангар корветов I", "Ангар корветов II",
+		"Совет I", "Совет II", "Совет III", "Совет IV",
+		"Форт I", "Форт II", "Форт III", "Ангар истребителей",
+		"Элитный ангар истребителей", "Площадка тяжёлых истребителей",
+		"Элитная площадка тяжёлых истребителей", "Ангар корветов", "Элитный ангар корветов",
+		"Ангар фрегатов", "Элитный ангар фрегатов", "Ангар эсминцев",
+		"Элитный ангар эсминцев", "Офицерский клуб",
+		"Биржа", "Галактический университет",
 	]
 	for index in range(building_buttons.size()):
 		var button := building_buttons[index]
@@ -462,10 +535,10 @@ func _rebuild_building_visuals() -> void:
 	for slot_index in range(building_slots.size()):
 		var slot := building_slots[slot_index]
 		var kind: String = slot["kind"]
-		if shown_kinds.has(kind):
-			continue
 		var built_level := int(built_levels.get(kind, 0))
 		if built_level <= 0:
+			continue
+		if shown_kinds.has(kind):
 			continue
 		shown_kinds[kind] = true
 		var built_slot_index := _find_slot_index(kind, built_level)
@@ -478,7 +551,8 @@ func _rebuild_building_visuals() -> void:
 
 func _create_building_visual(slot_index: int, catalog_index: int) -> void:
 	var slot := building_slots[slot_index]
-	var texture: Texture2D = BUILDING_CATALOG[catalog_index]["texture"]
+	var catalog_entry: Dictionary = BUILDING_CATALOG[catalog_index]
+	var texture: Texture2D = catalog_entry["texture"]
 	var position := Vector2(float(slot["x"]), float(slot["y"]))
 	var scale_value := float(slot["scale"])
 	var building := Sprite2D.new()
@@ -487,21 +561,21 @@ func _create_building_visual(slot_index: int, catalog_index: int) -> void:
 	building.position = position
 	building.scale = Vector2.ONE * scale_value
 	building.set_meta("slot_index", slot_index)
-	building.set_meta("kind", String(BUILDING_CATALOG[catalog_index]["kind"]))
-	building.set_meta("level", int(BUILDING_CATALOG[catalog_index]["level"]))
+	building.set_meta("kind", String(catalog_entry["kind"]))
+	building.set_meta("level", int(catalog_entry["level"]))
 	building.set_meta("base_scale", scale_value)
 	building_layer.add_child(building)
 	placed_buildings.append(building)
-	var nameplate := _make_building_nameplate(
-		String(BUILDING_DEFS[String(BUILDING_CATALOG[catalog_index]["kind"])]["name"])
-	)
+	var definition: Dictionary = BUILDING_DEFS[String(catalog_entry["kind"])]
+	var nameplate := _make_building_nameplate(String(catalog_entry.get("name", definition["name"])))
 	building_layer.add_child(nameplate)
 	_position_building_nameplate(nameplate, building)
 	building_name_labels.append(nameplate)
 	building.set_meta("name_label", nameplate)
 	# The caption is a sibling so it stays readable instead of inheriting the
-	# building sprite's tiny scale. Tie its lifetime to that sprite explicitly.
-	building.tree_exited.connect(nameplate.queue_free)
+	# building sprite's tiny scale. Its lifetime is managed together with the
+	# other captions in _clear_building_visuals(). Connecting tree_exited here
+	# would queue the same node twice during a rebuild and can crash Godot.
 
 
 func _make_building_nameplate(text: String) -> PanelContainer:
@@ -552,11 +626,11 @@ func _position_building_nameplate(plate: Control, building: Sprite2D) -> void:
 
 func _clear_building_visuals() -> void:
 	for building in placed_buildings:
-		if is_instance_valid(building):
+		if is_instance_valid(building) and not building.is_queued_for_deletion():
 			building.queue_free()
 	placed_buildings.clear()
 	for name_label in building_name_labels:
-		if is_instance_valid(name_label):
+		if is_instance_valid(name_label) and not name_label.is_queued_for_deletion():
 			name_label.queue_free()
 	building_name_labels.clear()
 	selected_placed_building = null
@@ -824,6 +898,7 @@ func _update_exchange_screen() -> void:
 		child.queue_free()
 	for resource_name in RESOURCE_REGIONS:
 		exchange_list.add_child(_build_exchange_row(resource_name))
+	_update_resource_bar()
 
 
 func _build_exchange_row(resource_name: String) -> Control:
@@ -1095,11 +1170,15 @@ func _build_recruit_row(unit_id: String, available: int, stored: int) -> Control
 		buy_button.pressed.connect(_recruit_unit.bind(unit_id, spin))
 		buy_row.add_child(buy_button)
 	if stored > 0:
+		var fleet_at_planet: bool = strategy_map != null and strategy_map.player_fleet_at_home_planet()
 		var deploy_button := Button.new()
 		deploy_button.custom_minimum_size = Vector2(0, 36)
 		deploy_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		deploy_button.add_theme_font_size_override("font_size", 13)
 		deploy_button.text = "ОТПРАВИТЬ ГЕРОЮ (%d)" % stored
+		deploy_button.disabled = not fleet_at_planet
+		if not fleet_at_planet:
+			deploy_button.tooltip_text = "Флот героя сейчас не на планете — корабли останутся в гарнизоне."
 		_style_action_button(deploy_button)
 		deploy_button.pressed.connect(_transfer_to_hero.bind(unit_id))
 		actions_box.add_child(deploy_button)
@@ -1176,11 +1255,14 @@ func _recruit_unit(unit_id: String, spin: SpinBox) -> void:
 	state["garrison"] = garrison
 	HumanPlanetState.save_state(state)
 	_update_garrison_screen()
+	_update_resource_bar()
 
 
 func _transfer_to_hero(unit_id: String) -> void:
 	var hero := _player_hero()
 	if hero == null:
+		return
+	if strategy_map == null or not strategy_map.player_fleet_at_home_planet():
 		return
 	var state := HumanPlanetState.load_state()
 	var garrison: Dictionary = state.get("garrison", {})
@@ -1346,6 +1428,7 @@ func _construct_kind(kind: String) -> void:
 	_rebuild_building_visuals()
 	_update_construction_menu()
 	_update_planet_info()
+	_update_resource_bar()
 
 
 ## HoMM-стиль: свежепостроенное (или только что улучшенное) жилище сразу
@@ -1379,7 +1462,24 @@ func _demolish_kind(kind: String) -> void:
 func _update_planet_info() -> void:
 	var level := int(built_levels.get("townhall", 1))
 	planet_info_level.text = "Уровень: %d" % level
-	planet_info_income.text = "Доход: +%d кредитов / день" % HumanPlanetState.council_income(level)
+	planet_info_income.text = "Доход: +%d кредитов / сол" % HumanPlanetState.council_income(level)
+
+
+## Полоса ресурсов сверху экрана — те же значения и иконки, что в
+## HUD/ResourceBar на стратегической карте (см. SpaceStrategyMap.tscn), чтобы
+## запасы были видны без захода в биржу. Вызывается после любого действия,
+## которое тратит или начисляет кредиты/ресурсы (стройка, найм, биржа).
+func _update_resource_bar() -> void:
+	if strategy_map == null:
+		return
+	resource_bar_credits.text = "Кредиты: %d" % strategy_map.player_one_credits
+	var resources: Dictionary = strategy_map.player_one_resources
+	resource_bar_products.text = str(resources.get("Продукты", 0))
+	resource_bar_ore.text = str(resources.get("Руда", 0))
+	resource_bar_science.text = str(resources.get("Научные данные", 0))
+	resource_bar_crystals.text = str(resources.get("Энергокристаллы", 0))
+	resource_bar_fuel.text = str(resources.get("Топливо", 0))
+	resource_bar_isotopes.text = str(resources.get("Радиоизотопы", 0))
 
 
 ## built_levels живёт в общем user://human_planet_state.json (см.

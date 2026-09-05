@@ -1,0 +1,13 @@
+{
+	"version": 1,
+	"id": "elite_destroyer",
+	"name": "Элитный эсминец",
+	"texture_path": "res://assets/ships/human_new/elite_destroyer.png",
+	"sprite_scale": 1.0,
+	"engines": [
+		{"x": 873.0, "y": 155.0, "power": 1.2, "emitter": "plasma"}
+	],
+	"weapons": [
+		{"x": -857.0, "y": 66.0, "type": "laser"}
+	]
+}

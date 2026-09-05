@@ -20,7 +20,7 @@ func _ready() -> void:
 func reset_to_default() -> void:
 	heroes.clear()
 	var admiral := Hero.create("player_admiral", "Адмирал Ковальски", "admiral")
-	admiral.army = {"interceptor": 9, "heavy_interceptor": 3, "corvette": 1}
+	admiral.army = {"interceptor": 15, "gunship": 6, "corvette": 2}
 	register(admiral)
 	register(Hero.create("pirate_captain", "Капитан Рваный Парус", "corsair"))
 

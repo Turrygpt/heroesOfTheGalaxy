@@ -1,0 +1,13 @@
+{
+	"version": 1,
+	"id": "elite_frigate",
+	"name": "Элитный фрегат",
+	"texture_path": "res://assets/ships/human_new/elite_cruiser.png",
+	"sprite_scale": 1.0,
+	"engines": [
+		{"x": 851.0, "y": 34.0, "power": 1.2, "emitter": "plasma"}
+	],
+	"weapons": [
+		{"x": -861.0, "y": 50.0, "type": "cannon"}
+	]
+}

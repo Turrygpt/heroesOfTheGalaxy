@@ -163,7 +163,7 @@ const SKILLS := {
 	"energy_core": {
 		"name": "Энергетика",
 		"category": "tech",
-		"desc": "Восстановление энергии за день выше на %s%%",
+		"desc": "Восстановление энергии за сол выше на %s%%",
 		"tiers": [25, 50, 100],
 		"weights": {"admiral": 3, "engineer": 8, "warlord": 2, "shaman": 8, "corsair": 3},
 	},
@@ -233,9 +233,48 @@ const SKILLS := {
 	"engineering": {
 		"name": "Инженерия",
 		"category": "strategy",
-		"desc": "Между боями флот чинится на %s%% прочности в день",
+		"desc": "Между боями флот чинится на %s%% прочности в сол",
 		"tiers": [10, 20, 30],
 		"weights": {"admiral": 5, "engineer": 9, "warlord": 4, "shaman": 4, "corsair": 4},
+	},
+}
+
+## Артефакты — как в HoMM: разовая находка (см. "artifact_cache" в
+## map_object_defs.gd) даёт герою постоянный пассивный бонус без слотов и
+## экипировки — подобрал и держишь до конца партии. "effect.type" совпадает
+## с именем соответствующего бонуса в scripts/hero.gd (damage_bonus_percent,
+## hp_bonus_percent, range_bonus, luck_chance, morale_chance, energy_regen) —
+## один артефакт правит один параметр, без тиров и апгрейдов.
+const ARTIFACTS := {
+	"nova_shard": {
+		"name": "Осколок сверхновой",
+		"description": "Крупица вещества погибшей звезды усиливает залпы орудий.",
+		"effect": {"type": "damage_percent", "value": 12},
+	},
+	"voidforged_plating": {
+		"name": "Пустотная броня",
+		"description": "Сплав, закалённый в вакууме между мирами, укрепляет корпуса флота.",
+		"effect": {"type": "hp_percent", "value": 15},
+	},
+	"precognition_lens": {
+		"name": "Линза предвидения",
+		"description": "Опережает время на долю секунды — наводчики бьют дальше.",
+		"effect": {"type": "range_flat", "value": 1},
+	},
+	"corsair_talisman": {
+		"name": "Талисман капера",
+		"description": "Потрёпанный амулет с пиратского фрегата — говорят, он ещё никого не подводил.",
+		"effect": {"type": "luck_percent", "value": 15},
+	},
+	"flagship_standard": {
+		"name": "Штандарт флагмана",
+		"description": "Боевое знамя поднимает дух экипажей — те чаще проявляют инициативу.",
+		"effect": {"type": "morale_percent", "value": 15},
+	},
+	"singularity_core": {
+		"name": "Ядро сингулярности",
+		"description": "Стабилизированный осколок сингулярности — протоколы восстанавливаются заметно быстрее.",
+		"effect": {"type": "energy_regen_percent", "value": 40},
 	},
 }
 
@@ -289,6 +328,18 @@ static func damage_multiplier(attack: int, defense: int) -> float:
 
 static func skill_title(skill_id: String) -> String:
 	return SKILLS[skill_id]["name"]
+
+
+## Сумма значений всех артефактов героя с данным типом эффекта (см. ARTIFACTS)
+## — 0, если ни один из владений героя не бьёт по этому параметру.
+static func artifact_bonus(owned_artifacts: Dictionary, effect_type: String) -> int:
+	var total := 0
+	for artifact_id in owned_artifacts:
+		var artifact: Dictionary = ARTIFACTS.get(artifact_id, {})
+		var effect: Dictionary = artifact.get("effect", {})
+		if String(effect.get("type", "")) == effect_type:
+			total += int(effect.get("value", 0))
+	return total
 
 
 static func skill_value(skill_id: String, tier: int) -> int:

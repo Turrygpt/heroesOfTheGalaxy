@@ -6,6 +6,10 @@ const PLAYER_ONE_COLOR := Color("3ca5ff")
 const PLAYER_TWO_COLOR := Color("ef5350")
 
 
+func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+
 func _process(_delta: float) -> void:
 	queue_redraw()
 
@@ -49,6 +53,12 @@ func _draw() -> void:
 		var site: Dictionary = strategy_map.production_sites[index]
 		var point := _cell_to_minimap(site["cell"])
 		draw_circle(point, 3.5, Color(site["color"]))
+
+	# Туман войны: те же самые открытые клетки, что и на основной карте (см.
+	# space_strategy_map.gd:_reveal_around) - миникарта не должна выдавать
+	# нейтральную сторону и объекты, которые герой ещё не увидел вживую.
+	if strategy_map.fog_texture != null:
+		draw_texture_rect(strategy_map.fog_texture, Rect2(Vector2.ZERO, size), false)
 
 	var world_size := MAP_SIZE * CELL_SIZE
 	var ship_point: Vector2 = strategy_map.ship_position / world_size * size

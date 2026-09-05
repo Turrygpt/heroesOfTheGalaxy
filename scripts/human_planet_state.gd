@@ -40,6 +40,12 @@ static func default_state() -> Dictionary:
 	}
 
 
+## Starts a fresh campaign with only the level-I planetary council. Keeping the
+## reset here ensures every planet subsystem uses the same canonical defaults.
+static func reset_to_default() -> void:
+	save_state(default_state())
+
+
 static func load_state() -> Dictionary:
 	var state := default_state()
 	if not FileAccess.file_exists(STATE_PATH):
@@ -98,18 +104,20 @@ static func scaled_weekly_growth(unit_id: String, built_levels: Dictionary) -> i
 	return maxi(1, roundi(base * fort_growth_multiplier(built_levels)))
 
 
-## Прирост за одну прошедшую неделю: ангар, построенный ровно до уровня N,
-## добавляет недельный прирост юнита уровня N в пул доступных к найму — как
-## апгрейд жилища в HoMM меняет, а не суммирует, кого оно производит. Форт
-## усиливает этот прирост (см. fort_growth_multiplier).
+## Прирост за одну прошедшую неделю. Улучшенный ангар производит только
+## текущую модель корабля - элитная версия заменяет обычную. Форт усиливает
+## прирост.
 static func apply_weekly_growth(state: Dictionary, current_day: int) -> Dictionary:
 	var built_levels: Dictionary = state.get("built_levels", {})
 	var growth: Dictionary = state.get("available_growth", {})
 	for unit_id in UnitDefs.recruitable_ids():
-		var unit: Dictionary = UnitDefs.get_unit(unit_id)
-		var dwelling: String = unit["dwelling"]
-		var level := int(unit["dwelling_level"])
-		if int(built_levels.get(dwelling, 0)) == level:
+		var active_sources := 0
+		for source in UnitDefs.production_sources(unit_id):
+			var dwelling: String = source["dwelling"]
+			var level := int(source["level"])
+			if int(built_levels.get(dwelling, 0)) == level:
+				active_sources += 1
+		if active_sources > 0:
 			growth[unit_id] = int(growth.get(unit_id, 0)) + scaled_weekly_growth(unit_id, built_levels)
 	var unlocked_dwellings: Array = state.get("unlocked_dwellings", [])
 	for unit_id in unlocked_dwellings:

@@ -33,6 +33,17 @@ const PLAYER_TWO_COLOR := Color("ef5350")
 const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
 const HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/human.png")
 const HUMAN_PLANET_SCREEN := preload("res://scenes/HumanPlanetScreen.tscn")
+## Фоновая музыка карты. На время тактического боя ставится на паузу
+## (см. _swap_to_battle) и возобновляется при возврате (tactical_battle.gd:_return_to_map).
+const SPACE_MUSIC := preload("res://music/Starlit Echoes (Main Theme).mp3")
+const SPACE_MUSIC_VOLUME_DB := -8.0
+## Длительность плавного перехода громкости при входе/выходе из боя — общая
+## с BATTLE_MUSIC_FADE_DURATION в tactical_battle.gd, обе темы затухают/
+## нарастают синхронно, звучит как кроссфейд, а не щелчок паузы.
+const MUSIC_FADE_DURATION := 0.6
+## Громкость темы карты во время затухания — не полная тишина, чтобы трек
+## не обрывался слышимым щелчком при последующем resume.
+const MUSIC_FADED_VOLUME_DB := -40.0
 ## Отдельная (не атласная) картинка добывающего здания на каждый ресурс —
 ## пропорции у них разные, поэтому вписываем с сохранением aspect ratio в
 ## квадрат PRODUCTION_FOOTPRINT (см. _create_production_sprites), как и у
@@ -45,6 +56,10 @@ const RESOURCE_BUILDING_TEXTURES := {
 	"Топливо": preload("res://assets/buildings/production/fuel.png"),
 	"Радиоизотопы": preload("res://assets/buildings/production/isotopes.png"),
 }
+## Туман войны, как в HoMM: карта закрыта чёрным, герой открывает клетки в
+## радиусе видимости корабля навсегда - однажды увиденное больше не гаснет.
+const FOG_REVEAL_RADIUS := 4
+const FOG_COLOR := Color(0.0, 0.0, 0.0, 1.0)
 const GUARDIAN_PASSAGE_COUNT := 3
 const GUARDIAN_MEDIUM_DISTANCE := 16
 const GUARDIAN_STRONG_DISTANCE := 24
@@ -70,6 +85,7 @@ const PRODUCTION_BLUEPRINTS := [
 @onready var guardian_overlay: Node2D = $GuardianOverlay
 @onready var map_object_overlay: Node2D = $MapObjectOverlay
 @onready var route_overlay: Node2D = $RouteOverlay
+@onready var fog_overlay: Node2D = $FogOverlay
 @onready var ship_sprite: Sprite2D = $Ship
 @onready var day_label: Label = $HUD/TurnPanel/Margin/VBox/DayLabel
 @onready var movement_label: Label = $HUD/TurnPanel/Margin/VBox/MovementLabel
@@ -86,6 +102,7 @@ const PRODUCTION_BLUEPRINTS := [
 @onready var stats_label: Label = $HUD/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox/StatsLabel
 @onready var skills_list: ItemList = $HUD/HeroCardPanel/Margin/VBox/SkillsList
 @onready var army_list: ItemList = $HUD/HeroCardPanel/Margin/VBox/ArmyList
+@onready var artifacts_list: ItemList = $HUD/HeroCardPanel/Margin/VBox/ArtifactsList
 
 var current_cell := Vector2i.ZERO
 var next_cell := Vector2i.ZERO
@@ -116,6 +133,10 @@ var blocked_cells := {}
 var slow_cells := {}
 var obstacle_at := {}
 var passage_at := {}
+## Открытые клетки тумана войны (см. _init_fog/_reveal_around) - Vector2i -> true.
+var explored_cells := {}
+var fog_image: Image
+var fog_texture: ImageTexture
 var hovered_cell := Vector2i(-1, -1)
 var hovered_obstacle := -1
 var dragging_map := false
@@ -123,6 +144,7 @@ var navigation_message := ""
 var navigation_grid := AStarGrid2D.new()
 var map_random := RandomNumberGenerator.new()
 var obstacle_sprites: Node2D
+var music_player: AudioStreamPlayer
 var player_one_credits := 0
 var player_two_credits := 0
 var human_planet_owner := 1
@@ -147,6 +169,7 @@ func _ready() -> void:
 		map_random.seed = map_seed
 	else:
 		map_random.randomize()
+	_init_fog()
 	_generate_production_sites()
 	production_owners.resize(production_sites.size())
 	production_owners.fill(0)
@@ -159,6 +182,7 @@ func _ready() -> void:
 	_sync_human_planet_state()
 	current_cell = PLAYER_ONE_START_CELL
 	next_cell = current_cell
+	_reveal_around(current_cell, FOG_REVEAL_RADIUS)
 	ship_position = _cell_center(current_cell)
 	human_planet.position = _cell_center(HUMAN_PLANET_CENTER)
 	orc_planet.position = _cell_center(ORC_PLANET_CENTER)
@@ -182,8 +206,35 @@ func _ready() -> void:
 	camera.position = ship_position.round()
 	end_day_button.pressed.connect(_end_day)
 	human_planet_name_button.pressed.connect(_open_human_planet)
+	_start_music()
 	_update_hud()
 	queue_redraw()
+	fog_overlay.queue_redraw()
+
+
+func _start_music() -> void:
+	var stream: AudioStreamMP3 = SPACE_MUSIC.duplicate()
+	stream.loop = true
+	music_player = AudioStreamPlayer.new()
+	music_player.stream = stream
+	music_player.volume_db = SPACE_MUSIC_VOLUME_DB
+	add_child(music_player)
+	music_player.play()
+
+
+func pause_music() -> void:
+	# TWEEN_PAUSE_PROCESS: при переходе в бой (_swap_to_battle) карта уходит в
+	# PROCESS_MODE_DISABLED, и обычный Tween на ней перестал бы тикать.
+	var tween := create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_property(music_player, "volume_db", MUSIC_FADED_VOLUME_DB, MUSIC_FADE_DURATION)
+	tween.finished.connect(func() -> void: music_player.stream_paused = true)
+
+
+func resume_music() -> void:
+	music_player.stream_paused = false
+	var tween := create_tween()
+	tween.tween_property(music_player, "volume_db", SPACE_MUSIC_VOLUME_DB, MUSIC_FADE_DURATION)
 
 
 func _process(delta: float) -> void:
@@ -215,7 +266,7 @@ func _process(delta: float) -> void:
 			elif movement_points < _cell_move_cost(planned_path[0]):
 				is_moving = false
 			else:
-				next_cell = planned_path[0]
+				_begin_move_to(planned_path[0])
 		camera.position = ship_position.round()
 		_update_hud()
 		route_overlay.queue_redraw()
@@ -270,6 +321,7 @@ func _swap_to_battle(battle: Node) -> void:
 	battle.return_map = self
 	battle.return_process_mode = get_tree().current_scene.process_mode
 	get_tree().current_scene.process_mode = Node.PROCESS_MODE_DISABLED
+	pause_music()
 	hide()
 	$HUD.hide()
 	get_tree().root.add_child(battle)
@@ -282,15 +334,18 @@ func _open_human_planet() -> void:
 	var planet_screen := HUMAN_PLANET_SCREEN.instantiate()
 	planet_screen.strategy_map = self
 	planet_screen.close_requested.connect(_close_human_planet.bind(planet_screen))
+	pause_music()
 	add_child(planet_screen)
 	set_process(false)
 	set_process_unhandled_input(false)
 
 
 func _close_human_planet(planet_screen: CanvasLayer) -> void:
+	planet_screen.fade_out_music()
 	planet_screen.queue_free()
 	set_process(true)
 	set_process_unhandled_input(true)
+	resume_music()
 	_sync_human_planet_state()
 	_update_hud()
 
@@ -309,10 +364,10 @@ func _handle_right_click(clicked_cell: Vector2i) -> void:
 		planned_destination = Vector2i(-1, -1)
 	elif clicked_cell == planned_destination and not planned_path.is_empty():
 		if movement_points >= _cell_move_cost(planned_path[0]):
-			next_cell = planned_path[0]
+			_begin_move_to(planned_path[0])
 			is_moving = true
 		else:
-			navigation_message = "Не хватает очков на следующий шаг. Завершите день."
+			navigation_message = "Не хватает очков на следующий шаг. Завершите сол."
 	else:
 		planned_destination = clicked_cell
 		planned_path = _build_path(current_cell, planned_destination)
@@ -372,6 +427,16 @@ func _reachable_path_steps() -> int:
 	return steps
 
 
+## Игровой день называется "сол". Неделя — 7 солов, месяц — 4 недели
+## (28 солов, календарь фиксирован, отдельно в UI пока не показывается).
+## Отсчёт недель совпадает с _end_day: current_day % 7 == 1 — первый сол
+## новой недели.
+static func format_sol(day: int) -> String:
+	var week := (day - 1) / 7 + 1
+	var sol := (day - 1) % 7 + 1
+	return "%d неделя, %d сол" % [week, sol]
+
+
 ## Один расчёт для HUD и отметок на карте. Неиспользованный остаток
 ## сгорает, если его не хватает на вход в следующую клетку.
 func _route_schedule() -> Dictionary:
@@ -416,10 +481,13 @@ func _update_navigation_hud() -> void:
 		summary.text = "Выберите пункт назначения правой кнопкой мыши"
 	else:
 		var schedule := _route_schedule()
-		summary.text = "%d очк. движения · прибытие: день %d\n%s" % [
-			schedule["cost"], schedule["arrival_day"],
+		summary.text = "%d очк. движения · прибытие: %s\n%s" % [
+			schedule["cost"], format_sol(schedule["arrival_day"]),
 			"В полёте" if is_moving else "Повторный ПКМ по цели — лететь"]
 	terrain.text = "Пояса и разломы непроходимы · туманности: движение ×2"
+	if hovered_cell != Vector2i(-1, -1) and not is_cell_explored(hovered_cell):
+		terrain.text = "▪ Неизведанная область — подлетите ближе, чтобы рассмотреть"
+		return
 	if passage_at.has(hovered_cell):
 		terrain.text = "◇ Стабильный переход · свободный пролёт · 1 очко"
 	elif hovered_obstacle >= 0:
@@ -450,6 +518,7 @@ func _update_hero_card() -> void:
 		stats_label.text = ""
 		skills_list.clear()
 		army_list.clear()
+		artifacts_list.clear()
 		return
 
 	hero_name_label.text = "%s (уровень %d)" % [hero.hero_name, hero.level]
@@ -477,6 +546,11 @@ func _update_hero_card() -> void:
 		var unit_name: String = unit_data.get("label", unit_id)
 		army_list.add_item("%s: %d" % [unit_name, count])
 
+	artifacts_list.clear()
+	for artifact in hero.artifact_lines():
+		var item_index := artifacts_list.add_item(String(artifact["name"]))
+		artifacts_list.set_item_tooltip(item_index, String(artifact["description"]))
+
 
 func _resolve_landing_cell(clicked_cell: Vector2i) -> Vector2i:
 	if _cell_is_in_planet(clicked_cell, HUMAN_PLANET_CENTER):
@@ -494,6 +568,14 @@ func _resolve_landing_cell(clicked_cell: Vector2i) -> Vector2i:
 func _cell_is_in_planet(cell: Vector2i, planet_center: Vector2i) -> bool:
 	var offset: Vector2i = cell - planet_center
 	return absi(offset.x) <= PLANET_FOOTPRINT_RADIUS and absi(offset.y) <= PLANET_FOOTPRINT_RADIUS
+
+
+## Экран планеты (см. _open_human_planet) можно открыть из любой точки карты,
+## но принять корабли из гарнизона в армию героя нельзя, пока флот физически
+## не на клетках родной планеты - иначе они остаются в гарнизоне до
+## возвращения (см. HumanPlanetScreen._transfer_to_hero).
+func player_fleet_at_home_planet() -> bool:
+	return _cell_is_in_planet(current_cell, HUMAN_PLANET_CENTER)
 
 
 func _cell_in_footprint(cell: Vector2i, anchor: Vector2i) -> bool:
@@ -524,27 +606,24 @@ func _end_day() -> void:
 	_collect_daily_income()
 	current_day += 1
 	movement_points = MOVEMENT_POINTS_PER_DAY
-	navigation_message = ""
+	navigation_message = _collect_daily_production()
 	if current_day % 7 == 1:
-		var parts: Array[String] = []
 		var growth_text := _apply_weekly_growth()
 		if growth_text != "":
-			parts.append(growth_text)
-		var mine_text := _collect_weekly_production()
-		if mine_text != "":
-			parts.append(mine_text)
-		if not parts.is_empty():
-			navigation_message = " ".join(parts)
+			if navigation_message != "":
+				navigation_message = "%s %s" % [growth_text, navigation_message]
+			else:
+				navigation_message = growth_text
 	_update_hud()
 	route_overlay.queue_redraw()
 	queue_redraw()
 
 
 func _update_hud() -> void:
-	day_label.text = "День: %d" % current_day
+	day_label.text = format_sol(current_day)
 	movement_label.text = "Ходы: %d / %d" % [maxi(movement_points, 0), MOVEMENT_POINTS_PER_DAY]
 	credits_label.text = "Кредиты: %d" % player_one_credits
-	income_label.text = "Совет %d: +%d/день" % [
+	income_label.text = "Совет %d: +%d/сол" % [
 		human_planetary_council_level,
 		HumanPlanetState.council_income(human_planetary_council_level) + bonus_daily_income,
 	]
@@ -573,16 +652,12 @@ func _site_has_living_guard(site_index: int) -> bool:
 	return false
 
 
-func _production_weekly_income(site: Dictionary) -> int:
-	return int(site["daily_income"]) * 7
-
-
 func _production_hover_text(index: int) -> String:
 	var site: Dictionary = production_sites[index]
-	var weekly := _production_weekly_income(site)
+	var daily := int(site["daily_income"])
 	if production_owners[index] == 1:
-		return "⚑ %s · ваша · +%d %s каждый понедельник" % [
-			String(site["name"]), weekly, String(site["resource"])]
+		return "⚑ %s · ваша · +%d %s каждый сол" % [
+			String(site["name"]), daily, String(site["resource"])]
 	if _site_has_living_guard(index):
 		return "%s · охраняется · захватите, победив стража" % String(site["name"])
 	return "%s · нейтральная · займите, чтобы захватить" % String(site["name"])
@@ -590,6 +665,8 @@ func _production_hover_text(index: int) -> String:
 
 ## Захват только если стража уже нет: либо его победили (см.
 ## _resolve_guardian_battle), либо месторождение изначально без охраны.
+## При первом захвате сразу выдаётся разовый бонус 5-10 ресурсов
+## того типа, который добывает месторождение.
 func _capture_production_at(cell: Vector2i) -> String:
 	var index := _production_index_at(cell)
 	if index < 0 or production_owners[index] == 1 or _site_has_living_guard(index):
@@ -599,8 +676,12 @@ func _capture_production_at(cell: Vector2i) -> String:
 	production_overlay.queue_redraw()
 	queue_redraw()
 	var site: Dictionary = production_sites[index]
-	return "Захвачена «%s»: +%d %s каждый понедельник." % [
-		String(site["name"]), _production_weekly_income(site), String(site["resource"])]
+	var resource_name: String = site["resource"]
+	var bonus_amount := map_random.randi_range(5, 10)
+	add_resource(resource_name, bonus_amount)
+	return "Захвачена «%s»: +%d %s сразу, затем +%d %s каждый сол." % [
+		String(site["name"]), bonus_amount, resource_name,
+		int(site["daily_income"]), resource_name]
 
 
 func _collect_daily_income() -> void:
@@ -609,13 +690,13 @@ func _collect_daily_income() -> void:
 	player_one_credits += bonus_daily_income
 
 
-func _collect_weekly_production() -> String:
+func _collect_daily_production() -> String:
 	var gained := {}
 	for index in range(production_sites.size()):
 		if production_owners[index] != 1:
 			continue
 		var resource_name: String = production_sites[index]["resource"]
-		var amount := _production_weekly_income(production_sites[index])
+		var amount := int(production_sites[index]["daily_income"])
 		player_one_resources[resource_name] = int(player_one_resources.get(resource_name, 0)) + amount
 		gained[resource_name] = int(gained.get(resource_name, 0)) + amount
 	if gained.is_empty():
@@ -739,6 +820,47 @@ func _add_guardian(cell: Vector2i, template: String, site_index: int) -> void:
 func _chebyshev_distance(a: Vector2i, b: Vector2i) -> int:
 	var offset: Vector2i = a - b
 	return maxi(absi(offset.x), absi(offset.y))
+
+
+func _init_fog() -> void:
+	fog_image = Image.create(MAP_SIZE.x, MAP_SIZE.y, false, Image.FORMAT_RGBA8)
+	fog_image.fill(FOG_COLOR)
+	fog_texture = ImageTexture.create_from_image(fog_image)
+
+
+## Открывает клетки в радиусе radius (по Чебышёву) вокруг center навсегда —
+## однажды увиденное не гаснет, как в HoMM. Возвращает true, если открылась
+## хотя бы одна новая клетка, чтобы не перегенерировать текстуру тумана зря.
+func _reveal_around(center: Vector2i, radius: int) -> bool:
+	var revealed_new := false
+	for x in range(center.x - radius, center.x + radius + 1):
+		if x < 0 or x >= MAP_SIZE.x:
+			continue
+		for y in range(center.y - radius, center.y + radius + 1):
+			if y < 0 or y >= MAP_SIZE.y:
+				continue
+			var cell := Vector2i(x, y)
+			if _chebyshev_distance(cell, center) > radius or explored_cells.has(cell):
+				continue
+			explored_cells[cell] = true
+			fog_image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+			revealed_new = true
+	if revealed_new:
+		fog_texture.update(fog_image)
+	return revealed_new
+
+
+func is_cell_explored(cell: Vector2i) -> bool:
+	return explored_cells.has(cell)
+
+
+## Открывает туман на пути следования на шаг раньше физического прибытия —
+## иначе корабль в последний момент "тонет" в неоткрытом тумане прямо перед
+## тем, как клетка откроется (см. _process).
+func _begin_move_to(cell: Vector2i) -> void:
+	next_cell = cell
+	if _reveal_around(cell, FOG_REVEAL_RADIUS):
+		fog_overlay.queue_redraw()
 
 
 ## Хук на прибытие в клетку (см. _process): останавливает движение и
@@ -956,11 +1078,11 @@ func _roll_object_reward(def: Dictionary) -> Dictionary:
 		"mercenaries":
 			return {
 				"type": "mercenaries",
-				"unit_id": "interceptor" if map_random.randi_range(0, 1) == 0 else "corvette",
+				"unit_id": "interceptor" if map_random.randi_range(0, 1) == 0 else "gunship",
 				"count": map_random.randi_range(3, 6),
 			}
 		"unlock_dwelling":
-			return {"type": "unlock_dwelling", "unit_id": "corvette"}
+			return {"type": "unlock_dwelling", "unit_id": "gunship"}
 	return {"type": "resources", "resource_name": _random_resource_name(), "amount": 15}
 
 
@@ -982,6 +1104,17 @@ func _random_alive_guardian_index() -> int:
 	if candidates.is_empty():
 		return -1
 	return candidates[map_random.randi_range(0, candidates.size() - 1)]
+
+
+const OBJECT_REWARD_DIALOG := preload("res://scripts/object_reward_dialog.gd")
+
+
+## Модалка находки по центру экрана — для разовых пикапов (контейнер, ящик
+## с артефактами, сигнал бедствия), где строку внизу HUD легко пропустить.
+func _show_object_reward_dialog(title: String, description: String, texture: Texture2D = null) -> void:
+	var dialog: CanvasLayer = OBJECT_REWARD_DIALOG.new()
+	add_child(dialog)
+	dialog.setup(title, description, texture)
 
 
 ## Начисляет трофей и возвращает строку для navigation_message. Общий код
@@ -1097,8 +1230,8 @@ func _check_map_object_encounter(cell: Vector2i) -> bool:
 			_trigger_beacon(index)
 		"loot":
 			_trigger_loot(index)
-		"rescue":
-			_trigger_rescue(index)
+		"artifact":
+			_trigger_artifact(index)
 		"quest":
 			_trigger_quest(index)
 		"info":
@@ -1111,37 +1244,48 @@ const TRAINING_GROUND_XP := 150
 
 
 func _trigger_hero_xp(index: int) -> void:
+	var def := MapObjectDefs.get_kind(map_objects[index]["kind"])
 	var hero := _player_hero()
 	map_objects[index]["consumed"] = true
 	if hero == null:
 		return
 	BattleRewards.award(self, hero, TRAINING_GROUND_XP)
-	navigation_message = "Тренировочная станция: герой получает %d опыта." % TRAINING_GROUND_XP
+	var description := "Герой получает %d опыта." % TRAINING_GROUND_XP
+	navigation_message = "Тренировочная станция: " + description
+	_show_object_reward_dialog(String(def.get("name", "Станция")), description, def.get("texture"))
 
 
 func _trigger_obelisk(index: int) -> void:
+	var def := MapObjectDefs.get_kind(map_objects[index]["kind"])
 	map_objects[index]["consumed"] = true
 	obelisks_collected += 1
 	var target := MapObjectDefs.OBELISK_TARGET
 	if obelisks_collected < target:
-		navigation_message = "Артефакт-маяк активирован (%d/%d)." % [obelisks_collected, target]
+		var description := "Артефакт-маяк активирован (%d/%d)." % [obelisks_collected, target]
+		navigation_message = description
+		_show_object_reward_dialog(String(def.get("name", "Маяк")), description, def.get("texture"))
 		return
-	navigation_message = "Последний маяк найден — древнее хранилище открывается!"
-	navigation_message += " " + _grant_object_reward({"type": "credits", "amount": 3000})
+	var description := "Последний маяк найден — древнее хранилище открывается! "
+	description += _grant_object_reward({"type": "credits", "amount": 3000})
 	add_resource(_random_resource_name(), 50)
 	var hero := _player_hero()
 	if hero != null:
 		BattleRewards.award(self, hero, 400)
+	navigation_message = description
+	_show_object_reward_dialog(String(def.get("name", "Маяк")), description, def.get("texture"))
 
 
 func _trigger_stat_boost(index: int) -> void:
+	var def := MapObjectDefs.get_kind(map_objects[index]["kind"])
 	map_objects[index]["consumed"] = true
 	var hero := _player_hero()
 	if hero == null:
 		return
 	var stat_id := _random_primary_stat()
 	hero.stats[stat_id] = int(hero.stats.get(stat_id, 0)) + 1
-	navigation_message = "Лаборатория апгрейдов: +1 к характеристике «%s»." % HeroDefs.STAT_NAMES.get(stat_id, stat_id)
+	var description := "+1 к характеристике «%s»." % HeroDefs.STAT_NAMES.get(stat_id, stat_id)
+	navigation_message = "Лаборатория апгрейдов: " + description
+	_show_object_reward_dialog(String(def.get("name", "Лаборатория")), description, def.get("texture"))
 
 
 const UNIVERSITY_BASE_COST := 400
@@ -1155,7 +1299,10 @@ func _trigger_university(index: int) -> void:
 		return
 	var cost := UNIVERSITY_BASE_COST + UNIVERSITY_COST_PER_LEVEL * hero.level
 	if not can_afford({"credits": cost}):
-		navigation_message = "Станция ретрансляции знаний: не хватает кредитов (нужно %d)." % cost
+		var def := MapObjectDefs.get_kind(map_objects[index]["kind"])
+		var description := "Не хватает кредитов (нужно %d)." % cost
+		navigation_message = "Станция ретрансляции знаний: " + description
+		_show_object_reward_dialog(String(def.get("name", "Станция")), description, def.get("texture"))
 		return
 	var dialog: CanvasLayer = SKILL_ACADEMY_DIALOG.new()
 	add_child(dialog)
@@ -1181,6 +1328,8 @@ func _trigger_teleport(index: int) -> void:
 	ship_position = _cell_center(destination)
 	ship_sprite.position = ship_position
 	camera.position = ship_position.round()
+	if _reveal_around(destination, FOG_REVEAL_RADIUS):
+		fog_overlay.queue_redraw()
 	navigation_message = "Нестабильные врата переносят флот в другую точку карты."
 	_update_hud()
 	queue_redraw()
@@ -1188,11 +1337,13 @@ func _trigger_teleport(index: int) -> void:
 
 func _trigger_beacon(index: int) -> void:
 	var object := map_objects[index]
+	var def := MapObjectDefs.get_kind(object["kind"])
 	if object.get("activated", false):
-		navigation_message = "Маяк-ретранслятор уже усиливает движение в этом секторе."
+		var repeat_description := "Уже усиливает движение в этом секторе."
+		navigation_message = "Маяк-ретранслятор: " + repeat_description
+		_show_object_reward_dialog(String(def.get("name", "Маяк")), repeat_description, def.get("texture"))
 		return
 	map_objects[index]["activated"] = true
-	var def := MapObjectDefs.get_kind(object["kind"])
 	var radius := int(def.get("radius", 4))
 	var center: Vector2i = object["cell"]
 	for x in range(center.x - radius, center.x + radius + 1):
@@ -1203,10 +1354,13 @@ func _trigger_beacon(index: int) -> void:
 			beacon_boost_cells[boosted_cell] = true
 			if slow_cells.has(boosted_cell):
 				navigation_grid.set_point_weight_scale(boosted_cell, float(_cell_move_cost(boosted_cell)))
-	navigation_message = "Маяк-ретранслятор активирован — движение в радиусе %d клеток ускорено." % radius
+	var description := "Активирован — движение в радиусе %d клеток ускорено." % radius
+	navigation_message = "Маяк-ретранслятор: " + description
+	_show_object_reward_dialog(String(def.get("name", "Маяк")), description, def.get("texture"))
 
 
 func _trigger_loot(index: int) -> void:
+	var def := MapObjectDefs.get_kind(map_objects[index]["kind"])
 	map_objects[index]["consumed"] = true
 	var roll := map_random.randf()
 	var reward: Dictionary
@@ -1214,34 +1368,62 @@ func _trigger_loot(index: int) -> void:
 		reward = {"type": "resources", "resource_name": _random_resource_name(), "amount": map_random.randi_range(10, 25)}
 	else:
 		reward = {"type": "credits", "amount": map_random.randi_range(100, 300)}
-	navigation_message = "Дрейфующий контейнер: " + _grant_object_reward(reward)
+	var description := _grant_object_reward(reward)
+	navigation_message = "Дрейфующий контейнер: " + description
 	_update_hud()
+	_show_object_reward_dialog(String(def.get("name", "Находка")), description, def.get("texture"))
 
 
-func _trigger_rescue(index: int) -> void:
+## Ящик с артефактами: как в HoMM — разовая находка, выпадает случайный
+## артефакт из HeroDefs.ARTIFACTS, которого у героя ещё нет (см. Hero.add_artifact
+## и артефактные бонусы в hero.gd). Если герой уже собрал все — утешительный приз.
+func _trigger_artifact(index: int) -> void:
+	var object_def := MapObjectDefs.get_kind(map_objects[index]["kind"])
 	map_objects[index]["consumed"] = true
 	var hero := _player_hero()
 	if hero == null:
 		return
-	if map_random.randf() < 0.5:
-		hero.add_to_army("interceptor", map_random.randi_range(2, 4))
-		navigation_message = "Спасательная капсула: уцелевший экипаж пополняет флот."
-	else:
-		var amount := 100
-		BattleRewards.award(self, hero, amount)
-		navigation_message = "Спасательная капсула: экипаж делится опытом (+%d)." % amount
+	var artifact_id := _random_unowned_artifact(hero)
+	if artifact_id == "":
+		var amount := map_random.randi_range(200, 400)
+		add_credits(amount)
+		var empty_description := "Среди обломков нашлись кредиты (+%d)." % amount
+		navigation_message = "Ящик с артефактами пуст — " + empty_description
+		_update_hud()
+		_show_object_reward_dialog(String(object_def.get("name", "Находка")), empty_description, object_def.get("texture"))
+		return
+	hero.add_artifact(artifact_id)
+	var def: Dictionary = HeroDefs.ARTIFACTS[artifact_id]
+	var description := "Найден «%s» — %s" % [String(def["name"]), String(def["description"])]
+	navigation_message = "Ящик с артефактами: " + description
+	_update_hud()
+	_show_object_reward_dialog(String(object_def.get("name", "Находка")), description, object_def.get("texture"))
+
+
+func _random_unowned_artifact(hero: Hero) -> String:
+	var candidates: Array = []
+	for artifact_id in HeroDefs.ARTIFACTS:
+		if not hero.has_artifact(artifact_id):
+			candidates.append(artifact_id)
+	if candidates.is_empty():
+		return ""
+	return candidates[map_random.randi_range(0, candidates.size() - 1)]
 
 
 func _trigger_quest(index: int) -> void:
 	var object := map_objects[index]
+	var brief_def := MapObjectDefs.get_kind(object["kind"])
 	if not object["briefed"]:
 		map_objects[index]["briefed"] = true
+		var brief_description: String
 		if object["quest_type"] == "resource":
-			navigation_message = "Сигнал бедствия: просят доставить %d ед. «%s»." % [
+			brief_description = "Просят доставить %d ед. «%s»." % [
 				int(object["resource_amount"]), String(object["resource_name"])
 			]
 		else:
-			navigation_message = "Сигнал бедствия: просят уничтожить страж поблизости."
+			brief_description = "Просят уничтожить страж поблизости."
+		navigation_message = "Сигнал бедствия: " + brief_description
+		_show_object_reward_dialog(String(brief_def.get("name", "Сигнал")), brief_description, brief_def.get("texture"))
 		return
 	var done := false
 	if object["quest_type"] == "resource":
@@ -1258,10 +1440,12 @@ func _trigger_quest(index: int) -> void:
 		return
 	map_objects[index]["resolved"] = true
 	map_objects[index]["consumed"] = true
-	navigation_message = "Сигнал бедствия: спасибо за помощь! " + _grant_object_reward({
+	var description := "Спасибо за помощь! " + _grant_object_reward({
 		"type": "credits", "amount": map_random.randi_range(400, 800),
 	})
+	navigation_message = "Сигнал бедствия: " + description
 	_update_hud()
+	_show_object_reward_dialog(String(brief_def.get("name", "Находка")), description, brief_def.get("texture"))
 
 
 func _trigger_info(index: int) -> void:
@@ -1270,7 +1454,9 @@ func _trigger_info(index: int) -> void:
 	if not bool(def.get("repeatable", false)):
 		map_objects[index]["consumed"] = true
 	var pool: Array = MapObjectDefs.ARCHIVE_TIPS if kind == "archive_station" else MapObjectDefs.SIGNPOST_HINTS
-	navigation_message = pool[map_random.randi_range(0, pool.size() - 1)]
+	var description: String = pool[map_random.randi_range(0, pool.size() - 1)]
+	navigation_message = description
+	_show_object_reward_dialog(String(def.get("name", "Объект")), description, def.get("texture"))
 
 
 func _generate_production_sites() -> void:

@@ -1,0 +1,13 @@
+{
+	"version": 1,
+	"id": "elite_gunship",
+	"name": "Элитный штурмовик",
+	"texture_path": "res://assets/ships/human_new/elite_corvette.png",
+	"sprite_scale": 1.0,
+	"engines": [
+		{"x": 794.0, "y": -16.0, "power": 1.2, "emitter": "plasma"}
+	],
+	"weapons": [
+		{"x": -787.0, "y": 56.0, "type": "rocket"}
+	]
+}

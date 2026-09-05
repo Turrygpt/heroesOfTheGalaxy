@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3]
+[gd_scene load_steps=42 format=3]
 
 [ext_resource type="Script" path="res://scripts/human_planet_screen.gd" id="1_script"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/bg.png" id="2_background"]
@@ -11,16 +11,20 @@
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/fort1.png" id="9_fort1"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/fort2.png" id="10_fort2"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/fort3.png" id="11_fort3"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/fighter_hangar_rank1.png" id="12_fighter_hangar1"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/fighter_hangar_rank1_elite.png" id="12_fighter_hangar2"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/corvette_hangar_rank2.png" id="12_corvette_yard1"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/corvette_hangar_rank2_elite.png" id="12_corvette_yard2"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/frigate_hangar_rank3.png" id="12_frigate_yard1"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/frigate_hangar_rank3_elite.png" id="12_frigate_yard2"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/cruiser_dock_rank4.png" id="12_cruiser_yard1"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/cruiser_dock_rank4_elite.png" id="12_cruiser_yard2"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/destroyer_hangar_rank5.png" id="12_destroyer_hangar"]
+[ext_resource type="Texture2D" path="res://assets/planet_surface/human/destroyer_hangar_rank5_elite.png" id="12_destroyer_hangar_elite"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/mage_guild.png" id="12_mage_guild"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/marketplace.png" id="13_marketplace"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/resource_silo.png" id="14_resource_silo"]
 [ext_resource type="Texture2D" path="res://assets/planet_surface/human/tavern.png" id="16_tavern"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/turret.png" id="18_turret"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/fighter_yard.png" id="19_fighter_yard"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/corvette_yard.png" id="22_corvette_yard"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/frigate_yard.png" id="24_frigate_yard"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/cruiser_yard.png" id="25_cruiser_yard"]
-[ext_resource type="Texture2D" path="res://assets/planet_surface/human/destroyer_yard.png" id="26_destroyer_yard"]
+[ext_resource type="Texture2D" path="res://assets/resources/basic.png" id="17_basic_resources"]
 
 [sub_resource type="Shader" id="Shader_procedural_clouds"]
 code = "shader_type canvas_item;
@@ -78,6 +82,35 @@ shader = SubResource("Shader_procedural_clouds")
 bg_color = Color(0.018, 0.055, 0.09, 0.9)
 border_width_bottom = 2
 border_color = Color(0.28, 0.75, 1, 0.85)
+
+[sub_resource type="StyleBoxFlat" id="Style_resource_bar"]
+bg_color = Color(0.014, 0.045, 0.075, 0.9)
+border_width_bottom = 2
+border_color = Color(0.28, 0.75, 1, 0.5)
+
+[sub_resource type="AtlasTexture" id="Atlas_products"]
+atlas = ExtResource("17_basic_resources")
+region = Rect2(0, 0, 512, 512)
+
+[sub_resource type="AtlasTexture" id="Atlas_ore"]
+atlas = ExtResource("17_basic_resources")
+region = Rect2(512, 0, 512, 512)
+
+[sub_resource type="AtlasTexture" id="Atlas_science"]
+atlas = ExtResource("17_basic_resources")
+region = Rect2(1024, 0, 512, 512)
+
+[sub_resource type="AtlasTexture" id="Atlas_crystals"]
+atlas = ExtResource("17_basic_resources")
+region = Rect2(0, 512, 512, 512)
+
+[sub_resource type="AtlasTexture" id="Atlas_fuel"]
+atlas = ExtResource("17_basic_resources")
+region = Rect2(512, 512, 512, 512)
+
+[sub_resource type="AtlasTexture" id="Atlas_isotopes"]
+atlas = ExtResource("17_basic_resources")
+region = Rect2(1024, 512, 512, 512)
 
 [sub_resource type="StyleBoxFlat" id="Style_info_panel"]
 bg_color = Color(0.018, 0.047, 0.073, 0.88)
@@ -261,6 +294,152 @@ text = "ВЛАДЕЛЕЦ: ИГРОК 1"
 horizontal_alignment = 2
 vertical_alignment = 1
 
+[node name="ResourceBar" type="PanelContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 88.0
+offset_bottom = 146.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("Style_resource_bar")
+
+[node name="Margin" type="MarginContainer" parent="Root/ResourceBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 8
+
+[node name="HBox" type="HBoxContainer" parent="Root/ResourceBar/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="CreditsLabel" type="Label" parent="Root/ResourceBar/Margin/HBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.82, 0.3, 1)
+theme_override_font_sizes/font_size = 18
+text = "Кредиты: 0"
+vertical_alignment = 1
+
+[node name="ProductsSlot" type="HBoxContainer" parent="Root/ResourceBar/Margin/HBox"]
+layout_mode = 2
+tooltip_text = "Продукты"
+theme_override_constants/separation = 5
+
+[node name="Icon" type="TextureRect" parent="Root/ResourceBar/Margin/HBox/ProductsSlot"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+mouse_filter = 2
+texture = SubResource("Atlas_products")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/ProductsSlot"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "0"
+vertical_alignment = 1
+
+[node name="OreSlot" type="HBoxContainer" parent="Root/ResourceBar/Margin/HBox"]
+layout_mode = 2
+tooltip_text = "Руда"
+theme_override_constants/separation = 5
+
+[node name="Icon" type="TextureRect" parent="Root/ResourceBar/Margin/HBox/OreSlot"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+mouse_filter = 2
+texture = SubResource("Atlas_ore")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/OreSlot"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "0"
+vertical_alignment = 1
+
+[node name="ScienceSlot" type="HBoxContainer" parent="Root/ResourceBar/Margin/HBox"]
+layout_mode = 2
+tooltip_text = "Научные данные"
+theme_override_constants/separation = 5
+
+[node name="Icon" type="TextureRect" parent="Root/ResourceBar/Margin/HBox/ScienceSlot"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+mouse_filter = 2
+texture = SubResource("Atlas_science")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/ScienceSlot"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "0"
+vertical_alignment = 1
+
+[node name="CrystalsSlot" type="HBoxContainer" parent="Root/ResourceBar/Margin/HBox"]
+layout_mode = 2
+tooltip_text = "Энергокристаллы"
+theme_override_constants/separation = 5
+
+[node name="Icon" type="TextureRect" parent="Root/ResourceBar/Margin/HBox/CrystalsSlot"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+mouse_filter = 2
+texture = SubResource("Atlas_crystals")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/CrystalsSlot"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "0"
+vertical_alignment = 1
+
+[node name="FuelSlot" type="HBoxContainer" parent="Root/ResourceBar/Margin/HBox"]
+layout_mode = 2
+tooltip_text = "Топливо"
+theme_override_constants/separation = 5
+
+[node name="Icon" type="TextureRect" parent="Root/ResourceBar/Margin/HBox/FuelSlot"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+mouse_filter = 2
+texture = SubResource("Atlas_fuel")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/FuelSlot"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "0"
+vertical_alignment = 1
+
+[node name="IsotopesSlot" type="HBoxContainer" parent="Root/ResourceBar/Margin/HBox"]
+layout_mode = 2
+tooltip_text = "Радиоизотопы"
+theme_override_constants/separation = 5
+
+[node name="Icon" type="TextureRect" parent="Root/ResourceBar/Margin/HBox/IsotopesSlot"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+mouse_filter = 2
+texture = SubResource("Atlas_isotopes")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/IsotopesSlot"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "0"
+vertical_alignment = 1
+
+[node name="Spacer" type="Control" parent="Root/ResourceBar/Margin/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
 [node name="PlanetInfo" type="PanelContainer" parent="Root"]
 layout_mode = 1
 anchors_preset = 2
@@ -302,7 +481,7 @@ text = "Уровень: 1"
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.35, 1)
 theme_override_font_sizes/font_size = 19
-text = "Доход: +500 кредитов / день"
+text = "Доход: +500 кредитов / сол"
 
 [node name="Description" type="Label" parent="Root/PlanetInfo/Margin/VBox"]
 layout_mode = 2
@@ -427,10 +606,10 @@ layout_mode = 2
 size_flags_horizontal = 0
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 0
-columns = 14
+columns = 20
 
 [node name="TownHall1" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
+custom_minimum_size = Vector2(168, 96)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
@@ -445,7 +624,7 @@ icon_max_width = 66
 expand_icon = true
 
 [node name="TownHall2" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
+custom_minimum_size = Vector2(168, 96)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
@@ -460,7 +639,7 @@ icon_max_width = 66
 expand_icon = true
 
 [node name="TownHall3" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
+custom_minimum_size = Vector2(168, 96)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
@@ -475,7 +654,7 @@ icon_max_width = 66
 expand_icon = true
 
 [node name="TownHall4" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
+custom_minimum_size = Vector2(168, 96)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
@@ -490,7 +669,7 @@ icon_max_width = 66
 expand_icon = true
 
 [node name="Fort1" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
+custom_minimum_size = Vector2(168, 96)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
@@ -499,13 +678,13 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Гарнизон I"
+text = "Форт I"
 icon = ExtResource("9_fort1")
 icon_max_width = 66
 expand_icon = true
 
 [node name="Fort2" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
+custom_minimum_size = Vector2(168, 96)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
@@ -514,13 +693,13 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Гарнизон II"
+text = "Форт II"
 icon = ExtResource("10_fort2")
 icon_max_width = 66
 expand_icon = true
 
 [node name="Fort3" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
+custom_minimum_size = Vector2(168, 96)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
@@ -529,13 +708,13 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Гарнизон III"
+text = "Форт III"
 icon = ExtResource("11_fort3")
 icon_max_width = 66
 expand_icon = true
 
-[node name="MageGuild" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
+[node name="FighterYard1" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
@@ -544,13 +723,163 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Научный институт"
+text = "Ангар истребителей"
+icon = ExtResource("12_fighter_hangar1")
+icon_max_width = 66
+expand_icon = true
+
+[node name="FighterYard2" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Элитный ангар истребителей"
+icon = ExtResource("12_fighter_hangar2")
+icon_max_width = 66
+expand_icon = true
+
+[node name="CorvetteYard1" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Площадка тяжёлых истребителей"
+icon = ExtResource("12_corvette_yard1")
+icon_max_width = 66
+expand_icon = true
+
+[node name="CorvetteYard2" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Элитная площадка тяжёлых истребителей"
+icon = ExtResource("12_corvette_yard2")
+icon_max_width = 66
+expand_icon = true
+
+[node name="FrigateYard1" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Ангар корветов"
+icon = ExtResource("12_frigate_yard1")
+icon_max_width = 66
+expand_icon = true
+
+[node name="FrigateYard2" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Элитный ангар корветов"
+icon = ExtResource("12_frigate_yard2")
+icon_max_width = 66
+expand_icon = true
+
+[node name="CruiserYard1" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Ангар фрегатов"
+icon = ExtResource("12_cruiser_yard1")
+icon_max_width = 66
+expand_icon = true
+
+[node name="CruiserYard2" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Элитный ангар фрегатов"
+icon = ExtResource("12_cruiser_yard2")
+icon_max_width = 66
+expand_icon = true
+
+[node name="DestroyerYard1" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Ангар эсминцев"
+icon = ExtResource("12_destroyer_hangar")
+icon_max_width = 66
+expand_icon = true
+
+[node name="DestroyerYard2" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Элитный ангар эсминцев"
+icon = ExtResource("12_destroyer_hangar_elite")
+icon_max_width = 66
+expand_icon = true
+
+[node name="MageGuild" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Галактический университет"
 icon = ExtResource("12_mage_guild")
 icon_max_width = 66
 expand_icon = true
 
 [node name="Marketplace" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
+custom_minimum_size = Vector2(168, 96)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
@@ -559,28 +888,13 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Галактическая биржа"
+text = "Биржа"
 icon = ExtResource("13_marketplace")
 icon_max_width = 66
 expand_icon = true
 
-[node name="ResourceSilo" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
-layout_mode = 2
-size_flags_horizontal = 3
-toggle_mode = true
-mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = SubResource("Style_action")
-theme_override_styles/hover = SubResource("Style_action_hover")
-theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Промышленный синтезатор"
-icon = ExtResource("14_resource_silo")
-icon_max_width = 66
-expand_icon = true
-
 [node name="Tavern" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
+custom_minimum_size = Vector2(168, 96)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
@@ -591,96 +905,6 @@ theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
 text = "Офицерский клуб"
 icon = ExtResource("16_tavern")
-icon_max_width = 66
-expand_icon = true
-
-[node name="Turret" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
-layout_mode = 2
-size_flags_horizontal = 3
-toggle_mode = true
-mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = SubResource("Style_action")
-theme_override_styles/hover = SubResource("Style_action_hover")
-theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Оборонительная турель"
-icon = ExtResource("18_turret")
-icon_max_width = 66
-expand_icon = true
-
-[node name="FighterYard" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
-layout_mode = 2
-size_flags_horizontal = 3
-toggle_mode = true
-mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = SubResource("Style_action")
-theme_override_styles/hover = SubResource("Style_action_hover")
-theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Верфь истребителей"
-icon = ExtResource("19_fighter_yard")
-icon_max_width = 66
-expand_icon = true
-
-[node name="CorvetteYard" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
-layout_mode = 2
-size_flags_horizontal = 3
-toggle_mode = true
-mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = SubResource("Style_action")
-theme_override_styles/hover = SubResource("Style_action_hover")
-theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Верфь корветов"
-icon = ExtResource("22_corvette_yard")
-icon_max_width = 66
-expand_icon = true
-
-[node name="FrigateYard" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
-layout_mode = 2
-size_flags_horizontal = 3
-toggle_mode = true
-mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = SubResource("Style_action")
-theme_override_styles/hover = SubResource("Style_action_hover")
-theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Верфь фрегатов"
-icon = ExtResource("24_frigate_yard")
-icon_max_width = 66
-expand_icon = true
-
-[node name="CruiserYard" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
-layout_mode = 2
-size_flags_horizontal = 3
-toggle_mode = true
-mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = SubResource("Style_action")
-theme_override_styles/hover = SubResource("Style_action_hover")
-theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Верфь крейсеров"
-icon = ExtResource("25_cruiser_yard")
-icon_max_width = 66
-expand_icon = true
-
-[node name="DestroyerYard" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
-custom_minimum_size = Vector2(88, 108)
-layout_mode = 2
-size_flags_horizontal = 3
-toggle_mode = true
-mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = SubResource("Style_action")
-theme_override_styles/hover = SubResource("Style_action_hover")
-theme_override_styles/pressed = SubResource("Style_action_hover")
-text = "Верфь эсминцев"
-icon = ExtResource("26_destroyer_yard")
 icon_max_width = 66
 expand_icon = true
 

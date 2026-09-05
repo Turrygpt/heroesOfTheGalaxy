@@ -34,8 +34,9 @@ func _draw() -> void:
 			draw_arc(point, 13.0, 0, TAU, 24, SLOW_COLOR, 2.0, true)
 		previous = point
 	for stop in schedule["end_points"]:
-		_draw_day_marker(strategy_map._cell_center(stop["cell"]), stop["day"])
-	_draw_target(strategy_map._cell_center(strategy_map.planned_path.back()), schedule["arrival_day"])
+		_draw_day_marker(strategy_map._cell_center(stop["cell"]), strategy_map.format_sol(stop["day"]))
+	_draw_target(strategy_map._cell_center(strategy_map.planned_path.back()),
+		"Цель · " + strategy_map.format_sol(schedule["arrival_day"]))
 
 
 func _draw_terrain_boundaries(strategy_map: Node2D) -> void:
@@ -75,8 +76,7 @@ func _draw_terrain_boundaries(strategy_map: Node2D) -> void:
 			HORIZONTAL_ALIGNMENT_CENTER, 24, 21, SLOW_COLOR if kind == "nebula" else Color("d4dae5"))
 
 
-func _draw_day_marker(center: Vector2, day: int) -> void:
-	var label := "День %d" % day
+func _draw_day_marker(center: Vector2, label: String) -> void:
 	var font := ThemeDB.fallback_font
 	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x + 18
 	var corner := center + Vector2(-width * 0.5, -39)
@@ -86,11 +86,10 @@ func _draw_day_marker(center: Vector2, day: int) -> void:
 	draw_string(font, corner + Vector2(9, 19), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, TARGET_COLOR)
 
 
-func _draw_target(center: Vector2, day: int) -> void:
+func _draw_target(center: Vector2, label: String) -> void:
 	draw_circle(center, 23.0, Color(0.0, 0.0, 0.0, 0.65))
 	draw_arc(center, 23.0, 0.0, TAU, 40, TARGET_COLOR, 3.0, true)
 	draw_circle(center, 5.0, TARGET_COLOR)
-	var label := "Цель · день %d" % day
 	var width := ThemeDB.fallback_font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 20
 	var corner := center + Vector2(-width * 0.5, 31)
 	draw_style_box(_marker_style(), Rect2(corner, Vector2(width, 29)))

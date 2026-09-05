@@ -1,0 +1,13 @@
+{
+	"version": 1,
+	"id": "frigate",
+	"name": "Фрегат",
+	"texture_path": "res://assets/ships/human_new/cruiser.png",
+	"sprite_scale": 1.0,
+	"engines": [
+		{"x": 844.0, "y": 34.0, "power": 1.0, "emitter": "chemical"}
+	],
+	"weapons": [
+		{"x": -857.0, "y": 48.0, "type": "cannon"}
+	]
+}

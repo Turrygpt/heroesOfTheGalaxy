@@ -59,13 +59,18 @@ const KINDS := {
 		"family": "teleport", "name": "Нестабильные врата", "glyph": "◎", "color": "ff8de0",
 		"texture": preload("res://assets/map_objects/wormhole.png"),
 	},
-	"beacon": {"family": "beacon", "name": "Маяк-ретранслятор", "glyph": "✦", "color": "ffd23f", "radius": 5},
+	"beacon": {
+		"family": "beacon", "name": "Маяк-ретранслятор", "glyph": "✦", "color": "ffd23f", "radius": 5,
+		"texture": preload("res://assets/map_objects/beacon.png"),
+	},
 	# --- Разовые пикапы -----------------------------------------------------
 	"cargo_container": {
 		"family": "loot", "name": "Дрейфующий контейнер", "glyph": "▣", "color": "b9bdc7",
 		"texture": preload("res://assets/map_objects/cargo_container.png"),
 	},
-	"rescue_pod": {"family": "rescue", "name": "Спасательная капсула", "glyph": "⛑", "color": "62d26f"},
+	"artifact_cache": {
+		"family": "artifact", "name": "Ящик с артефактами", "glyph": "☆", "color": "ffd23f",
+	},
 	"distress_signal": {
 		"family": "quest", "name": "Сигнал бедствия", "glyph": "!", "color": "ef5350",
 		"texture": preload("res://assets/map_objects/distress_signal.png"),
@@ -73,6 +78,7 @@ const KINDS := {
 	# --- Информация -----------------------------------------------------------
 	"emergency_buoy": {
 		"family": "info", "name": "Аварийный буй", "glyph": "i", "color": "8da7ba", "repeatable": false,
+		"visual_scale": 0.42,
 		"texture": preload("res://assets/map_objects/emergency_buoy.png"),
 	},
 	"archive_station": {
@@ -95,7 +101,7 @@ const SPAWN_COUNT := {
 	"knowledge_relay": 2,
 	"beacon": 2,
 	"cargo_container": 5,
-	"rescue_pod": 3,
+	"artifact_cache": 3,
 	"distress_signal": 3,
 	"emergency_buoy": 3,
 	"archive_station": 2,

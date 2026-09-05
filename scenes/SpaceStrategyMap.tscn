@@ -14,6 +14,7 @@
 [ext_resource type="Texture2D" path="res://assets/space/parallax_dust_near.png" id="11_dust_near"]
 [ext_resource type="Texture2D" path="res://assets/heroes/ChatGPT Image 3 сент. 2026 г., 11_09_13.png" id="13_hero_portrait"]
 [ext_resource type="Script" path="res://scripts/map_object_overlay.gd" id="14_map_object_overlay"]
+[ext_resource type="Script" path="res://scripts/fog_overlay.gd" id="15_fog_overlay"]
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_parallax_add"]
 blend_mode = 1
@@ -202,6 +203,10 @@ z_index = 3
 scale = Vector2(0.16, 0.16)
 texture = ExtResource("2_human_ship")
 
+[node name="FogOverlay" type="Node2D" parent="."]
+z_index = 10
+script = ExtResource("15_fog_overlay")
+
 [node name="HUD" type="CanvasLayer" parent="."]
 
 [node name="ResourceBar" type="PanelContainer" parent="HUD"]
@@ -377,7 +382,7 @@ theme_override_constants/separation = 7
 [node name="DayLabel" type="Label" parent="HUD/TurnPanel/Margin/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
-text = "День: 1"
+text = "1 неделя, 1 сол"
 
 [node name="MovementLabel" type="Label" parent="HUD/TurnPanel/Margin/VBox"]
 layout_mode = 2
@@ -386,12 +391,12 @@ text = "Ходы: 10 / 10"
 
 [node name="IncomeLabel" type="Label" parent="HUD/TurnPanel/Margin/VBox"]
 layout_mode = 2
-text = "Совет 1: +500/день"
+text = "Совет 1: +500/сол"
 
 [node name="EndDayButton" type="Button" parent="HUD/TurnPanel/Margin/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 17
-text = "Завершить день"
+text = "Завершить сол"
 
 [node name="MinimapFrame" type="PanelContainer" parent="HUD"]
 anchors_preset = 1
@@ -559,3 +564,20 @@ mouse_filter = 1
 item_count = 2
 item_0/text = "Перехватчик: 5"
 item_1/text = "Штурмовик: 3"
+
+[node name="ArtifactsSeparator" type="HSeparator" parent="HUD/HeroCardPanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="ArtifactsLabel" type="Label" parent="HUD/HeroCardPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.54, 0.85, 0.9, 1)
+theme_override_font_sizes/font_size = 12
+text = "АРТЕФАКТЫ"
+custom_minimum_size = Vector2(0, 16)
+
+[node name="ArtifactsList" type="ItemList" parent="HUD/HeroCardPanel/Margin/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 40)
+auto_height = true
+focus_mode = 0
+mouse_filter = 1

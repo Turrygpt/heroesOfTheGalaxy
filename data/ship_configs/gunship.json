@@ -1,0 +1,13 @@
+{
+	"version": 1,
+	"id": "gunship",
+	"name": "Штурмовик",
+	"texture_path": "res://assets/ships/human_new/corvette.png",
+	"sprite_scale": 1.0,
+	"engines": [
+		{"x": 786.0, "y": 74.0, "power": 1.0, "emitter": "chemical"}
+	],
+	"weapons": [
+		{"x": -623.0, "y": 134.0, "type": "rocket"}
+	]
+}

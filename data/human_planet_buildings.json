@@ -44,6 +44,83 @@
 			"y": 385.770690917969
 		},
 		{
+			"kind": "fort",
+			"level": 3,
+			"scale": 0.09,
+			"x": 1553.04565429688,
+			"y": 385.770690917969
+		},
+		{
+			"kind": "fighter_yard",
+			"level": 1,
+			"scale": 0.18,
+			"x": 1406.27001953125,
+			"y": 393.250030517578
+		},
+		{
+			"kind": "fighter_yard",
+			"level": 2,
+			"scale": 0.18,
+			"x": 1407.02001953125,
+			"y": 390.093170166016
+		},
+		{
+			"kind": "gunship_yard",
+			"level": 1,
+			"scale": 0.11,
+			"x": 788.25,
+			"y": 554.5
+		},
+		{
+			"kind": "gunship_yard",
+			"level": 2,
+			"scale": 0.11,
+			"x": 783.0,
+			"y": 557.5
+		},
+		{
+			"kind": "corvette_yard",
+			"level": 1,
+			"scale": 0.12,
+			"x": 431.75,
+			"y": 533.25
+		},
+		{
+			"kind": "corvette_yard",
+			"level": 2,
+			"scale": 0.12,
+			"x": 431.75,
+			"y": 531.75
+		},
+		{
+			"kind": "frigate_yard",
+			"level": 1,
+			"scale": 0.15,
+			"x": 529.75,
+			"y": 722.5
+		},
+		{
+			"kind": "frigate_yard",
+			"level": 2,
+			"scale": 0.15,
+			"x": 530.5,
+			"y": 723.25
+		},
+		{
+			"kind": "destroyer_yard",
+			"level": 1,
+			"scale": 0.16,
+			"x": 1000.49981689453,
+			"y": 865.0
+		},
+		{
+			"kind": "destroyer_yard",
+			"level": 2,
+			"scale": 0.16,
+			"x": 1005.74987792969,
+			"y": 862.0
+		},
+		{
 			"kind": "mage_guild",
 			"level": 1,
 			"scale": 0.2,
@@ -58,25 +135,11 @@
 			"y": 522.249877929688
 		},
 		{
-			"kind": "resource_silo",
-			"level": 1,
-			"scale": 0.13,
-			"x": 800.986450195313,
-			"y": 459.927032470703
-		},
-		{
 			"kind": "tavern",
 			"level": 1,
 			"scale": 0.08,
 			"x": 1233.44018554688,
 			"y": 372.359436035156
-		},
-		{
-			"kind": "fighter_yard",
-			"level": 1,
-			"scale": 0.1,
-			"x": 1391.27001953125,
-			"y": 412.593200683594
 		}
 	],
 	"version": 3

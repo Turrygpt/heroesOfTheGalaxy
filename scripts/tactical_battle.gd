@@ -13,7 +13,7 @@ const BEAM_DURATION := 0.35
 const MOVE_DURATION := 0.35
 const FLOATER_DURATION := 1.1
 const CAST_DURATION := 0.5
-const LONG_SHOT_DISTANCE := 6
+const POINT_BLANK_DISTANCE := 1
 # Препятствия боя — те же виды, что на глобальной карте (см. space_obstacles.gd):
 # астероиды, обломки планетоида и кладбище кораблей блокируют и манёвр, и залп.
 const OBSTACLE_KINDS := ["asteroid_field", "debris_field", "planetoid"]
@@ -29,6 +29,16 @@ const BATTLE_REWARDS := preload("res://scripts/battle_rewards.gd")
 const BATTLE_RESULTS_DIALOG := preload("res://scripts/battle_results_dialog.gd")
 const PROTOCOL_BOOK_HUD := preload("res://scripts/protocol_book_hud.gd")
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
+## Боевая тема. Карта (space_strategy_map.gd:SPACE_MUSIC) в это время уже
+## затихла через return_map.pause_music() — здесь плавно нарастаем поверх.
+const BATTLE_MUSIC := preload("res://music/Market Pulse (Fight Rhythm Mix).mp3")
+const BATTLE_MUSIC_VOLUME_DB := -8.0
+## Общая длительность кроссфейда, тот же интервал, что у карты
+## (space_strategy_map.gd:MUSIC_FADE_DURATION) — оба перехода звучат синхронно.
+const BATTLE_MUSIC_FADE_DURATION := 0.6
+## Громкость темы боя во время фейда — тише музыки карты (см. комментарий у
+## BATTLE_MUSIC), чтобы старт/финиш боя не звучали обрывом тишины.
+const MUSIC_FADED_VOLUME_DB := -40.0
 
 # Отряд — пачка однотипных кораблей, как стек существ в HoMM3.
 #   count          кораблей в пачке: множит и урон, и суммарную прочность
@@ -39,42 +49,43 @@ const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 #   move           дальность манёвра в гексах (скорость)
 #   range          дальность стрельбы в гексах; в этом составе максимум — 4
 #                  (только у крупного пиратского фрегата), у истребителей — 2;
-#                  дальше LONG_SHOT_DISTANCE — залп вполсилы
+#                  залп в упор (дистанция ≤ POINT_BLANK_DISTANCE, там же срабатывает
+#                  ответный залп) — 100% урона, с любой большей дистанции — 70%
 #   initiative     очередь ходов внутри раунда
 const UNIT_BLUEPRINTS := [
 	{
 		"cell": Vector2i(1, 1), "side": 1, "count": 23, "tier": 1,
 		"label": "Перехватчик", "role": "лёгкий истребитель (короткая дистанция)",
 		"hull": 7, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
-		"move": 7, "range": 2, "initiative": 12, "sprite_width": 104.0,
-		"texture": preload("res://assets/ships/human/1_1.png"), "region": Rect2(50, 140, 1436, 700),
+		"move": 7, "range": 2, "initiative": 12, "sprite_width": 104.0, "weapon_type": "machine_gun",
+		"texture": preload("res://assets/ships/human_new/interceptor.png"), "region": Rect2(220, 356, 1290, 382),
 	},
 	{
 		"cell": Vector2i(2, 4), "side": 1, "count": 8, "tier": 2,
 		"label": "Штурмовик", "role": "истребитель 2 уровня (короткая дистанция)",
 		"hull": 14, "attack": 8, "defense": 7, "damage_min": 3, "damage_max": 6,
-		"move": 6, "range": 2, "initiative": 10, "sprite_width": 112.0,
-		"texture": preload("res://assets/ships/human/1_2.png"), "region": Rect2(60, 135, 1440, 690),
+		"move": 6, "range": 2, "initiative": 10, "sprite_width": 112.0, "weapon_type": "machine_gun",
+		"texture": preload("res://assets/ships/human_new/heavy_interceptor.png"), "region": Rect2(218, 358, 1292, 432),
 	},
 	{
-		"cell": Vector2i(1, 7), "side": 1, "count": 2, "tier": 2,
-		"label": "Корвет", "role": "корабль 2 уровня (короткая дистанция)",
+		"cell": Vector2i(1, 7), "side": 1, "count": 2, "tier": 3,
+		"label": "Корвет", "role": "корабль 3 ранга (короткая дистанция)",
 		"hull": 40, "attack": 10, "defense": 10, "damage_min": 8, "damage_max": 14,
-		"move": 4, "range": 2, "initiative": 7, "sprite_width": 124.0,
-		"texture": preload("res://assets/ships/human/2_1.png"), "region": Rect2(50, 125, 1450, 750),
+		"move": 4, "range": 2, "initiative": 7, "sprite_width": 124.0, "weapon_type": "rocket",
+		"texture": preload("res://assets/ships/human_new/corvette.png"), "region": Rect2(236, 316, 1420, 540),
 	},
 	{
 		"cell": Vector2i(13, 2), "side": 2, "count": 17, "tier": 1,
 		"label": "Рейдер", "role": "пиратский перехватчик (короткая дистанция)",
 		"hull": 8, "attack": 6, "defense": 5, "damage_min": 2, "damage_max": 4,
-		"move": 6, "range": 2, "initiative": 11, "sprite_width": 108.0,
+		"move": 6, "range": 2, "initiative": 11, "sprite_width": 108.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/random/ChatGPT Image 3 сент. 2026 г., 10_59_34 (1).png"), "region": Rect2(20, 235, 1220, 770),
 	},
 	{
 		"cell": Vector2i(13, 6), "side": 2, "count": 4, "tier": 2,
 		"label": "Пиратский фрегат", "role": "крупный корабль (дальнобойный)",
 		"hull": 30, "attack": 8, "defense": 7, "damage_min": 5, "damage_max": 9,
-		"move": 4, "range": 4, "initiative": 8, "sprite_width": 136.0,
+		"move": 4, "range": 4, "initiative": 8, "sprite_width": 136.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/random/pirate_frigate.png"), "region": Rect2(170, 10, 1220, 305),
 	},
 ]
@@ -91,6 +102,7 @@ var enemy_units_override: Array[Dictionary] = []
 
 var hud: CanvasLayer
 var battle_camera: Camera2D
+var music_player: AudioStreamPlayer
 var return_scene: Node
 var return_map: Node2D
 var return_process_mode: int
@@ -153,7 +165,33 @@ func _ready() -> void:
 	hud.return_requested.connect(_return_to_map)
 	get_viewport().size_changed.connect(queue_redraw)
 	_precompute_hex_centers()
+	_start_music()
 	_begin_active_turn()
+
+
+func _start_music() -> void:
+	var stream: AudioStreamMP3 = BATTLE_MUSIC.duplicate()
+	stream.loop = true
+	music_player = AudioStreamPlayer.new()
+	music_player.stream = stream
+	music_player.volume_db = MUSIC_FADED_VOLUME_DB
+	add_child(music_player)
+	music_player.play()
+	var tween := create_tween()
+	tween.tween_property(music_player, "volume_db", BATTLE_MUSIC_VOLUME_DB, BATTLE_MUSIC_FADE_DURATION)
+
+
+## Затухание боевой темы при выходе из боя (возврат на карту или рестарт).
+## Плеер переносится в корень дерева, чтобы Tween доиграл фейд-аут уже после
+## queue_free() этой сцены боя.
+func _fade_out_and_release_music() -> void:
+	if not is_instance_valid(music_player):
+		return
+	remove_child(music_player)
+	get_tree().root.add_child(music_player)
+	var tween := music_player.create_tween()
+	tween.tween_property(music_player, "volume_db", MUSIC_FADED_VOLUME_DB, BATTLE_MUSIC_FADE_DURATION)
+	tween.finished.connect(music_player.queue_free)
 
 
 func _precompute_hex_centers() -> void:
@@ -407,9 +445,10 @@ func _damage_multiplier(attacker: Dictionary, target: Dictionary) -> float:
 	return maxf(1.0 + 0.025 * difference, 0.3)
 
 
-# Стрельба дальше LONG_SHOT_DISTANCE бьёт вполсилы — аналог штрафа дистанции у стрелков HoMM3.
+# Залп в упор (там же срабатывает ответный залп) — полный урон; с любой большей
+# дистанции орудиям сложнее держать наводку — урон падает до 70%.
 func _range_penalty(distance: int) -> float:
-	return 0.5 if distance > LONG_SHOT_DISTANCE else 1.0
+	return 1.0 if distance <= POINT_BLANK_DISTANCE else 0.7
 
 
 func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int) -> int:
@@ -537,11 +576,10 @@ func _run_enemy_turn() -> void:
 	if target_index < 0:
 		return
 	var moved := false
-	if not _can_shoot_unit(target_index):
-		var destination := _best_enemy_move_cell(target_index)
-		if destination != _active_unit()["cell"]:
-			_start_unit_move(_active_unit(), destination)
-			moved = true
+	var destination := _best_enemy_move_cell(target_index)
+	if destination != _active_unit()["cell"]:
+		_start_unit_move(_active_unit(), destination)
+		moved = true
 	if moved:
 		enemy_pending_target = target_index
 		enemy_attack_delay = MOVE_DURATION
@@ -562,23 +600,45 @@ func _finish_enemy_turn(target_index: int) -> void:
 		turn_pending = true
 
 
-# ИИ бьёт туда, где снимет больше прочности за залп; недосягаемые цели штрафуются.
+# ИИ по умолчанию метит в самую уязвимую цель — прежде всего это низкий ранг
+# (слабый корпус и защита), при равном ранге — подранная пачка с меньшим
+# остатком прочности. Приоритет отдаётся целям, реально достижимым в этот ход
+# (манёвр + дальность); среди недосягаемых действует тот же порядок — так ИИ
+# целеустремлённо идёт добивать слабейшего, а не мечется между целями.
 func _best_target_for(attacker_index: int) -> int:
 	var attacker: Dictionary = units[attacker_index]
 	var enemy_side: int = 2 if attacker["side"] == 1 else 1
+	var reach: int = _stat(attacker, "move") + _stat(attacker, "range")
 	var best_index := -1
+	var best_reachable := false
+	var best_tier := 999
+	var best_hp := 0
 	var best_score := -1.0
 	for index in range(units.size()):
 		var target: Dictionary = units[index]
 		if target["side"] != enemy_side or target["hp"] <= 0:
 			continue
 		var distance := _hex_distance(attacker["cell"], target["cell"])
+		var reachable := distance <= reach
+		var tier := int(target.get("tier", 1))
 		var score := float(_expected_stack_damage(attacker, target, distance))
 		if distance > _stat(attacker, "range"):
 			score *= 0.35
-		if score > best_score:
-			best_score = score
+		var better := false
+		if reachable != best_reachable:
+			better = reachable
+		elif tier != best_tier:
+			better = tier < best_tier
+		elif target["hp"] != best_hp:
+			better = target["hp"] < best_hp
+		else:
+			better = score > best_score
+		if better or best_index < 0:
 			best_index = index
+			best_reachable = reachable
+			best_tier = tier
+			best_hp = target["hp"]
+			best_score = score
 	return best_index if best_index >= 0 else _nearest_living_unit(enemy_side)
 
 
@@ -592,13 +652,34 @@ func _start_unit_move(unit: Dictionary, destination: Vector2i) -> void:
 	unit["anim_t"] = 0.0
 	unit["moved"] = true
 	path_distance_cache.clear()
+	ProceduralSfx.play_move(unit)
 
 
+# Сколько живых кораблей противоположной от defender_side стороны потенциально
+# дотянутся до cell в свой следующий ход (манёвр + дальность, без учёта LoS —
+# грубая, но дешёвая оценка открытости позиции).
+func _count_potential_attackers(cell: Vector2i, defender_side: int) -> int:
+	var count := 0
+	for unit in units:
+		if unit["side"] == defender_side or unit["hp"] <= 0:
+			continue
+		var reach: int = _stat(unit, "move") + _stat(unit, "range")
+		if _hex_distance(unit["cell"], cell) <= reach:
+			count += 1
+	return count
+
+
+## ИИ выбирает клетку в два приоритета. Если залп в эту цель возможен из
+## нескольких клеток, среди них берётся та, где под ответный огонь подставится
+## меньше всего кораблей игрока — идеально, если только один. Но возможность
+## атаковать всегда важнее осторожности: если целиться некуда, клетка
+## выбирается так, чтобы просто подойти ближе к цели, иначе корабль вместо
+## сближения отступает в безопасный угол карты, так и не решаясь атаковать.
 func _best_enemy_move_cell(target_index: int) -> Vector2i:
-	var current_cell: Vector2i = _active_unit()["cell"]
-	var best_cell: Vector2i = current_cell
-	var best_distance: int = _hex_distance(current_cell, units[target_index]["cell"])
-	var move_budget: int = _stat(_active_unit(), "move")
+	var active := _active_unit()
+	var current_cell: Vector2i = active["cell"]
+	var move_budget: int = _stat(active, "move")
+	var shot_range: int = _stat(active, "range")
 	var target_cell: Vector2i = units[target_index]["cell"]
 	var blocked: Dictionary = {}
 	for cell in obstacle_at:
@@ -606,7 +687,8 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 	for unit in units:
 		if unit["hp"] > 0 and unit["cell"] != current_cell:
 			blocked[unit["cell"]] = true
-	var visited: Dictionary = {current_cell: true}
+
+	var reachable: Dictionary = {current_cell: 0}
 	var frontier: Array[Vector2i] = [current_cell]
 	var distance: int = 0
 	while not frontier.is_empty() and distance < move_budget:
@@ -614,15 +696,40 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 		var next_frontier: Array[Vector2i] = []
 		for cell in frontier:
 			for neighbor in _hex_neighbors(cell):
-				if not _cell_in_grid(neighbor) or visited.has(neighbor) or blocked.has(neighbor):
+				if not _cell_in_grid(neighbor) or reachable.has(neighbor) or blocked.has(neighbor):
 					continue
-				visited[neighbor] = true
+				reachable[neighbor] = distance
 				next_frontier.append(neighbor)
-				var target_distance := _hex_distance(neighbor, target_cell)
-				if target_distance < best_distance:
-					best_distance = target_distance
-					best_cell = neighbor
 		frontier = next_frontier
+
+	var best_cell: Vector2i = current_cell
+	var best_can_shoot := false
+	var best_target_distance := 999
+	var best_threats := 999
+	for cell in reachable:
+		var target_distance := _hex_distance(cell, target_cell)
+		var can_shoot := target_distance <= shot_range and _has_line_of_sight(cell, target_cell)
+		var threats := _count_potential_attackers(cell, active["side"])
+		var better := false
+		if can_shoot != best_can_shoot:
+			better = can_shoot
+		elif can_shoot:
+			# Из клеток, откуда уже можно стрелять, выбираем самую безопасную.
+			if threats != best_threats:
+				better = threats < best_threats
+			else:
+				better = target_distance < best_target_distance
+		else:
+			# Стрелять всё равно некуда — приоритет сближению, а не безопасности.
+			if target_distance != best_target_distance:
+				better = target_distance < best_target_distance
+			else:
+				better = threats < best_threats
+		if better:
+			best_cell = cell
+			best_can_shoot = can_shoot
+			best_threats = threats
+			best_target_distance = target_distance
 	return best_cell
 
 
@@ -634,12 +741,16 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 	var damage := _roll_stack_damage(attacker, target, distance)
 	var losses := _casualties_for(target, damage)
 	var delay := BEAM_DURATION if is_retaliation else 0.0
+	ProceduralSfx.play_shot(attacker, delay)
+	if losses > 0:
+		ProceduralSfx.play_destroyed(target, delay)
 	beams.append({
 		"start": _hex_center(attacker["cell"], origin),
 		"end": _hex_center(target["cell"], origin),
 		"time": BEAM_DURATION,
 		"delay": delay,
 		"color": Color(0.55, 0.9, 1.0) if attacker["side"] == 1 else Color(1.0, 0.62, 0.45),
+		"weapon_type": String(attacker.get("weapon_type", "cannon")),
 	})
 	floaters.append({
 		"position": _hex_center(target["cell"], origin) + Vector2(0.0, -50.0),
@@ -1038,7 +1149,10 @@ func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) ->
 			for index in targets:
 				var unit: Dictionary = units[index]
 				var before: int = unit["hp"]
-				unit["hp"] = mini(int(unit["max_hp"]), before + restored)
+				# Лечим только уцелевшие корабли пачки — кап по их числу на момент
+				# каста, а не по исходному max_hp, иначе погибшие корабли "оживают".
+				var cap: int = _stack_count(unit) * int(unit["hull"])
+				unit["hp"] = mini(cap, before + restored)
 				healed += int(unit["hp"]) - before
 			report += " — восстановлено %d прочности" % healed
 		_:
@@ -1215,14 +1329,59 @@ func _draw() -> void:
 		if beam["delay"] > 0.0:
 			continue
 		var alpha: float = beam["time"] / BEAM_DURATION
-		draw_line(beam["start"], beam["end"], Color(beam["color"], alpha), 10.0, true)
-		draw_line(beam["start"], beam["end"], Color(1.0, 1.0, 1.0, alpha), 3.0, true)
-		draw_circle(beam["end"], 16.0 * alpha, Color(1.0, 0.45, 0.15, alpha))
+		match String(beam.get("weapon_type", "cannon")):
+			"laser":
+				_draw_laser_beam(beam, alpha)
+			"machine_gun":
+				_draw_machine_gun_beam(beam, alpha)
+			"rocket":
+				_draw_rocket_beam(beam, alpha)
+			_:
+				_draw_cannon_beam(beam, alpha)
 	for floater in floaters:
 		if floater["delay"] > 0.0:
 			continue
 		_draw_floater(floater)
 	_draw_cast_effects()
+
+
+## Пушка (обычный залп 3-4 ранга) — толстый цветной луч с белым ядром и
+## вспышкой попадания. Поведение по умолчанию для неизвестных типов оружия.
+func _draw_cannon_beam(beam: Dictionary, alpha: float) -> void:
+	draw_line(beam["start"], beam["end"], Color(beam["color"], alpha), 10.0, true)
+	draw_line(beam["start"], beam["end"], Color(1.0, 1.0, 1.0, alpha), 3.0, true)
+	draw_circle(beam["end"], 16.0 * alpha, Color(1.0, 0.45, 0.15, alpha))
+
+
+## Луч (5 ранг) — тонкий, предельно яркий непрерывный разряд с лёгким
+## свечением, без снарядной вспышки попадания.
+func _draw_laser_beam(beam: Dictionary, alpha: float) -> void:
+	draw_line(beam["start"], beam["end"], Color(beam["color"], alpha * 0.35), 9.0, true)
+	draw_line(beam["start"], beam["end"], Color(beam["color"], alpha), 3.0, true)
+	draw_line(beam["start"], beam["end"], Color(1.0, 1.0, 1.0, alpha), 1.2, true)
+	draw_circle(beam["end"], 6.0 * alpha, Color(1.0, 1.0, 1.0, alpha))
+
+
+## Пулемёт (1 ранг) — очередь из нескольких тонких параллельных трасс вместо
+## одного залпа, маленькие искры попадания.
+func _draw_machine_gun_beam(beam: Dictionary, alpha: float) -> void:
+	var direction: Vector2 = beam["end"] - beam["start"]
+	var perpendicular := direction.orthogonal().normalized()
+	for offset: float in [-6.0, 0.0, 6.0]:
+		var jitter: Vector2 = perpendicular * offset
+		draw_line(beam["start"] + jitter, beam["end"] + jitter, Color(beam["color"], alpha * 0.85), 2.5, true)
+	draw_circle(beam["end"], 8.0 * alpha, Color(1.0, 0.9, 0.5, alpha))
+
+
+## Ракета (2 ранг) — снаряд летит от старта к цели за время жизни луча,
+## оставляя дымный след, и взрывается по прибытии.
+func _draw_rocket_beam(beam: Dictionary, alpha: float) -> void:
+	var progress := clampf(1.0 - alpha, 0.0, 1.0)
+	var head: Vector2 = beam["start"].lerp(beam["end"], progress)
+	draw_line(beam["start"], head, Color(1.0, 0.55, 0.2, alpha * 0.6), 4.0, true)
+	draw_circle(head, 7.0, Color(1.0, 0.75, 0.3, alpha))
+	var explosion_strength := clampf((progress - 0.6) / 0.4, 0.0, 1.0)
+	draw_circle(beam["end"], 4.0 + 14.0 * explosion_strength, Color(1.0, 0.45, 0.15, alpha * explosion_strength))
 
 
 func _draw_cast_effects() -> void:
@@ -1468,7 +1627,7 @@ func _hover_hint() -> String:
 			var distance := _hex_distance(_active_unit()["cell"], unit["cell"])
 			var damage := _expected_stack_damage(_active_unit(), unit, distance)
 			var losses := _casualties_for(unit, damage)
-			var suffix := "" if _range_penalty(distance) >= 1.0 else "  ·  дальний выстрел −50%"
+			var suffix := "" if _range_penalty(distance) >= 1.0 else "  ·  дальний выстрел −30%"
 			if distance <= 1 and not unit["retaliated"]:
 				suffix += "  ·  будет ответный залп"
 			return "Залп по «%s» ×%d: ~%d урона · погибнет ~%d кор.%s%s" % [unit["label"], _stack_count(unit), damage, losses, suffix, effects_text]
@@ -1538,6 +1697,7 @@ func _restart_battle() -> void:
 	fresh_battle.guardian_index = guardian_index
 	get_tree().root.add_child(fresh_battle)
 	get_tree().current_scene = fresh_battle
+	_fade_out_and_release_music()
 	queue_free()
 
 
@@ -1550,6 +1710,8 @@ func _return_to_map() -> void:
 		return_map.show()
 		return_map.get_node("HUD").show()
 		return_map.camera.make_current()
+		return_map.resume_music()
+		_fade_out_and_release_music()
 		get_tree().current_scene = return_scene
 		queue_free()
 	else:
