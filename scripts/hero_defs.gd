@@ -252,31 +252,37 @@ const ARTIFACTS := {
 		"name": "Осколок сверхновой",
 		"description": "Крупица вещества погибшей звезды усиливает залпы орудий.",
 		"effect": {"type": "damage_percent", "value": 12},
+		"texture": preload("res://assets/artifacts/nova_shard.png"),
 	},
 	"voidforged_plating": {
 		"name": "Пустотная броня",
 		"description": "Сплав, закалённый в вакууме между мирами, укрепляет корпуса флота.",
 		"effect": {"type": "hp_percent", "value": 15},
+		"texture": preload("res://assets/artifacts/voidforged_plating.png"),
 	},
 	"precognition_lens": {
 		"name": "Линза предвидения",
 		"description": "Опережает время на долю секунды — наводчики бьют дальше.",
 		"effect": {"type": "range_flat", "value": 1},
+		"texture": preload("res://assets/artifacts/precognition_lens.png"),
 	},
 	"corsair_talisman": {
 		"name": "Талисман капера",
 		"description": "Потрёпанный амулет с пиратского фрегата — говорят, он ещё никого не подводил.",
 		"effect": {"type": "luck_percent", "value": 15},
+		"texture": preload("res://assets/artifacts/corsair_talisman.png"),
 	},
 	"flagship_standard": {
 		"name": "Штандарт флагмана",
 		"description": "Боевое знамя поднимает дух экипажей — те чаще проявляют инициативу.",
 		"effect": {"type": "morale_percent", "value": 15},
+		"texture": preload("res://assets/artifacts/flagship_standard.png"),
 	},
 	"singularity_core": {
 		"name": "Ядро сингулярности",
 		"description": "Стабилизированный осколок сингулярности — протоколы восстанавливаются заметно быстрее.",
 		"effect": {"type": "energy_regen_percent", "value": 40},
+		"texture": preload("res://assets/artifacts/singularity_core.png"),
 	},
 }
 
