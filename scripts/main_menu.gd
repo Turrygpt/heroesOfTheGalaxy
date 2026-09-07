@@ -6,6 +6,10 @@ extends Control
 ## Пустая папка не ломает меню — просто нет музыки.
 const MENU_MUSIC_DIR := "res://music/main_menu"
 const MENU_MUSIC_VOLUME_DB := -8.0
+## Меню уходит в карту без жёсткого обрыва: плеер переносится в корень дерева
+## и затухает уже поверх загрузки новой сцены.
+const MENU_MUSIC_FADE_DURATION := 0.6
+const MUSIC_FADED_VOLUME_DB := -40.0
 ## Папка с картинками фона — любое количество png/jpg, код сам сканирует и
 ## берёт случайную (см. `assets/ui/main_menu_backgrounds/README.md`). Название
 ## игры на них уже нарисовано, отдельным текстом его дублировать не нужно
@@ -14,6 +18,8 @@ const MENU_BACKGROUNDS_DIR := "res://assets/ui/main_menu_backgrounds"
 
 var status: Label
 var menu_font: Font
+var music_player: AudioStreamPlayer
+var transition_started := false
 
 
 func _ready() -> void:
@@ -171,7 +177,7 @@ func _start_music() -> void:
 		return
 	var stream: AudioStreamMP3 = loaded.duplicate()
 	stream.loop = true
-	var music_player := AudioStreamPlayer.new()
+	music_player = AudioStreamPlayer.new()
 	music_player.stream = stream
 	music_player.volume_db = MENU_MUSIC_VOLUME_DB
 	GameSettings.attach_music(music_player)
@@ -197,12 +203,29 @@ func _button(parent: Node, text: String, action: Callable) -> Button:
 
 
 func _new_game() -> void:
+	if transition_started:
+		return
 	CampaignSave.prepare_new_game()
-	get_tree().change_scene_to_file("res://scenes/StrategicMain.tscn")
+	_fade_out_and_change_scene("res://scenes/StrategicMain.tscn")
 
 
 func _load_game() -> void:
+	if transition_started:
+		return
 	if not CampaignSave.prepare_load():
 		status.text = CampaignSave.error_message
 		return
-	get_tree().change_scene_to_file("res://scenes/StrategicMain.tscn")
+	_fade_out_and_change_scene("res://scenes/StrategicMain.tscn")
+
+
+func _fade_out_and_change_scene(scene_path: String) -> void:
+	transition_started = true
+	if is_instance_valid(music_player):
+		var fading_player := music_player
+		music_player = null
+		remove_child(fading_player)
+		get_tree().root.add_child(fading_player)
+		var tween := fading_player.create_tween()
+		tween.tween_property(fading_player, "volume_db", MUSIC_FADED_VOLUME_DB, MENU_MUSIC_FADE_DURATION)
+		tween.finished.connect(fading_player.queue_free)
+	get_tree().change_scene_to_file(scene_path)

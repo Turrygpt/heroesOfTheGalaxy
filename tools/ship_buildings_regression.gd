@@ -1,6 +1,41 @@
 extends SceneTree
 
 
+class FakeStrategyMap:
+	extends Node2D
+
+	var current_day := 3
+	var player_one_credits := 1000
+	var player_one_resources := {
+		"Продукты": 100,
+		"Руда": 100,
+		"Научные данные": 100,
+		"Энергокристаллы": 100,
+		"Топливо": 100,
+		"Радиоизотопы": 100,
+	}
+
+	func player_fleet_at_home_planet() -> bool:
+		return true
+
+	func can_afford(cost: Dictionary) -> bool:
+		for key in cost:
+			var amount := int(cost[key])
+			if key == "credits" and player_one_credits < amount:
+				return false
+			if key != "credits" and int(player_one_resources.get(key, 0)) < amount:
+				return false
+		return true
+
+	func pay_cost(cost: Dictionary) -> void:
+		for key in cost:
+			var amount := int(cost[key])
+			if key == "credits":
+				player_one_credits -= amount
+			else:
+				player_one_resources[key] = int(player_one_resources.get(key, 0)) - amount
+
+
 func _initialize() -> void:
 	call_deferred("_run")
 
@@ -116,6 +151,18 @@ func _run() -> void:
 	if growth.has("interceptor") or growth.has("gunship"):
 		_fail("Elite upgrades must replace ordinary rank-I/II ships")
 		return
+	var production_state := HumanPlanetState.default_state()
+	production_state["built_levels"]["fighter_yard"] = 1
+	production_state["built_levels"]["corvette_yard"] = 2
+	production_state["unlocked_dwellings"] = ["frigate"]
+	var production_ids: Array[String] = screen._active_production_ids(production_state)
+	for unit_id in ["interceptor", "elite_corvette", "frigate"]:
+		if not production_ids.has(unit_id):
+			_fail("Garrison production summary must contain %s" % unit_id)
+			return
+	if production_ids.has("corvette"):
+		_fail("Garrison production summary must replace ordinary units after an upgrade")
+		return
 
 	state = HumanPlanetState.default_state()
 	state["built_levels"]["corvette_yard"] = 2
@@ -130,6 +177,7 @@ func _run() -> void:
 	if growth.has("corvette") or growth.has("frigate") or growth.has("destroyer"):
 		_fail("Elite rank III-V hangars must replace ordinary production")
 		return
+	_check_unit_upgrade(screen)
 	_check_fort_growth()
 	print("SHIP_BUILDINGS_REGRESSION_OK")
 	quit()
@@ -154,3 +202,56 @@ func _check_fort_growth() -> void:
 	var orc_base := int(UnitDefs.get_unit("ork_fighter")["weekly_growth"])
 	if HumanPlanetState.scaled_weekly_growth("ork_fighter", orc_levels) != orc_base * 2:
 		_fail("Orc yards must get the same fort bonus")
+	_check_one_building_per_day()
+
+
+func _check_unit_upgrade(screen: Node) -> void:
+	var fake_map := FakeStrategyMap.new()
+	root.add_child(fake_map)
+	screen.strategy_map = fake_map
+	var state := HumanPlanetState.default_state()
+	state["built_levels"]["fighter_yard"] = 2
+	state["garrison"] = {"interceptor": 3}
+	HumanPlanetState.save_state(state)
+	var upgrade_cost := UnitDefs.upgrade_cost("interceptor")
+	if UnitDefs.upgrade_target("interceptor") != "heavy_interceptor":
+		_fail("Interceptor must upgrade to heavy_interceptor")
+		return
+	if int(upgrade_cost.get("credits", 0)) != 40 or int(upgrade_cost.get("Руда", 0)) != 1:
+		_fail("Interceptor upgrade price must be the elite/base cost difference")
+		return
+	screen._upgrade_stack("garrison", "interceptor")
+	state = HumanPlanetState.load_state()
+	var garrison: Dictionary = state["garrison"]
+	if garrison.has("interceptor") or int(garrison.get("heavy_interceptor", 0)) != 3:
+		_fail("Garrison upgrade must replace the ordinary stack with the elite one")
+		return
+	if fake_map.player_one_credits != 880 or int(fake_map.player_one_resources.get("Руда", 0)) != 97:
+		_fail("Garrison upgrade must pay the cost difference for the whole stack")
+		return
+	fake_map.queue_free()
+
+
+func _check_one_building_per_day() -> void:
+	var screen = load("res://scenes/HumanPlanetScreen.tscn").instantiate()
+	var fake_map := FakeStrategyMap.new()
+	fake_map.current_day = 3
+	screen.strategy_map = fake_map
+	screen.built_levels = {"townhall": 1}
+	HumanPlanetState.save_state(HumanPlanetState.default_state())
+	if screen._construction_used_this_turn():
+		_fail("Fresh day must allow construction")
+		return
+	var state := HumanPlanetState.load_state()
+	state["last_construction_day"] = 3
+	HumanPlanetState.save_state(state)
+	if not screen._construction_used_this_turn():
+		_fail("Second construction on the same day must be blocked")
+		return
+	fake_map.current_day = 4
+	if screen._construction_used_this_turn():
+		_fail("Construction must unlock on the next day")
+		return
+	HumanPlanetState.save_state(HumanPlanetState.default_state())
+	fake_map.queue_free()
+	screen.queue_free()

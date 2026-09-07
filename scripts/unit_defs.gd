@@ -254,6 +254,45 @@ static func production_source_matches(unit_id: String, dwelling_kind: String, le
 	return false
 
 
+static func upgrade_target(unit_id: String) -> String:
+	var unit := get_unit(unit_id)
+	if unit.is_empty() or int(unit.get("dwelling_level", 0)) != 1:
+		return ""
+	var dwelling := String(unit.get("dwelling", ""))
+	var tier := int(unit.get("tier", 0))
+	for candidate_id in UNITS:
+		var candidate: Dictionary = UNITS[candidate_id]
+		if candidate.get("kind", "") == "dwelling" \
+				and String(candidate.get("dwelling", "")) == dwelling \
+				and int(candidate.get("dwelling_level", 0)) == 2 \
+				and int(candidate.get("tier", 0)) == tier:
+			return String(candidate_id)
+	return ""
+
+
+static func upgrade_cost(unit_id: String) -> Dictionary:
+	var target_id := upgrade_target(unit_id)
+	if target_id.is_empty():
+		return {}
+	var base_cost: Dictionary = get_unit(unit_id).get("cost", {})
+	var target_cost: Dictionary = get_unit(target_id).get("cost", {})
+	var result := {}
+	for key in target_cost:
+		var delta := int(target_cost[key]) - int(base_cost.get(key, 0))
+		if delta > 0:
+			result[key] = delta
+	return result
+
+
+static func upgrade_available(unit_id: String, built_levels: Dictionary) -> bool:
+	var target_id := upgrade_target(unit_id)
+	if target_id.is_empty():
+		return false
+	for source in production_sources(target_id):
+		if int(built_levels.get(String(source["dwelling"]), 0)) >= int(source["level"]):
+			return true
+	return false
+
 
 static func cost_text(unit_id: String) -> String:
 	var cost: Dictionary = get_unit(unit_id).get("cost", {})

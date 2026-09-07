@@ -35,6 +35,8 @@ static func default_state() -> Dictionary:
 		"garrison": {},
 		"available_growth": {},
 		"last_growth_day": 0,
+		# В один сол можно построить или улучшить только одно здание.
+		"last_construction_day": 0,
 		# Захваченные пиратские базы (см. MapObjectDefs "pirate_base") дают
 		# постоянный доход сверх совета планеты.
 		"bonus_daily_income": 0,
@@ -72,6 +74,7 @@ static func load_state() -> Dictionary:
 	if available_growth is Dictionary:
 		state["available_growth"] = _int_dict(available_growth)
 	state["last_growth_day"] = int(parsed.get("last_growth_day", 0))
+	state["last_construction_day"] = int(parsed.get("last_construction_day", 0))
 	state["bonus_daily_income"] = int(parsed.get("bonus_daily_income", 0))
 	var unlocked_dwellings = parsed.get("unlocked_dwellings", [])
 	if unlocked_dwellings is Array:

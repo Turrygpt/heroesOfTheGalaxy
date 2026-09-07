@@ -7,6 +7,8 @@ signal close_requested
 ## и ресурсы игрока. Без неё найм просто недоступен.
 var strategy_map: Node2D
 var music_player: AudioStreamPlayer
+## Только для UiShot: позволяет наполнить гарнизон без записи в пользовательский сейв.
+var garrison_preview_state: Dictionary = {}
 
 ## Тема экрана планеты. Карта (space_strategy_map.gd:SPACE_MUSIC_DIR) на это время
 ## затихает через strategy_map.pause_music() (см. _open_human_planet), а при
@@ -17,6 +19,11 @@ const PLANET_MUSIC_VOLUME_DB := -8.0
 ## (space_strategy_map.gd:MUSIC_FADE_DURATION, tactical_battle.gd:BATTLE_MUSIC_FADE_DURATION).
 const MUSIC_FADE_DURATION := 0.6
 const MUSIC_FADED_VOLUME_DB := -40.0
+const FLEET_TRANSFER_ZONE := preload("res://scripts/fleet_transfer_zone.gd")
+const HERO_PORTRAIT := preload("res://assets/heroes/ChatGPT Image 3 сент. 2026 г., 11_09_13.png")
+const GARRISON_SLOT_COUNT := 7
+const HERO_ARMY_SLOT_COUNT := 7
+const FLEET_CARD_SIZE := Vector2(128, 166)
 
 const BUILDING_CATALOG := [
 	{"kind": "townhall", "level": 1, "texture": preload("res://assets/planet_surface/human/townhall1.png")},
@@ -186,8 +193,12 @@ var barter_button: Button
 @onready var modal_close: Button = $Root/BuildingModal/Center/Panel/Margin/VBox/CloseButton
 @onready var garrison_button: Button = $Root/BottomBar/Margin/Actions/Garrison
 @onready var garrison_screen: PanelContainer = $Root/GarrisonScreen
-@onready var recruit_list: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/RecruitScroll/RecruitList
-@onready var fleet_list: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/FleetScroll/FleetList
+@onready var production_list: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/Content/ProductionPanel/Margin/VBox/ProductionScroll/ProductionList
+@onready var garrison_drop_host: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/Content/Armies/GarrisonPanel/Margin/VBox/GarrisonDropHost
+@onready var hero_drop_host: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/Content/Armies/HeroPanel/Margin/HBox/HeroArmy/HeroDropHost
+@onready var garrison_hero_portrait: TextureRect = $Root/GarrisonScreen/Margin/VBox/Content/Armies/HeroPanel/Margin/HBox/HeroInfo/Portrait
+@onready var garrison_hero_name: Label = $Root/GarrisonScreen/Margin/VBox/Content/Armies/HeroPanel/Margin/HBox/HeroInfo/Name
+@onready var garrison_hero_status: Label = $Root/GarrisonScreen/Margin/VBox/Content/Armies/HeroPanel/Margin/HBox/HeroInfo/Status
 @onready var garrison_close: Button = $Root/GarrisonScreen/Margin/VBox/CloseButton
 @onready var resource_bar_credits: Label = $Root/ResourceBar/Margin/HBox/CreditsLabel
 @onready var resource_bar_products: Label = $Root/ResourceBar/Margin/HBox/ProductsSlot/Value
@@ -1119,137 +1130,266 @@ func _player_hero() -> Hero:
 	return roster.player_hero() if roster != null else null
 
 
-## Перестраивает списки найма/флота экрана "Гарнизон" из актуального
-## user://human_planet_state.json и текущего флота героя.
+## Перестраивает производство и два ряда флота экрана "Гарнизон" из
+## актуального user://human_planet_state.json и текущей армии героя.
 func _update_garrison_screen() -> void:
-	for child in recruit_list.get_children():
+	for child in production_list.get_children():
 		child.queue_free()
-	for child in fleet_list.get_children():
+	for child in garrison_drop_host.get_children():
+		child.queue_free()
+	for child in hero_drop_host.get_children():
 		child.queue_free()
 
-	var state := HumanPlanetState.load_state()
+	var state := garrison_preview_state if not garrison_preview_state.is_empty() else HumanPlanetState.load_state()
+	var levels: Dictionary = state.get("built_levels", {})
 	var garrison: Dictionary = state.get("garrison", {})
 	var growth: Dictionary = state.get("available_growth", {})
-	var has_recruit_rows := false
-	for unit_id in UnitDefs.recruitable_ids():
+	var production_ids := _active_production_ids(state)
+	for unit_id: String in production_ids:
 		var available := int(growth.get(unit_id, 0))
-		var stored := int(garrison.get(unit_id, 0))
-		if available <= 0 and stored <= 0:
-			continue
-		has_recruit_rows = true
-		recruit_list.add_child(_build_recruit_row(unit_id, available, stored))
-	if not has_recruit_rows:
-		recruit_list.add_child(_placeholder_label("Пока нечего нанимать — постройте ангар и дождитесь новой недели."))
+		var weekly := HumanPlanetState.scaled_weekly_growth(unit_id, levels)
+		production_list.add_child(_build_production_row(unit_id, weekly, available))
+	if production_ids.is_empty():
+		production_list.add_child(_placeholder_label("Постройте первый ангар, чтобы запустить еженедельное производство."))
 
 	var hero := _player_hero()
-	var has_fleet_rows := false
+	var hero_army: Dictionary = hero.army if hero != null else {}
+	var fleet_at_planet: bool = strategy_map != null and strategy_map.player_fleet_at_home_planet()
+	garrison_drop_host.add_child(_build_fleet_zone("garrison", garrison, fleet_at_planet, levels))
+	hero_drop_host.add_child(_build_fleet_zone("hero", hero_army, fleet_at_planet, levels))
+
+	var portrait := AtlasTexture.new()
+	portrait.atlas = HERO_PORTRAIT
+	portrait.region = Rect2(0, 0, 512, 512)
+	garrison_hero_portrait.texture = portrait
 	if hero != null:
-		for unit_id in hero.army:
-			var count := int(hero.army[unit_id])
-			if count <= 0:
-				continue
-			has_fleet_rows = true
-			fleet_list.add_child(_build_fleet_row(unit_id, count))
-	if not has_fleet_rows:
-		fleet_list.add_child(_placeholder_label("У героя пока нет кораблей."))
+		garrison_hero_name.text = "%s\nуровень %d" % [hero.hero_name, hero.level]
+	else:
+		garrison_hero_name.text = "НЕТ ГЕРОЯ"
+	garrison_hero_status.text = "Флот у планеты" if fleet_at_planet else "Флот в экспедиции"
+	garrison_hero_status.add_theme_color_override(
+		"font_color", Color(0.51, 0.79, 0.76, 1) if fleet_at_planet else Color(0.82, 0.52, 0.42, 1)
+	)
 
 
-func _build_recruit_row(unit_id: String, available: int, stored: int) -> Control:
+func _active_production_ids(state: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	var levels: Dictionary = state.get("built_levels", {})
+	var unlocked: Array = state.get("unlocked_dwellings", [])
+	for raw_id in UnitDefs.recruitable_ids():
+		var unit_id := String(raw_id)
+		var active := unlocked.has(unit_id)
+		for source in UnitDefs.production_sources(unit_id):
+			if int(levels.get(String(source["dwelling"]), 0)) == int(source["level"]):
+				active = true
+		if active:
+			result.append(unit_id)
+	return result
+
+
+func _build_production_row(unit_id: String, weekly: int, available: int) -> Control:
 	var unit := UnitDefs.get_unit(unit_id)
 	var row := PanelContainer.new()
 	row.add_theme_stylebox_override("panel", _panel_row_style())
 
 	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 14)
+	hbox.add_theme_constant_override("separation", 10)
 	row.add_child(hbox)
-	hbox.add_child(_unit_icon(unit, Vector2(64, 64)))
+	hbox.add_child(_unit_icon(unit, Vector2(54, 54)))
 
 	var text_box := VBoxContainer.new()
 	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text_box.add_theme_constant_override("separation", 4)
+	text_box.add_theme_constant_override("separation", 2)
 	hbox.add_child(text_box)
 
 	var name_label := Label.new()
-	name_label.add_theme_font_size_override("font_size", 18)
+	name_label.add_theme_font_size_override("font_size", 15)
 	name_label.add_theme_color_override("font_color", Color(0.88, 0.97, 1, 1))
 	name_label.text = String(unit["label"])
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	text_box.add_child(name_label)
 
 	var status_label := Label.new()
-	status_label.add_theme_font_size_override("font_size", 14)
-	status_label.add_theme_color_override("font_color", Color(0.76, 0.84, 0.88, 1))
-	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	status_label.text = "В гарнизоне: %d · Доступно к найму: %d · Цена: %s" % [
-		stored, available, UnitDefs.cost_text(unit_id)
-	]
+	status_label.add_theme_font_size_override("font_size", 13)
+	status_label.add_theme_color_override("font_color", Color(0.51, 0.79, 0.76, 1))
+	status_label.text = "+%d в неделю  ·  доступно %d" % [weekly, available]
 	text_box.add_child(status_label)
 
-	var actions_box := VBoxContainer.new()
-	actions_box.custom_minimum_size = Vector2(230, 0)
-	actions_box.add_theme_constant_override("separation", 6)
-	hbox.add_child(actions_box)
-
+	var buy_row := HBoxContainer.new()
+	buy_row.add_theme_constant_override("separation", 5)
+	text_box.add_child(buy_row)
+	var price := Label.new()
+	price.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	price.add_theme_font_size_override("font_size", 11)
+	price.add_theme_color_override("font_color", Color(0.63, 0.68, 0.72, 1))
+	price.text = UnitDefs.cost_text(unit_id)
+	price.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	price.tooltip_text = UnitDefs.cost_text(unit_id)
+	buy_row.add_child(price)
 	if available > 0:
-		var buy_row := HBoxContainer.new()
-		buy_row.add_theme_constant_override("separation", 6)
-		actions_box.add_child(buy_row)
 		var spin := SpinBox.new()
 		spin.min_value = 1
 		spin.max_value = available
 		spin.value = 1
-		spin.custom_minimum_size = Vector2(74, 40)
+		spin.custom_minimum_size = Vector2(62, 32)
 		buy_row.add_child(spin)
 		var buy_button := Button.new()
-		buy_button.custom_minimum_size = Vector2(0, 40)
-		buy_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		buy_button.custom_minimum_size = Vector2(72, 32)
 		buy_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		buy_button.add_theme_font_size_override("font_size", 15)
+		buy_button.add_theme_font_size_override("font_size", 12)
 		buy_button.text = "НАНЯТЬ"
 		_style_action_button(buy_button)
 		buy_button.pressed.connect(_recruit_unit.bind(unit_id, spin))
 		buy_row.add_child(buy_button)
-	if stored > 0:
-		var fleet_at_planet: bool = strategy_map != null and strategy_map.player_fleet_at_home_planet()
-		var deploy_button := Button.new()
-		deploy_button.custom_minimum_size = Vector2(0, 36)
-		deploy_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		deploy_button.add_theme_font_size_override("font_size", 13)
-		deploy_button.text = "ОТПРАВИТЬ ГЕРОЮ (%d)" % stored
-		deploy_button.disabled = not fleet_at_planet
-		if not fleet_at_planet:
-			deploy_button.tooltip_text = "Флот героя сейчас не на планете — корабли останутся в гарнизоне."
-		_style_action_button(deploy_button)
-		deploy_button.pressed.connect(_transfer_to_hero.bind(unit_id))
-		actions_box.add_child(deploy_button)
 	return row
 
 
-func _build_fleet_row(unit_id: String, count: int) -> Control:
+func _build_fleet_zone(zone_id: String, army: Dictionary, enabled: bool, levels: Dictionary) -> Control:
+	var zone := FLEET_TRANSFER_ZONE.new()
+	zone.target_id = zone_id
+	zone.custom_minimum_size = Vector2(0, 200)
+	zone.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var style := preload("res://scripts/ui_style.gd").surface(Color("444a52"), Color("121519"), 10, 10)
+	style.border_color = Color("82c9c1") if enabled else Color("343a40")
+	zone.add_theme_stylebox_override("panel", style)
+	zone.transfer_requested.connect(_on_fleet_stack_dropped)
+
+	var cards := HBoxContainer.new()
+	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	cards.add_theme_constant_override("separation", 8)
+	cards.mouse_filter = Control.MOUSE_FILTER_PASS
+	zone.add_child(cards)
+
+	var has_units := false
+	var shown_slots := 0
+	var slot_count := GARRISON_SLOT_COUNT if zone_id == "garrison" else HERO_ARMY_SLOT_COUNT
+	for raw_id in army:
+		var unit_id := String(raw_id)
+		var count := int(army[raw_id])
+		if count <= 0:
+			continue
+		has_units = true
+		shown_slots += 1
+		cards.add_child(_build_fleet_card(unit_id, count, zone_id, enabled, levels))
+	if not has_units:
+		var empty := _placeholder_label("Перетащите корабли сюда")
+		empty.custom_minimum_size = FLEET_CARD_SIZE
+		empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		cards.add_child(empty)
+		shown_slots = 1
+	while shown_slots < slot_count:
+		cards.add_child(_build_empty_fleet_slot())
+		shown_slots += 1
+	return zone
+
+
+func _build_fleet_card(unit_id: String, count: int, source_id: String, enabled: bool, levels: Dictionary) -> Control:
 	var unit := UnitDefs.get_unit(unit_id)
-	var row := PanelContainer.new()
-	row.add_theme_stylebox_override("panel", _panel_row_style())
-
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 14)
-	row.add_child(hbox)
-	hbox.add_child(_unit_icon(unit, Vector2(52, 52)))
-
+	var card := FLEET_TRANSFER_ZONE.new()
+	card.unit_id = unit_id
+	card.source_id = source_id
+	card.target_id = source_id
+	card.drag_enabled = enabled
+	card.stack_count = count
+	card.custom_minimum_size = FLEET_CARD_SIZE
+	card.mouse_default_cursor_shape = Control.CURSOR_DRAG if enabled else Control.CURSOR_FORBIDDEN
+	card.tooltip_text = "%s · %d кораблей\nПеретащите весь стек в другой ряд" % [String(unit["label"]), count]
+	card.add_theme_stylebox_override("panel", preload("res://scripts/ui_style.gd").button_style("normal"))
+	card.transfer_requested.connect(_on_fleet_stack_dropped)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 3)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(box)
+	box.add_child(_unit_icon(unit, Vector2(104, 76)))
 	var name_label := Label.new()
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_label.add_theme_font_size_override("font_size", 17)
+	name_label.add_theme_font_size_override("font_size", 13)
 	name_label.add_theme_color_override("font_color", Color(0.88, 0.97, 1, 1))
-	name_label.text = "%s: %d" % [String(unit["label"]), count]
-	hbox.add_child(name_label)
+	name_label.text = String(unit["label"])
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(name_label)
+	var count_label := Label.new()
+	count_label.add_theme_font_size_override("font_size", 19)
+	count_label.add_theme_color_override("font_color", Color(0.84, 0.73, 0.5, 1))
+	count_label.text = "× %d" % count
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(count_label)
+	var target_id := UnitDefs.upgrade_target(unit_id)
+	if enabled and not target_id.is_empty() and UnitDefs.upgrade_available(unit_id, levels):
+		var upgrade_cost := _scaled_cost(UnitDefs.upgrade_cost(unit_id), count)
+		var upgrade_button := Button.new()
+		upgrade_button.custom_minimum_size = Vector2(0, 28)
+		upgrade_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		upgrade_button.add_theme_font_size_override("font_size", 11)
+		upgrade_button.text = "АПГРЕЙД"
+		upgrade_button.tooltip_text = "Улучшить весь стек до «%s»\nЦена: %s" % [
+			String(UnitDefs.get_unit(target_id).get("label", target_id)),
+			_format_cost(upgrade_cost),
+		]
+		upgrade_button.disabled = strategy_map == null or not strategy_map.can_afford(upgrade_cost)
+		_style_action_button(upgrade_button)
+		upgrade_button.pressed.connect(_upgrade_stack.bind(source_id, unit_id))
+		box.add_child(upgrade_button)
+	return card
 
-	var return_button := Button.new()
-	return_button.custom_minimum_size = Vector2(200, 40)
-	return_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	return_button.add_theme_font_size_override("font_size", 14)
-	return_button.text = "В ГАРНИЗОН"
-	_style_action_button(return_button)
-	return_button.pressed.connect(_transfer_to_garrison.bind(unit_id))
-	hbox.add_child(return_button)
-	return row
+
+func _build_empty_fleet_slot() -> Control:
+	var slot := PanelContainer.new()
+	slot.custom_minimum_size = FLEET_CARD_SIZE
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := preload("res://scripts/ui_style.gd").surface(Color("303844"), Color("101419"), 8, 8)
+	style.bg_color = Color(0.05, 0.06, 0.075, 0.58)
+	style.border_color = Color(0.22, 0.27, 0.32, 0.9)
+	slot.add_theme_stylebox_override("panel", style)
+	return slot
+
+
+func _on_fleet_stack_dropped(unit_id: String, source_id: String, target_id: String) -> void:
+	if source_id == target_id:
+		return
+	if source_id == "garrison" and target_id == "hero":
+		_transfer_to_hero(unit_id)
+	elif source_id == "hero" and target_id == "garrison":
+		_transfer_to_garrison(unit_id)
+
+
+func _upgrade_stack(source_id: String, unit_id: String) -> void:
+	if strategy_map == null or not strategy_map.player_fleet_at_home_planet():
+		return
+	var target_id := UnitDefs.upgrade_target(unit_id)
+	if target_id.is_empty():
+		return
+	var state := HumanPlanetState.load_state()
+	if not UnitDefs.upgrade_available(unit_id, state.get("built_levels", {})):
+		return
+	var count := 0
+	var hero := _player_hero()
+	if source_id == "garrison":
+		var garrison: Dictionary = state.get("garrison", {})
+		count = int(garrison.get(unit_id, 0))
+	elif source_id == "hero" and hero != null:
+		count = int(hero.army.get(unit_id, 0))
+	if count <= 0:
+		return
+	var cost := _scaled_cost(UnitDefs.upgrade_cost(unit_id), count)
+	if not strategy_map.can_afford(cost):
+		return
+	strategy_map.pay_cost(cost)
+	if source_id == "garrison":
+		var garrison: Dictionary = state.get("garrison", {})
+		garrison.erase(unit_id)
+		garrison[target_id] = int(garrison.get(target_id, 0)) + count
+		state["garrison"] = garrison
+		HumanPlanetState.save_state(state)
+	elif source_id == "hero" and hero != null:
+		hero.remove_from_army(unit_id, count)
+		hero.add_to_army(target_id, count)
+		_save_hero_roster()
+	_update_garrison_screen()
+	_update_resource_bar()
 
 
 func _scaled_cost(cost: Dictionary, count: int) -> Dictionary:
@@ -1351,6 +1491,7 @@ func _build_construction_row(kind: String) -> Control:
 	var level_names: Array = def["level_names"]
 	var level := int(built_levels.get(kind, 0))
 	var has_slot := _find_slot_index(kind) >= 0
+	var construction_used := _construction_used_this_turn()
 
 	var row := PanelContainer.new()
 	row.add_theme_stylebox_override("panel", _panel_row_style())
@@ -1399,6 +1540,10 @@ func _build_construction_row(kind: String) -> Control:
 	if not has_slot:
 		status_label.text = "Место строительства не задано (F7)"
 		action_button.text = "НЕТ МЕСТА"
+		action_button.disabled = true
+	elif construction_used and level < max_level:
+		status_label.text = "В этот сол уже велось строительство"
+		action_button.text = "ДОСТУПНО ЗАВТРА"
 		action_button.disabled = true
 	elif level == 0:
 		var cost: Dictionary = (def["costs"] as Array)[0]
@@ -1450,6 +1595,8 @@ func _build_construction_row(kind: String) -> Control:
 func _construct_kind(kind: String) -> void:
 	if _find_slot_index(kind) < 0:
 		return
+	if _construction_used_this_turn():
+		return
 	var max_level := int(BUILDING_DEFS[kind]["max_level"])
 	var current_level := int(built_levels.get(kind, 0))
 	if current_level >= max_level:
@@ -1462,12 +1609,26 @@ func _construct_kind(kind: String) -> void:
 	built_levels[kind] = new_level
 	var state := HumanPlanetState.load_state()
 	state["built_levels"] = built_levels
+	state["last_construction_day"] = _current_construction_day()
 	_grant_construction_bonus(state, kind, new_level)
 	HumanPlanetState.save_state(state)
 	_rebuild_building_visuals()
 	_update_construction_menu()
 	_update_planet_info()
 	_update_resource_bar()
+
+
+func _construction_used_this_turn() -> bool:
+	if strategy_map == null:
+		return false
+	var state := HumanPlanetState.load_state()
+	return int(state.get("last_construction_day", 0)) == _current_construction_day()
+
+
+func _current_construction_day() -> int:
+	if strategy_map == null:
+		return 0
+	return int(strategy_map.current_day)
 
 
 ## HoMM-стиль: свежепостроенное (или только что улучшенное) жилище сразу

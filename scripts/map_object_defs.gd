@@ -24,7 +24,7 @@ const KINDS := {
 	# --- Стражи с наградой (регистрируются в guardians, не в map_objects) ---
 	"derelict_station": {
 		"family": "guardian_reward", "name": "Заброшенная станция", "glyph": "◈", "size": 2,
-		"color": "8fa6c2", "guard_template": "weak", "reward_pool": ["resources", "stat_boost"],
+		"color": "8fa6c2", "guard_template": "weak", "reward_pool": ["resources"],
 		"texture": preload("res://assets/map_objects/derelict_station.png"),
 	},
 	"derelict_ship": {

@@ -99,6 +99,25 @@ const TREASURE_RESOURCE_MIN := 25
 const TREASURE_RESOURCE_MAX := 40
 const TREASURE_CREDITS_MIN := 1500
 const TREASURE_CREDITS_MAX := 3000
+const DERELICT_STATION_RESOURCE_TYPES_MIN := 2
+const DERELICT_STATION_RESOURCE_TYPES_MAX := 3
+const DERELICT_STATION_RESOURCE_AMOUNT_MIN := 3
+const DERELICT_STATION_RESOURCE_AMOUNT_MAX := 5
+const CARGO_CREDITS_MIN := 1000
+const CARGO_CREDITS_MAX := 2500
+const CARGO_EXPERIENCE_MIN := 500
+const CARGO_EXPERIENCE_MAX := 1500
+const RESOURCE_ICON_ATLAS := preload("res://assets/resources/basic.png")
+const CREDITS_ICON := preload("res://assets/resources/credits.png")
+const EXPERIENCE_ICON := preload("res://assets/resources/experience.png")
+const RESOURCE_ICON_REGIONS := {
+	"Продукты": Rect2(0, 0, 512, 512),
+	"Руда": Rect2(512, 0, 512, 512),
+	"Научные данные": Rect2(1024, 0, 512, 512),
+	"Энергокристаллы": Rect2(0, 512, 512, 512),
+	"Топливо": Rect2(512, 512, 512, 512),
+	"Радиоизотопы": Rect2(1024, 512, 512, 512),
+}
 const PRODUCTION_BLUEPRINTS := [
 	{"name": "Орбитальная агроферма", "symbol": "П", "resource": "Продукты", "daily_income": 2, "color": "62d26f"},
 	{"name": "Орбитальная агроферма", "symbol": "П", "resource": "Продукты", "daily_income": 2, "color": "62d26f"},
@@ -134,12 +153,14 @@ const PRODUCTION_BLUEPRINTS := [
 @onready var crystals_value: Label = $HUD/ResourceBar/Margin/HBox/CrystalsSlot/Value
 @onready var fuel_value: Label = $HUD/ResourceBar/Margin/HBox/FuelSlot/Value
 @onready var isotopes_value: Label = $HUD/ResourceBar/Margin/HBox/IsotopesSlot/Value
-@onready var hero_name_label: Label = $HUD/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox/HeroNameLabel
-@onready var stats_label: Label = $HUD/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox/StatsLabel
-@onready var skills_label: Label = $HUD/HeroCardPanel/Margin/VBox/SkillsLabel
-@onready var skills_list: ItemList = $HUD/HeroCardPanel/Margin/VBox/SkillsList
-@onready var army_list: ItemList = $HUD/HeroCardPanel/Margin/VBox/ArmyList
-@onready var artifacts_list: ItemList = $HUD/HeroCardPanel/Margin/VBox/ArtifactsList
+@onready var side_hero_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/HeroList
+@onready var side_planet_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox/PlanetList
+@onready var hero_name_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox/HeroNameLabel
+@onready var stats_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox/StatsLabel
+@onready var skills_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/SkillsLabel
+@onready var skills_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/SkillsList
+@onready var army_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArmyList
+@onready var artifacts_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArtifactsList
 
 var current_cell := Vector2i.ZERO
 var next_cell := Vector2i.ZERO
@@ -269,6 +290,11 @@ func _ready() -> void:
 		camera.zoom = snapshot.get("camera_zoom", camera.zoom)
 	end_day_button.pressed.connect(_end_day)
 	human_planet_name_button.pressed.connect(_open_human_planet)
+	side_hero_list.item_selected.connect(_on_side_hero_selected)
+	side_planet_list.item_selected.connect(_on_side_planet_selected)
+	army_list.item_selected.connect(_clear_item_list_selection.bind(army_list))
+	skills_list.item_selected.connect(_clear_item_list_selection.bind(skills_list))
+	artifacts_list.item_selected.connect(_clear_item_list_selection.bind(artifacts_list))
 	_start_music()
 	_update_hud()
 	queue_redraw()
@@ -319,10 +345,12 @@ func _start_music() -> void:
 	stream.loop = true
 	music_player = AudioStreamPlayer.new()
 	music_player.stream = stream
-	music_player.volume_db = SPACE_MUSIC_VOLUME_DB
+	music_player.volume_db = MUSIC_FADED_VOLUME_DB
 	GameSettings.attach_music(music_player)
 	add_child(music_player)
 	music_player.play()
+	var tween := create_tween()
+	tween.tween_property(music_player, "volume_db", SPACE_MUSIC_VOLUME_DB, MUSIC_FADE_DURATION)
 
 
 func pause_music() -> void:
@@ -802,8 +830,48 @@ func _update_hud() -> void:
 	fuel_value.text = str(player_one_resources["Топливо"])
 	isotopes_value.text = str(player_one_resources["Радиоизотопы"])
 	end_day_button.disabled = is_moving or campaign_outcome != ""
+	_update_right_menu_lists()
 	_update_navigation_hud()
 	_update_hero_card()
+
+
+func _update_right_menu_lists() -> void:
+	side_hero_list.clear()
+	var hero := _player_hero()
+	if hero != null:
+		side_hero_list.add_item("%s · ур. %d" % [_short_hero_name(hero.hero_name), hero.level])
+	side_planet_list.clear()
+	side_planet_list.add_item("Земля · Совет %d" % human_planetary_council_level)
+
+
+func _on_side_hero_selected(_index: int) -> void:
+	_center_camera_on_cell(current_cell)
+	_clear_item_list_selection(_index, side_hero_list)
+
+
+func _on_side_planet_selected(_index: int) -> void:
+	_center_camera_on_cell(HUMAN_PLANET_CENTER)
+	_clear_item_list_selection(_index, side_planet_list)
+
+
+func _center_camera_on_cell(cell: Vector2i) -> void:
+	camera.position = _cell_center(cell).round()
+	camera.position = camera.position.clamp(Vector2.ZERO, Vector2(MAP_SIZE) * CELL_SIZE)
+
+
+func _clear_item_list_selection(_index: int, list: ItemList) -> void:
+	list.call_deferred("deselect_all")
+
+
+func _short_hero_name(full_name: String) -> String:
+	var parts := full_name.split(" ", false)
+	if parts.is_empty():
+		return full_name
+	if parts[0] == "Адмирал" and parts.size() > 1:
+		return parts[1]
+	if parts[0] == "Вождь" and parts.size() > 1:
+		return parts[1]
+	return parts[0]
 
 
 func _production_index_at(cell: Vector2i) -> int:
@@ -1475,9 +1543,12 @@ func _resolve_guardian_battle(index: int, battle_units: Array, player_won: bool,
 		var captured := _capture_production_at(current_cell)
 		if captured != "":
 			navigation_message += " " + captured
+	var reward_items: Array[Dictionary] = []
 	if guardian.has("reward"):
-		navigation_message += " " + _grant_object_reward(guardian["reward"])
-	_show_object_reward_dialog("Победа — итоги сражения", navigation_message)
+		var reward: Dictionary = guardian["reward"]
+		reward_items = _reward_items_for_reward(reward)
+		navigation_message += " " + _grant_object_reward(reward)
+	_show_object_reward_dialog("Победа — итоги сражения", navigation_message, null, reward_items)
 	_update_hud()
 	queue_redraw()
 
@@ -1637,6 +1708,8 @@ func _roll_object_reward(def: Dictionary, cell: Vector2i) -> Dictionary:
 	var reward_type: String = pool[map_random.randi_range(0, pool.size() - 1)]
 	match reward_type:
 		"resources":
+			if String(def.get("name", "")) == "Заброшенная станция":
+				return {"type": "multi_resources", "items": _roll_derelict_station_resources()}
 			return {
 				"type": "resources",
 				"resource_name": _random_resource_name(),
@@ -1666,6 +1739,21 @@ func _roll_object_reward(def: Dictionary, cell: Vector2i) -> Dictionary:
 		"resource_name": _random_resource_name(),
 		"amount": _distance_loot_amount(cell, 4, 8, 10, 16),
 	}
+
+
+func _roll_derelict_station_resources() -> Array[Dictionary]:
+	var names := player_one_resources.keys()
+	var picked: Array[Dictionary] = []
+	var count := map_random.randi_range(DERELICT_STATION_RESOURCE_TYPES_MIN, DERELICT_STATION_RESOURCE_TYPES_MAX)
+	while picked.size() < count and not names.is_empty():
+		var index := map_random.randi_range(0, names.size() - 1)
+		var resource_name := String(names[index])
+		names.remove_at(index)
+		picked.append({
+			"resource_name": resource_name,
+			"amount": map_random.randi_range(DERELICT_STATION_RESOURCE_AMOUNT_MIN, DERELICT_STATION_RESOURCE_AMOUNT_MAX),
+		})
+	return picked
 
 
 func _random_resource_name() -> String:
@@ -1710,7 +1798,15 @@ var reward_resume_input := false
 
 ## Модалка находки по центру экрана — для разовых пикапов (контейнер, ящик
 ## с артефактами, сигнал бедствия), где строку внизу HUD легко пропустить.
-func _show_object_reward_dialog(title: String, description: String, texture: Texture2D = null) -> void:
+func _show_object_reward_dialog(title: String, description: String, texture: Texture2D = null, reward_items: Array[Dictionary] = []) -> void:
+	_show_object_dialog(title, description, texture, [], Callable(), reward_items)
+
+
+func _show_object_choice_dialog(title: String, description: String, choices: Array[Dictionary], texture: Texture2D = null, callback: Callable = Callable()) -> void:
+	_show_object_dialog(title, description, texture, choices, callback)
+
+
+func _show_object_dialog(title: String, description: String, texture: Texture2D = null, choices: Array[Dictionary] = [], callback: Callable = Callable(), reward_items: Array[Dictionary] = []) -> void:
 	if reward_dialog_count == 0:
 		reward_resume_process = is_processing()
 		reward_resume_input = is_processing_unhandled_input()
@@ -1719,7 +1815,9 @@ func _show_object_reward_dialog(title: String, description: String, texture: Tex
 	set_process_unhandled_input(false)
 	var dialog: CanvasLayer = OBJECT_REWARD_DIALOG.new()
 	add_child(dialog)
-	dialog.setup(title, description, texture)
+	dialog.setup(title, description, texture, choices, reward_items)
+	if callback.is_valid():
+		dialog.choice_selected.connect(callback)
 	dialog.closed.connect(func() -> void:
 		reward_dialog_count -= 1
 		if reward_dialog_count == 0:
@@ -1739,6 +1837,16 @@ func _grant_object_reward(reward: Dictionary) -> String:
 			var amount := int(reward["amount"])
 			add_resource(resource_name, amount)
 			return "Найдено: %d %s." % [amount, resource_name]
+		"multi_resources":
+			var parts: Array[String] = []
+			for item in reward.get("items", []):
+				var resource_name := String(item["resource_name"])
+				var amount := int(item["amount"])
+				add_resource(resource_name, amount)
+				parts.append("%d %s" % [amount, resource_name])
+			if parts.is_empty():
+				return ""
+			return "Найдено: %s." % ", ".join(parts)
 		"credits":
 			var amount := int(reward["amount"])
 			add_credits(amount)
@@ -1793,6 +1901,33 @@ func _grant_object_reward(reward: Dictionary) -> String:
 			var unit_label := String(UnitDefs.get_unit(unit_id).get("label", unit_id))
 			return "Верфь захвачена: «%s» теперь доступен к найму каждую неделю (см. «Гарнизон»)." % unit_label
 	return ""
+
+
+func _reward_items_for_reward(reward: Dictionary) -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	match String(reward.get("type", "")):
+		"resources":
+			items.append(_resource_reward_item(String(reward["resource_name"]), int(reward["amount"])))
+		"multi_resources":
+			for item in reward.get("items", []):
+				items.append(_resource_reward_item(String(item["resource_name"]), int(item["amount"])))
+		"credits":
+			items.append({"icon": CREDITS_ICON, "amount": int(reward["amount"])})
+		"treasure":
+			items.append(_resource_reward_item(String(reward["resource_name"]), int(reward["amount"])))
+			items.append({"icon": CREDITS_ICON, "amount": int(reward["credits"])})
+	return items
+
+
+func _resource_reward_item(resource_name: String, amount: int) -> Dictionary:
+	return {"icon": _resource_icon(resource_name), "amount": amount}
+
+
+func _resource_icon(resource_name: String) -> Texture2D:
+	var texture := AtlasTexture.new()
+	texture.atlas = RESOURCE_ICON_ATLAS
+	texture.region = RESOURCE_ICON_REGIONS.get(resource_name, Rect2(0, 0, 512, 512))
+	return texture
 
 
 ## Ищет случайную свободную клетку для объекта (верхний левый угол его
@@ -1880,7 +2015,9 @@ func _trigger_hero_xp(index: int) -> void:
 	BattleRewards.award(self, hero, TRAINING_GROUND_XP)
 	var description := "Герой получает %d опыта." % (hero.experience - before)
 	navigation_message = "Тренировочная станция: " + description
-	_show_object_reward_dialog(String(def.get("name", "Станция")), description, def.get("texture"))
+	_show_object_reward_dialog(String(def.get("name", "Станция")), description, def.get("texture"), [
+		{"icon": EXPERIENCE_ICON, "amount": hero.experience - before},
+	])
 
 
 func _trigger_obelisk(index: int) -> void:
@@ -1898,13 +2035,18 @@ func _trigger_obelisk(index: int) -> void:
 	var resource_name := _random_resource_name()
 	add_resource(resource_name, 50)
 	description += "\n+50 %s." % resource_name
+	var reward_items: Array[Dictionary] = [
+		{"icon": CREDITS_ICON, "amount": 3000},
+		_resource_reward_item(resource_name, 50),
+	]
 	var hero := _player_hero()
 	if hero != null:
 		var before := hero.experience
 		BattleRewards.award(self, hero, 400)
 		description += "\nОпыт героя: +%d." % (hero.experience - before)
+		reward_items.append({"icon": EXPERIENCE_ICON, "amount": hero.experience - before})
 	navigation_message = description
-	_show_object_reward_dialog(String(def.get("name", "Маяк")), description, def.get("texture"))
+	_show_object_reward_dialog(String(def.get("name", "Маяк")), description, def.get("texture"), reward_items)
 
 
 func _trigger_stat_boost(index: int) -> void:
@@ -1997,24 +2139,38 @@ func _trigger_beacon(index: int) -> void:
 func _trigger_loot(index: int) -> void:
 	var def := MapObjectDefs.get_kind(map_objects[index]["kind"])
 	map_objects[index]["consumed"] = true
-	var roll := map_random.randf()
-	var reward: Dictionary
-	var cell: Vector2i = map_objects[index]["cell"]
-	if roll < 0.5:
-		reward = {
-			"type": "resources",
-			"resource_name": _random_resource_name(),
-			"amount": _distance_loot_amount(cell, 6, 12, 18, 30),
-		}
+	var credits := map_random.randi_range(CARGO_CREDITS_MIN, CARGO_CREDITS_MAX)
+	var experience := map_random.randi_range(CARGO_EXPERIENCE_MIN, CARGO_EXPERIENCE_MAX)
+	var description := "Внутри контейнера уцелели платёжные чипы и навигационные архивы. Выберите, что забрать:"
+	var choices: Array[Dictionary] = [
+		{"id": "credits", "label": "%d кредитов" % credits, "icon": CREDITS_ICON},
+		{"id": "experience", "label": "%d опыта" % experience, "icon": EXPERIENCE_ICON},
+	]
+	_show_object_choice_dialog(
+		String(def.get("name", "Находка")),
+		description,
+		choices,
+		def.get("texture"),
+		func(choice_id: String) -> void:
+			_apply_cargo_container_reward(choice_id, credits, experience)
+	)
+
+
+func _apply_cargo_container_reward(choice_id: String, credits: int, experience: int) -> void:
+	var description: String
+	if choice_id == "experience":
+		var hero := _player_hero()
+		if hero == null:
+			description = "Архивы повреждены: героя нет рядом, опыт не получен."
+		else:
+			var before := hero.experience
+			BattleRewards.award(self, hero, experience)
+			description = "Герой получает %d опыта." % (hero.experience - before)
 	else:
-		# Кратно 100 — как и остальные денежные награды (TREASURE_CREDITS_*,
-		# сигнал бедствия): _distance_loot_amount даёт число «сотен», *100
-		# переводит в кредиты, не трогая округление/рандомизацию внутри неё.
-		reward = {"type": "credits", "amount": _distance_loot_amount(cell, 2, 5, 8, 15) * 100}
-	var description := _grant_object_reward(reward)
+		add_credits(credits)
+		description = "Найдено: %d кредитов." % credits
 	navigation_message = "Дрейфующий контейнер: " + description
 	_update_hud()
-	_show_object_reward_dialog(String(def.get("name", "Находка")), description, def.get("texture"))
 
 
 ## Ящик с артефактами: как в HoMM — разовая находка, выпадает случайный
@@ -2033,7 +2189,9 @@ func _trigger_artifact(index: int) -> void:
 		var empty_description := "Среди обломков нашлись кредиты (+%d)." % amount
 		navigation_message = "Ящик с артефактами пуст — " + empty_description
 		_update_hud()
-		_show_object_reward_dialog(String(object_def.get("name", "Находка")), empty_description, object_def.get("texture"))
+		_show_object_reward_dialog(String(object_def.get("name", "Находка")), empty_description, object_def.get("texture"), [
+			{"icon": CREDITS_ICON, "amount": amount},
+		])
 		return
 	hero.add_artifact(artifact_id)
 	var def: Dictionary = HeroDefs.ARTIFACTS[artifact_id]
@@ -2099,7 +2257,10 @@ func _trigger_quest(index: int) -> void:
 		description += "\nПередано: %d %s." % [object["resource_amount"], object["resource_name"]]
 	navigation_message = "Сигнал бедствия: " + description
 	_update_hud()
-	_show_object_reward_dialog(String(brief_def.get("name", "Находка")), description, brief_def.get("texture"))
+	_show_object_reward_dialog(String(brief_def.get("name", "Находка")), description, brief_def.get("texture"), [
+		{"icon": CREDITS_ICON, "amount": credits},
+		_resource_reward_item(bonus_name, bonus_amount),
+	])
 
 
 func _trigger_info(index: int) -> void:

@@ -16,15 +16,17 @@ func _process(_delta: float) -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		var strategy_map = get_node("../../../..")
-		if not strategy_map.is_moving:
+		var strategy_map := _strategy_map()
+		if strategy_map != null and not strategy_map.is_moving:
 			strategy_map.camera.position = event.position / size * MAP_SIZE * CELL_SIZE
 		accept_event()
 
 
 func _draw() -> void:
-	var strategy_map = get_node("../../../..")
+	var strategy_map := _strategy_map()
 	draw_rect(Rect2(Vector2.ZERO, size), Color("050912"))
+	if strategy_map == null:
+		return
 
 	for coordinate in range(0, 65, 8):
 		var x := coordinate / MAP_SIZE.x * size.x
@@ -93,3 +95,12 @@ func _draw_planet(cell: Vector2i, owner_color: Color) -> void:
 
 func _cell_to_minimap(cell: Vector2i) -> Vector2:
 	return (Vector2(cell) + Vector2(0.5, 0.5)) / MAP_SIZE * size
+
+
+func _strategy_map() -> Node:
+	var node := get_parent()
+	while node != null:
+		if node.get("obstacles") != null and node.get("production_sites") != null and node.get("camera") != null:
+			return node
+		node = node.get_parent()
+	return null

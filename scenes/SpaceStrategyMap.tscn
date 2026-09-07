@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="Script" path="res://scripts/space_strategy_map.gd" id="1_space_map"]
 [ext_resource type="Texture2D" path="res://assets/hero_ships/human.png" id="2_human_ship"]
@@ -51,6 +51,30 @@ border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
 border_color = Color(0.267, 0.29, 0.32, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_sidebar"]
+bg_color = Color(0.049, 0.061, 0.078, 0.94)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.32, 0.41, 0.5, 0.95)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_sidebar_inner"]
+bg_color = Color(0.075, 0.087, 0.105, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.25, 0.31, 0.38, 0.95)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
@@ -403,29 +427,135 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 17
 text = "Завершить сол"
 
-[node name="MinimapFrame" type="PanelContainer" parent="HUD"]
+[node name="RightSidebar" type="PanelContainer" parent="HUD"]
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -282.0
+offset_left = -372.0
 offset_top = 72.0
 offset_right = -16.0
-offset_bottom = 338.0
+offset_bottom = 1064.0
 grow_horizontal = 0
-theme_override_styles/panel = SubResource("StyleBox_minimap")
+theme_override_styles/panel = SubResource("StyleBox_sidebar")
 
-[node name="Margin" type="MarginContainer" parent="HUD/MinimapFrame"]
+[node name="Margin" type="MarginContainer" parent="HUD/RightSidebar"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="HUD/RightSidebar/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="MinimapFrame" type="PanelContainer" parent="HUD/RightSidebar/Margin/VBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_sidebar_inner")
+
+[node name="Margin" type="MarginContainer" parent="HUD/RightSidebar/Margin/VBox/MinimapFrame"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
-[node name="Minimap" type="Control" parent="HUD/MinimapFrame/Margin"]
-custom_minimum_size = Vector2(250, 250)
+[node name="Minimap" type="Control" parent="HUD/RightSidebar/Margin/VBox/MinimapFrame/Margin"]
+custom_minimum_size = Vector2(320, 320)
 layout_mode = 2
 mouse_filter = 0
 script = ExtResource("6_minimap")
+
+[node name="HeroPlanetPanel" type="PanelContainer" parent="HUD/RightSidebar/Margin/VBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_sidebar_inner")
+
+[node name="Margin" type="MarginContainer" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="HBox" type="HBoxContainer" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="HeroesBox" type="VBoxContainer" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.84, 0.73, 0.5, 1)
+theme_override_font_sizes/font_size = 13
+text = "ГЕРОИ"
+horizontal_alignment = 1
+
+[node name="PortraitFrame" type="PanelContainer" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox"]
+custom_minimum_size = Vector2(0, 92)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_sidebar")
+
+[node name="Margin" type="MarginContainer" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/PortraitFrame"]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="Portrait" type="TextureRect" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/PortraitFrame/Margin"]
+layout_mode = 2
+texture = SubResource("Atlas_hero_portrait")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeroList" type="ItemList" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 42)
+auto_height = true
+focus_mode = 0
+mouse_filter = 1
+
+[node name="PlanetsBox" type="VBoxContainer" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.84, 0.73, 0.5, 1)
+theme_override_font_sizes/font_size = 13
+text = "ПЛАНЕТЫ"
+horizontal_alignment = 1
+
+[node name="PortraitFrame" type="PanelContainer" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox"]
+custom_minimum_size = Vector2(0, 92)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_sidebar")
+
+[node name="Margin" type="MarginContainer" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox/PortraitFrame"]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="Portrait" type="TextureRect" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox/PortraitFrame/Margin"]
+layout_mode = 2
+texture = ExtResource("3_human_planet")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PlanetList" type="ItemList" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 42)
+auto_height = true
+focus_mode = 0
+mouse_filter = 1
 
 [node name="NavigationPanel" type="PanelContainer" parent="HUD"]
 anchors_preset = 2
@@ -474,93 +604,66 @@ theme_override_font_sizes/font_size = 14
 text = "Колесо — масштаб · СКМ — обзор · Миникарта — перейти"
 autowrap_mode = 2
 
-[node name="HeroCardPanel" type="PanelContainer" parent="HUD"]
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -316.0
-offset_top = -480.0
-offset_right = -16.0
-offset_bottom = -16.0
-grow_horizontal = 0
-grow_vertical = 0
-theme_override_styles/panel = SubResource("StyleBox_minimap")
+[node name="HeroCardPanel" type="PanelContainer" parent="HUD/RightSidebar/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBox_sidebar_inner")
 
-[node name="Margin" type="MarginContainer" parent="HUD/HeroCardPanel"]
+[node name="Margin" type="MarginContainer" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 12
 
-[node name="VBox" type="VBoxContainer" parent="HUD/HeroCardPanel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="HeroHeaderHBox" type="HBoxContainer" parent="HUD/HeroCardPanel/Margin/VBox"]
+[node name="HeroHeaderHBox" type="HBoxContainer" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 64)
+custom_minimum_size = Vector2(0, 72)
 theme_override_constants/separation = 10
 
-[node name="HeroPortrait" type="TextureRect" parent="HUD/HeroCardPanel/Margin/VBox/HeroHeaderHBox"]
+[node name="HeroPortrait" type="TextureRect" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(56, 56)
+custom_minimum_size = Vector2(64, 64)
 texture = SubResource("Atlas_hero_portrait")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HeroInfoVBox" type="VBoxContainer" parent="HUD/HeroCardPanel/Margin/VBox/HeroHeaderHBox"]
+[node name="HeroInfoVBox" type="VBoxContainer" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
-[node name="HeroNameLabel" type="Label" parent="HUD/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox"]
+[node name="HeroNameLabel" type="Label" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.94, 1, 1)
 theme_override_font_sizes/font_size = 16
 text = "Герой"
 custom_minimum_size = Vector2(0, 20)
+autowrap_mode = 2
 
-[node name="StatsLabel" type="Label" parent="HUD/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox"]
+[node name="StatsLabel" type="Label" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
 theme_override_font_sizes/font_size = 13
 text = "АТК:2 ЗЩТ:2 СИЛ:1 МДР:1"
 custom_minimum_size = Vector2(0, 18)
+autowrap_mode = 2
 
-[node name="SkillsSeparator" type="HSeparator" parent="HUD/HeroCardPanel/Margin/VBox"]
+[node name="ArmySeparator" type="HSeparator" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2
 
-[node name="SkillsLabel" type="Label" parent="HUD/HeroCardPanel/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.54, 0.85, 0.9, 1)
-theme_override_font_sizes/font_size = 12
-text = "УМЕНИЯ"
-custom_minimum_size = Vector2(0, 16)
-
-[node name="SkillsList" type="ItemList" parent="HUD/HeroCardPanel/Margin/VBox"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 50)
-item_count = 2
-auto_height = true
-focus_mode = 0
-mouse_filter = 1
-item_0/text = "Артиллерия (I)"
-item_1/text = "Лидерство (I)"
-
-[node name="ArmySeparator" type="HSeparator" parent="HUD/HeroCardPanel/Margin/VBox"]
-layout_mode = 2
-
-[node name="ArmyLabel" type="Label" parent="HUD/HeroCardPanel/Margin/VBox"]
+[node name="ArmyLabel" type="Label" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.54, 0.85, 0.9, 1)
 theme_override_font_sizes/font_size = 12
 text = "ФЛОТ"
 custom_minimum_size = Vector2(0, 16)
 
-[node name="ArmyList" type="ItemList" parent="HUD/HeroCardPanel/Margin/VBox"]
+[node name="ArmyList" type="ItemList" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 60)
 auto_height = true
@@ -570,17 +673,37 @@ item_count = 2
 item_0/text = "Перехватчик: 5"
 item_1/text = "Штурмовик: 3"
 
-[node name="ArtifactsSeparator" type="HSeparator" parent="HUD/HeroCardPanel/Margin/VBox"]
+[node name="SkillsSeparator" type="HSeparator" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2
 
-[node name="ArtifactsLabel" type="Label" parent="HUD/HeroCardPanel/Margin/VBox"]
+[node name="SkillsLabel" type="Label" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.54, 0.85, 0.9, 1)
+theme_override_font_sizes/font_size = 12
+text = "УМЕНИЯ"
+custom_minimum_size = Vector2(0, 16)
+
+[node name="SkillsList" type="ItemList" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 50)
+item_count = 2
+auto_height = true
+focus_mode = 0
+mouse_filter = 1
+item_0/text = "Артиллерия (I)"
+item_1/text = "Лидерство (I)"
+
+[node name="ArtifactsSeparator" type="HSeparator" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="ArtifactsLabel" type="Label" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.54, 0.85, 0.9, 1)
 theme_override_font_sizes/font_size = 12
 text = "АРТЕФАКТЫ"
 custom_minimum_size = Vector2(0, 16)
 
-[node name="ArtifactsList" type="ItemList" parent="HUD/HeroCardPanel/Margin/VBox"]
+[node name="ArtifactsList" type="ItemList" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 40)
 auto_height = true
