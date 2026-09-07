@@ -6,11 +6,11 @@ extends CanvasLayer
 
 signal finished
 
-const GOLD := Color("e5b956")
-const BLUE := Color("67c6f0")
+const GOLD := preload("res://scripts/ui_style.gd").GOLD
+const BLUE := preload("res://scripts/ui_style.gd").CYAN
 const RED := Color("f5826b")
-const MUTED := Color("8da7ba")
-const INK := Color("e7f0f5")
+const MUTED := preload("res://scripts/ui_style.gd").MUTED
+const INK := preload("res://scripts/ui_style.gd").INK
 const PANEL_SIZE := Vector2(780, 620)
 
 const REWARDS := preload("res://scripts/battle_rewards.gd")
@@ -52,7 +52,7 @@ func setup(hero: Hero, units: Array, player_won: bool, xp_gained: int) -> void:
 	body.add_child(HSeparator.new())
 
 	var xp_panel := PanelContainer.new()
-	xp_panel.add_theme_stylebox_override("panel", _style(Color(GOLD, 0.5)))
+	xp_panel.add_theme_stylebox_override("panel", preload("res://scripts/ui_style.gd").inset())
 	body.add_child(xp_panel)
 	var xp_column := VBoxContainer.new()
 	xp_column.add_theme_constant_override("separation", 4)
@@ -93,6 +93,7 @@ func setup(hero: Hero, units: Array, player_won: bool, xp_gained: int) -> void:
 	continue_button.add_theme_stylebox_override("normal", _style(Color(GOLD, 0.65)))
 	continue_button.add_theme_stylebox_override("hover", _style(GOLD, Color(0.09, 0.16, 0.22, 1.0)))
 	continue_button.add_theme_stylebox_override("pressed", _style(GOLD, Color(0.12, 0.21, 0.28, 1.0)))
+	preload("res://scripts/ui_style.gd").apply_button(continue_button)
 	continue_button.pressed.connect(_on_continue)
 	body.add_child(continue_button)
 
@@ -101,7 +102,7 @@ func _casualty_column(title: String, color: Color, rows: Array) -> Control:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override("panel", _style(Color(color, 0.45)))
+	panel.add_theme_stylebox_override("panel", preload("res://scripts/ui_style.gd").inset())
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 6)
 	panel.add_child(column)
@@ -124,16 +125,7 @@ func _casualty_column(title: String, color: Color, rows: Array) -> Control:
 
 
 func _style(border: Color, background: Color = Color(0.022, 0.045, 0.07, 0.97)) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = background
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 12
-	style.content_margin_bottom = 12
-	return style
+	return preload("res://scripts/ui_style.gd").surface(border, background, 16, 12)
 
 
 func _label(text: String, font_size: int, color: Color, centered := false) -> Label:

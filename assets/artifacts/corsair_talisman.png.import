@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dkqi7rtrbynvb"
-path="res://.godot/imported/orc.png-7d6f2cb3b108a07c25675357b696228b.ctex"
+uid="uid://4yks7jscxx0i"
+path="res://.godot/imported/corsair_talisman.png-7f3c9edb2c05f8ea42cc72372ec5d5be.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hero_ships/orc.png"
-dest_files=["res://.godot/imported/orc.png-7d6f2cb3b108a07c25675357b696228b.ctex"]
+source_file="res://assets/artifacts/corsair_talisman.png"
+dest_files=["res://.godot/imported/corsair_talisman.png-7f3c9edb2c05f8ea42cc72372ec5d5be.ctex"]
 
 [params]
 

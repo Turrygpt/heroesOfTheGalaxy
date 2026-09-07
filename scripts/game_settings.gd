@@ -9,11 +9,11 @@ const SAVE_PATH := "user://settings.json"
 const MUSIC_BUS := "Music"
 const SFX_BUS := "SFX"
 
-const GOLD := Color("e5b956")
-const BLUE := Color("67c6f0")
+const GOLD := preload("res://scripts/ui_style.gd").GOLD
+const BLUE := preload("res://scripts/ui_style.gd").CYAN
 const RED := Color("f5826b")
-const MUTED := Color("8da7ba")
-const INK := Color("e7f0f5")
+const MUTED := preload("res://scripts/ui_style.gd").MUTED
+const INK := preload("res://scripts/ui_style.gd").INK
 const PANEL_WIDTH := 520.0
 
 var master_volume := 100
@@ -258,11 +258,13 @@ func _build_ui() -> void:
 	body.add_theme_constant_override("separation", 8)
 	margin.add_child(body)
 
-	body.add_child(_label("МЕНЮ", 14, MUTED, true))
+	body.add_child(_label("Настройки", 26, GOLD, true))
 	_save_button = _button("Сохранить игру", BLUE)
+	preload("res://scripts/ui_style.gd").apply_button(_save_button)
 	_save_button.pressed.connect(_save_game)
 	body.add_child(_save_button)
 	_menu_button = _button("В главное меню", MUTED)
+	preload("res://scripts/ui_style.gd").apply_button(_menu_button)
 	_menu_button.pressed.connect(_to_main_menu)
 	body.add_child(_menu_button)
 	_status_label = _label("", 13, BLUE, true)
@@ -270,7 +272,7 @@ func _build_ui() -> void:
 	body.add_child(_status_label)
 	_campaign_separator = HSeparator.new()
 	body.add_child(_campaign_separator)
-	body.add_child(_label("Громкость", 22, GOLD, true))
+	body.add_child(_label("Звук", 16, MUTED))
 
 	var sliders := VBoxContainer.new()
 	sliders.add_theme_constant_override("separation", 10)
@@ -287,12 +289,13 @@ func _build_ui() -> void:
 	body.add_child(spacer)
 
 	var continue_button := _button("Продолжить", GOLD)
+	preload("res://scripts/ui_style.gd").apply_button(continue_button)
 	continue_button.pressed.connect(close_menu)
 	body.add_child(continue_button)
 	var quit_button := _button("Выйти из игры", RED)
+	preload("res://scripts/ui_style.gd").apply_button(quit_button)
 	quit_button.pressed.connect(_exit_game)
 	body.add_child(quit_button)
-	body.add_child(_label("Esc — закрыть меню", 13, MUTED, true))
 
 
 func _add_volume_row(
@@ -322,9 +325,6 @@ func _add_volume_row(
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	slider.custom_minimum_size = Vector2(0, 22)
 	slider.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	slider.add_theme_stylebox_override("slider", _slider_track())
-	slider.add_theme_stylebox_override("grabber_area", _slider_fill(Color(BLUE, 0.7)))
-	slider.add_theme_stylebox_override("grabber_area_highlight", _slider_fill(BLUE))
 	slider.value_changed.connect(func(value: float) -> void: changed.call(int(value), value_label))
 	if drag_ended.is_valid():
 		slider.drag_ended.connect(func(_changed: bool) -> void: drag_ended.call())
@@ -369,36 +369,7 @@ func _sync_slider(slider: HSlider, value_label: Label, percent: int) -> void:
 
 
 func _style(border: Color, background: Color = Color(0.022, 0.045, 0.07, 0.97)) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = background
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 18
-	style.content_margin_right = 18
-	style.content_margin_top = 14
-	style.content_margin_bottom = 14
-	return style
-
-
-func _slider_track() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.08, 0.12, 1.0)
-	style.border_color = Color(GOLD, 0.35)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(4)
-	style.content_margin_top = 6
-	style.content_margin_bottom = 6
-	return style
-
-
-func _slider_fill(color: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.set_corner_radius_all(4)
-	style.content_margin_top = 6
-	style.content_margin_bottom = 6
-	return style
+	return preload("res://scripts/ui_style.gd").surface(border, background, 18, 14)
 
 
 func _label(text: String, font_size: int, color: Color, centered := false) -> Label:

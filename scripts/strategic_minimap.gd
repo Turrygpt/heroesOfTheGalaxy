@@ -65,6 +65,14 @@ func _draw() -> void:
 	draw_circle(ship_point, 5.0, Color.WHITE)
 	draw_circle(ship_point, 3.0, PLAYER_ONE_COLOR)
 
+	# Раньше вражеский флагман на миникарте не отмечался вовсе — только свой
+	# корабль. Та же видимость, что и на основной карте (жив и клетка открыта,
+	# см. _refresh_orc_ship_sprite), иначе миникарта выдавала бы орка сквозь туман.
+	if strategy_map.orc_ship_sprite != null and strategy_map.orc_ship_sprite.visible:
+		var orc_point: Vector2 = strategy_map.orc_ship_sprite.position / world_size * size
+		draw_circle(orc_point, 5.0, Color.WHITE)
+		draw_circle(orc_point, 3.0, PLAYER_TWO_COLOR)
+
 	var viewport_world_size: Vector2 = strategy_map.get_viewport_rect().size / strategy_map.camera.zoom
 	var viewport_world_position: Vector2 = (
 		strategy_map.camera.get_screen_center_position() - viewport_world_size * 0.5

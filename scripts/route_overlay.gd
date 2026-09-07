@@ -4,6 +4,12 @@ const REACHABLE_COLOR := Color("77dfe9")
 const LATER_COLOR := Color("6b7485")
 const TARGET_COLOR := Color("ffcf87")
 const SLOW_COLOR := Color("ac9bdc")
+## Курс проходит через живого стража — прибытие в эту клетку останавливает
+## движение и запускает бой (см. space_strategy_map.gd:_check_guardian_encounter),
+## поэтому весь маршрут ПОСЛЕ неё — гипотетический: туда долетят, только если
+## бой выигран. Красным помечается сам хвост, а точку боя обводит кольцо
+## (_draw_danger_marker), чтобы было видно, где именно курс упирается в стража.
+const DANGER_COLOR := Color("ef5350")
 const EDGES := [
 	[Vector2i.UP, Vector2(0, 0), Vector2(1, 0)],
 	[Vector2i.RIGHT, Vector2(1, 0), Vector2(1, 1)],
@@ -19,13 +25,17 @@ func _draw() -> void:
 		return
 	var schedule: Dictionary = strategy_map._route_schedule()
 	var previous: Vector2 = strategy_map.ship_position
+	var danger_index := _first_guardian_index(strategy_map)
 	for index in range(strategy_map.planned_path.size()):
 		var cell: Vector2i = strategy_map.planned_path[index]
 		var point: Vector2 = strategy_map._cell_center(cell)
+		var dangerous: bool = danger_index >= 0 and index > danger_index
 		var today: bool = schedule["days"][index] == strategy_map.current_day
-		var color := REACHABLE_COLOR if today else LATER_COLOR
+		var color := DANGER_COLOR if dangerous else (REACHABLE_COLOR if today else LATER_COLOR)
 		draw_line(previous, point, Color("050c15"), 8.0, true)
-		if today:
+		if dangerous:
+			draw_dashed_line(previous, point, color, 3.0, 8.0, true, true)
+		elif today:
 			draw_line(previous, point, color, 3.0, true)
 		else:
 			draw_dashed_line(previous, point, color, 2.0, 10.0, true, true)
@@ -35,8 +45,26 @@ func _draw() -> void:
 		previous = point
 	for stop in schedule["end_points"]:
 		_draw_day_marker(strategy_map._cell_center(stop["cell"]), strategy_map.format_sol(stop["day"]))
+	if danger_index >= 0:
+		_draw_danger_marker(strategy_map._cell_center(strategy_map.planned_path[danger_index]))
 	_draw_target(strategy_map._cell_center(strategy_map.planned_path.back()),
 		"Цель · " + strategy_map.format_sol(schedule["arrival_day"]))
+
+
+## Первая клетка маршрута с живым стражем — дальше неё курс не гарантирован
+## (см. _check_guardian_encounter), -1, если весь путь свободен.
+func _first_guardian_index(strategy_map: Node2D) -> int:
+	for index in range(strategy_map.planned_path.size()):
+		var cell: Vector2i = strategy_map.planned_path[index]
+		var guardian_index: int = strategy_map.guardian_at.get(cell, -1)
+		if guardian_index >= 0 and strategy_map.guardians[guardian_index]["alive"]:
+			return index
+	return -1
+
+
+func _draw_danger_marker(center: Vector2) -> void:
+	draw_circle(center, 15.0, Color(DANGER_COLOR, 0.18))
+	draw_arc(center, 15.0, 0.0, TAU, 32, DANGER_COLOR, 2.5, true)
 
 
 func _draw_terrain_boundaries(strategy_map: Node2D) -> void:

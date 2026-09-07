@@ -37,16 +37,24 @@ const PLAYER_TWO_COLOR := Color("ef5350")
 const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
 const OrcAI := preload("res://scripts/orc_ai.gd")
 const HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/human.png")
-## Флагман вождя орков — плейсхолдер, см. tools/make_orc_placeholders.py.
+## Флагман вождя орков — настоящий арт (холст 702x1301, не квадратный, в
+## отличие от HERO_SHIP_TEXTURE 518x518).
 const ORC_HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/orc.png")
 const ORC_BASE_OVERLAY := preload("res://scripts/orc_base_overlay.gd")
 ## Спрайт корабля героя рисуется в масштабе 0.16 (см. Ship в
-## SpaceStrategyMap.tscn); у корабля орков холст того же размера.
+## SpaceStrategyMap.tscn).
 const HERO_SHIP_SCALE := 0.16
+## Холст ORC_HERO_SHIP_TEXTURE вытянут (1301 по большей стороне против 518 у
+## HERO_SHIP_TEXTURE) — свой масштаб, чтобы на карте оба флагмана были одного
+## размера (по большей стороне холста), а не просто одной scale-константы.
+const ORC_HERO_SHIP_SCALE := HERO_SHIP_SCALE * 518.0 / 1301.0
 const HUMAN_PLANET_SCREEN := preload("res://scenes/HumanPlanetScreen.tscn")
 ## Фоновая музыка карты. На время тактического боя ставится на паузу
 ## (см. _swap_to_battle) и возобновляется при возврате (tactical_battle.gd:_return_to_map).
-const SPACE_MUSIC := preload("res://music/Starlit Echoes (Main Theme).mp3")
+## Папка со всеми треками — любое количество mp3, _start_music берёт случайный
+## при каждом входе на карту (см. music/map/README.md, тот же приём, что и
+## main_menu.gd / tactical_battle.gd).
+const SPACE_MUSIC_DIR := "res://music/map"
 const SPACE_MUSIC_VOLUME_DB := -8.0
 ## Длительность плавного перехода громкости при входе/выходе из боя — общая
 ## с BATTLE_MUSIC_FADE_DURATION в tactical_battle.gd, обе темы затухают/
@@ -283,8 +291,31 @@ func can_use_campaign_menu() -> bool:
 	return visible and is_processing() and not is_moving
 
 
+## Список файлов не кешируется — сканируется один раз при входе на карту,
+## дороговизна не имеет значения. Пустая папка не ломает карту — просто нет
+## музыки; music_player тогда остаётся невалидным, pause_music/resume_music
+## это учитывают.
 func _start_music() -> void:
-	var stream: AudioStreamMP3 = SPACE_MUSIC.duplicate()
+	var dir := DirAccess.open(SPACE_MUSIC_DIR)
+	if dir == null:
+		return
+	var candidates: Array[String] = []
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "mp3":
+			candidates.append(file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	if candidates.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var chosen: String = candidates[rng.randi_range(0, candidates.size() - 1)]
+	var loaded := load(SPACE_MUSIC_DIR.path_join(chosen)) as AudioStreamMP3
+	if loaded == null:
+		return
+	var stream: AudioStreamMP3 = loaded.duplicate()
 	stream.loop = true
 	music_player = AudioStreamPlayer.new()
 	music_player.stream = stream
@@ -295,6 +326,8 @@ func _start_music() -> void:
 
 
 func pause_music() -> void:
+	if not is_instance_valid(music_player):
+		return
 	# TWEEN_PAUSE_PROCESS: при переходе в бой (_swap_to_battle) карта уходит в
 	# PROCESS_MODE_DISABLED, и обычный Tween на ней перестал бы тикать.
 	var tween := create_tween()
@@ -304,6 +337,8 @@ func pause_music() -> void:
 
 
 func resume_music() -> void:
+	if not is_instance_valid(music_player):
+		return
 	music_player.stream_paused = false
 	var tween := create_tween()
 	tween.tween_property(music_player, "volume_db", SPACE_MUSIC_VOLUME_DB, MUSIC_FADE_DURATION)
@@ -465,6 +500,25 @@ func _draw() -> void:
 		var y := row * CELL_SIZE
 		draw_line(Vector2(0.0, y), Vector2(map_pixel_size.x, y), GRID_COLOR, 2.0)
 
+	# Рисуется до спрайтов флагманов (те — дочерние Sprite2D поверх, обычный
+	# порядок отрисовки узлов), поэтому выглядит подсветкой/постаментом под
+	# кораблём, а не кольцом сверху. Статично, без пульсации — queue_redraw()
+	# на этом узле и так не идёт каждый кадр (см. _process), только по
+	# реальным изменениям состояния, лишняя анимация тут не к месту.
+	_draw_hero_marker(ship_position, PLAYER_ONE_COLOR)
+	if orc_ship_sprite != null and orc_ship_sprite.visible:
+		_draw_hero_marker(orc_ship_sprite.position, PLAYER_TWO_COLOR)
+
+
+## Кольцо-подсветка под флагманом героя — свой и вражеский иначе не выделялись
+## среди объектов карты (у тех радиус иконки ~40-48px, см. map_object_overlay.gd:
+## FOOTPRINT_ICON_MARGIN). Два кольца шире объектной иконки с запасом, чтобы
+## флагман читался с первого взгляда даже в толпе значков.
+func _draw_hero_marker(center: Vector2, color: Color) -> void:
+	draw_circle(center, 64.0, Color(color, 0.12))
+	draw_arc(center, 62.0, 0.0, TAU, 44, Color(color, 0.35), 1.5, true)
+	draw_arc(center, 52.0, 0.0, TAU, 44, color, 2.5, true)
+	draw_arc(center, 52.0, 0.0, TAU, 44, Color(0.02, 0.05, 0.08, 0.5), 1.0, true)
 
 
 ## Маршрут огибает астероидные поля и прочие препятствия, а туманности
@@ -891,7 +945,7 @@ func _setup_orc_ai(snapshot: Dictionary) -> void:
 	orc_ship_sprite.name = "OrcShip"
 	orc_ship_sprite.texture = ORC_HERO_SHIP_TEXTURE
 	orc_ship_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	orc_ship_sprite.scale = Vector2.ONE * HERO_SHIP_SCALE
+	orc_ship_sprite.scale = Vector2.ONE * ORC_HERO_SHIP_SCALE
 	orc_ship_sprite.z_index = 3
 	add_child(orc_ship_sprite)
 	_refresh_orc_planet_nameplate()
@@ -1950,10 +2004,13 @@ func _trigger_loot(index: int) -> void:
 		reward = {
 			"type": "resources",
 			"resource_name": _random_resource_name(),
-			"amount": _distance_loot_amount(cell, 2, 5, 6, 12),
+			"amount": _distance_loot_amount(cell, 6, 12, 18, 30),
 		}
 	else:
-		reward = {"type": "credits", "amount": _distance_loot_amount(cell, 40, 80, 120, 250)}
+		# Кратно 100 — как и остальные денежные награды (TREASURE_CREDITS_*,
+		# сигнал бедствия): _distance_loot_amount даёт число «сотен», *100
+		# переводит в кредиты, не трогая округление/рандомизацию внутри неё.
+		reward = {"type": "credits", "amount": _distance_loot_amount(cell, 2, 5, 8, 15) * 100}
 	var description := _grant_object_reward(reward)
 	navigation_message = "Дрейфующий контейнер: " + description
 	_update_hud()

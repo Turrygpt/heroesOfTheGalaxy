@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dkqi7rtrbynvb"
-path="res://.godot/imported/orc.png-7d6f2cb3b108a07c25675357b696228b.ctex"
+uid="uid://jsyfrmmlpwok"
+path="res://.godot/imported/flagship_standard.png-75a8a2b40e2856c75b0dd186af973c00.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hero_ships/orc.png"
-dest_files=["res://.godot/imported/orc.png-7d6f2cb3b108a07c25675357b696228b.ctex"]
+source_file="res://assets/artifacts/flagship_standard.png"
+dest_files=["res://.godot/imported/flagship_standard.png-75a8a2b40e2856c75b0dd186af973c00.ctex"]
 
 [params]
 

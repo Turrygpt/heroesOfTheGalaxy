@@ -259,15 +259,7 @@ func _label(text: String) -> Label:
 
 
 func _panel_style(bg: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	style.border_color = border
-	style.border_width_right = 1 if border.a > 0.0 else 0
-	style.content_margin_left = 0
-	style.content_margin_top = 0
-	style.content_margin_right = 0
-	style.content_margin_bottom = 0
-	return style
+	return preload("res://scripts/ui_style.gd").surface(border, bg, 0, 0)
 
 
 # ---------- Ship / texture list management ----------

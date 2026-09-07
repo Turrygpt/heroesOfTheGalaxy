@@ -39,11 +39,7 @@ func setup(player: Array[Dictionary], enemy: Array[Dictionary]) -> void:
 	shade.add_child(center)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(780, 0)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("101f30")
-	style.border_color = Color("67c6f0")
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(12)
+	var style := preload("res://scripts/ui_style.gd").surface()
 	style.content_margin_left = 28
 	style.content_margin_right = 28
 	style.content_margin_top = 24

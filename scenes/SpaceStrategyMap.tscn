@@ -15,45 +15,46 @@
 [ext_resource type="Texture2D" path="res://assets/heroes/ChatGPT Image 3 сент. 2026 г., 11_09_13.png" id="13_hero_portrait"]
 [ext_resource type="Script" path="res://scripts/map_object_overlay.gd" id="14_map_object_overlay"]
 [ext_resource type="Script" path="res://scripts/fog_overlay.gd" id="15_fog_overlay"]
+[ext_resource type="Script" path="res://scripts/hero_marker_overlay.gd" id="16_hero_marker_overlay"]
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_parallax_add"]
 blend_mode = 1
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_planet_nameplate"]
-bg_color = Color(0.025, 0.055, 0.09, 0.88)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.28, 0.78, 1, 0.95)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
+bg_color = Color(0.094, 0.106, 0.125, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.267, 0.29, 0.32, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_orc_nameplate"]
-bg_color = Color(0.1, 0.025, 0.02, 0.9)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
+bg_color = Color(0.094, 0.106, 0.125, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
 border_color = Color(0.94, 0.22, 0.18, 0.95)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_minimap"]
-bg_color = Color(0.025, 0.045, 0.075, 0.96)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.25, 0.55, 0.75, 0.9)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+bg_color = Color(0.094, 0.106, 0.125, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.267, 0.29, 0.32, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [sub_resource type="AtlasTexture" id="Atlas_products"]
 atlas = ExtResource("8_basic_resources")
@@ -196,6 +197,10 @@ script = ExtResource("14_map_object_overlay")
 [node name="RouteOverlay" type="Node2D" parent="."]
 z_index = 2
 script = ExtResource("4_route_overlay")
+
+[node name="HeroMarkerOverlay" type="Node2D" parent="."]
+z_index = 2
+script = ExtResource("16_hero_marker_overlay")
 
 [node name="Ship" type="Sprite2D" parent="."]
 texture_filter = 1

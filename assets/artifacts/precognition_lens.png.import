@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dkqi7rtrbynvb"
-path="res://.godot/imported/orc.png-7d6f2cb3b108a07c25675357b696228b.ctex"
+uid="uid://bj0g2i4iwdrmb"
+path="res://.godot/imported/precognition_lens.png-b80ff60a45ee2d453f49f0176e65d5f0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hero_ships/orc.png"
-dest_files=["res://.godot/imported/orc.png-7d6f2cb3b108a07c25675357b696228b.ctex"]
+source_file="res://assets/artifacts/precognition_lens.png"
+dest_files=["res://.godot/imported/precognition_lens.png-b80ff60a45ee2d453f49f0176e65d5f0.ctex"]
 
 [params]
 

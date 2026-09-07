@@ -1,10 +1,107 @@
 ## Главное меню: новая кампания или загрузка единого сохранения.
 extends Control
 
+## Папка со треками темы главного меню — любое количество mp3, код сам
+## сканирует её при старте и берёт случайный (см. `music/main_menu/README.md`).
+## Пустая папка не ломает меню — просто нет музыки.
+const MENU_MUSIC_DIR := "res://music/main_menu"
+const MENU_MUSIC_VOLUME_DB := -8.0
+## Папка с картинками фона — любое количество png/jpg, код сам сканирует и
+## берёт случайную (см. `assets/ui/main_menu_backgrounds/README.md`). Название
+## игры на них уже нарисовано, отдельным текстом его дублировать не нужно
+## (см. _ready — Label с текстом заголовка сознательно убран).
+const MENU_BACKGROUNDS_DIR := "res://assets/ui/main_menu_backgrounds"
+
 var status: Label
+var menu_font: Font
 
 
 func _ready() -> void:
+	menu_font = _make_menu_font()
+	_build_background()
+	_build_vignette()
+	var viewport_width := get_viewport_rect().size.x
+	var edge_margin := int(clampf(viewport_width * 0.045, 22.0, 48.0))
+	var panel_margin := 30
+	var column_width := int(minf(520.0, viewport_width - edge_margin * 2.0 - panel_margin * 2.0))
+	column_width = maxi(column_width, 260)
+	var safe_area := MarginContainer.new()
+	safe_area.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	safe_area.add_theme_constant_override("margin_left", edge_margin)
+	safe_area.add_theme_constant_override("margin_top", 42)
+	safe_area.add_theme_constant_override("margin_right", edge_margin)
+	safe_area.add_theme_constant_override("margin_bottom", 54)
+	add_child(safe_area)
+
+	var layout := VBoxContainer.new()
+	layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	layout.alignment = BoxContainer.ALIGNMENT_END
+	layout.add_theme_constant_override("separation", 0)
+	safe_area.add_child(layout)
+
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	layout.add_child(row)
+
+	var panel := PanelContainer.new()
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0, 0, 0, 0)
+	panel_style.border_color = Color(0.55, 0.74, 0.95, 0.22)
+	panel_style.border_width_top = 0
+	panel_style.border_width_bottom = 0
+	panel_style.set_corner_radius_all(8)
+	panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
+	panel_style.shadow_size = 0
+	panel_style.shadow_offset = Vector2(0, 8)
+	panel_style.set_content_margin(SIDE_LEFT, 30)
+	panel_style.set_content_margin(SIDE_TOP, 22)
+	panel_style.set_content_margin(SIDE_RIGHT, 30)
+	panel_style.set_content_margin(SIDE_BOTTOM, 22)
+	panel.add_theme_stylebox_override("panel", panel_style)
+	row.add_child(panel)
+
+	var column := VBoxContainer.new()
+	column.custom_minimum_size.x = column_width
+	column.add_theme_constant_override("separation", 12)
+	panel.add_child(column)
+
+	_button(column, "Новая игра", _new_game)
+	var load_button := _button(column, "Загрузить игру", _load_game)
+	load_button.disabled = CampaignSave.read_save().is_empty()
+	_button(column, "Настройки", GameSettings.open_menu)
+	_button(column, "Выход", get_tree().quit)
+
+	status = Label.new()
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.add_theme_font_override("font", menu_font)
+	status.add_theme_font_size_override("font_size", 15)
+	status.add_theme_color_override("font_color", Color(0.78, 0.86, 0.93, 0.86))
+	status.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
+	status.add_theme_constant_override("shadow_offset_y", 1)
+	column.add_child(status)
+	_start_music()
+
+
+func _make_menu_font() -> Font:
+	return preload("res://scripts/ui_style.gd").font()
+
+
+func _build_background() -> void:
+	var texture := _pick_random_background_texture()
+	if texture != null:
+		var image_rect := TextureRect.new()
+		image_rect.texture = texture
+		image_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		image_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		image_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		image_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(image_rect)
+		return
+	# Ни одной картинки в MENU_BACKGROUNDS_DIR — старый плоский фон с
+	# процедурными звёздами вместо пустого экрана.
 	var background := ColorRect.new()
 	background.color = Color("07111f")
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -18,43 +115,82 @@ func _ready() -> void:
 		star.color = Color(0.5, 0.75, 1.0, stars.randf_range(0.15, 0.65))
 		star.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(star)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	var column := VBoxContainer.new()
-	column.custom_minimum_size.x = 580
-	column.add_theme_constant_override("separation", 20)
-	center.add_child(column)
-	var title := Label.new()
-	title.text = "ГЕРОИ ГАЛАКТИКИ"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 48)
-	title.add_theme_color_override("font_color", Color("e5b956"))
-	column.add_child(title)
-	var subtitle := Label.new()
-	subtitle.text = "Возглавьте флот. Исследуйте галактику."
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 20)
-	column.add_child(subtitle)
-	_button(column, "Новая игра", _new_game)
-	var load_button := _button(column, "Загрузить игру", _load_game)
-	load_button.disabled = CampaignSave.read_save().is_empty()
-	_button(column, "Настройки", GameSettings.open_menu)
-	_button(column, "Выход", get_tree().quit)
-	status = Label.new()
-	status.text = "Новая игра сбросит прогресс и заменит сохранение."
-	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(status)
-	if load_button.disabled:
-		status.text += "\nСохранённой кампании пока нет."
+
+
+func _build_vignette() -> void:
+	var shade := ColorRect.new()
+	shade.color = Color(0.0, 0.0, 0.0, 0.12)
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(shade)
+
+
+## Список файлов не кешируется — сканируется один раз при входе в меню,
+## дороговизна не имеет значения.
+func _pick_random_background_texture() -> Texture2D:
+	var dir := DirAccess.open(MENU_BACKGROUNDS_DIR)
+	if dir == null:
+		return null
+	var candidates: Array[String] = []
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.get_extension().to_lower() in ["png", "jpg", "jpeg"]:
+			candidates.append(file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	if candidates.is_empty():
+		return null
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var chosen: String = candidates[rng.randi_range(0, candidates.size() - 1)]
+	return load(MENU_BACKGROUNDS_DIR.path_join(chosen)) as Texture2D
+
+
+## Список файлов не кешируется — сканируется один раз при входе в меню,
+## дороговизна не имеет значения.
+func _start_music() -> void:
+	var dir := DirAccess.open(MENU_MUSIC_DIR)
+	if dir == null:
+		return
+	var candidates: Array[String] = []
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "mp3":
+			candidates.append(file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	if candidates.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var chosen: String = candidates[rng.randi_range(0, candidates.size() - 1)]
+	var loaded := load(MENU_MUSIC_DIR.path_join(chosen)) as AudioStreamMP3
+	if loaded == null:
+		return
+	var stream: AudioStreamMP3 = loaded.duplicate()
+	stream.loop = true
+	var music_player := AudioStreamPlayer.new()
+	music_player.stream = stream
+	music_player.volume_db = MENU_MUSIC_VOLUME_DB
+	GameSettings.attach_music(music_player)
+	add_child(music_player)
+	music_player.play()
 
 
 func _button(parent: Node, text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size.y = 64
-	button.add_theme_font_size_override("font_size", 24)
+	button.custom_minimum_size.y = 54
+	button.focus_mode = Control.FOCUS_ALL
+	button.add_theme_font_override("font", menu_font)
+	button.add_theme_font_size_override("font_size", 22)
+	button.add_theme_color_override("font_color", Color(0.93, 0.97, 1.0))
+	button.add_theme_color_override("font_hover_color", Color(1.0, 0.95, 0.82))
+	button.add_theme_color_override("font_pressed_color", Color(0.72, 0.9, 1.0))
+	button.add_theme_color_override("font_disabled_color", Color(0.55, 0.6, 0.66, 0.45))
+	preload("res://scripts/ui_style.gd").apply_button(button)
 	button.pressed.connect(action)
 	parent.add_child(button)
 	return button

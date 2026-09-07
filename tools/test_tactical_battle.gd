@@ -97,7 +97,6 @@ func _run() -> void:
 			battle._end_active_turn()
 	_check(enemy_turns.has(3) and enemy_turns.has(4), "Both pirate stacks must take turns")
 	_check(battle.battle_finished, "A complete battle must reach a result without getting stuck")
-	_check(battle.hud.restart_button.visible, "Result must offer a rematch")
 	battle.free()
 
 	# Ответный залп срабатывает только в упор и только один раз за раунд.
@@ -155,10 +154,6 @@ func _run() -> void:
 	_check(strategy.process_mode == Node.PROCESS_MODE_DISABLED, "Strategy must pause during battle")
 	# The board is drawn in world space, so a leftover strategic camera would offset every hex and every click.
 	_check(battle.get_viewport().canvas_transform.is_equal_approx(Transform2D.IDENTITY), "Battle board must not inherit the strategic camera")
-	battle.hud.restart_requested.emit()
-	await process_frame
-	battle = current_scene
-	_check(battle.units.size() == 5 and battle.return_map == map, "Rematch must preserve return destination")
 	battle.hud.return_requested.emit()
 	await process_frame
 	_check(current_scene == strategy, "Return must restore original strategic scene")
@@ -169,5 +164,5 @@ func _run() -> void:
 	_check(strategy.process_mode != Node.PROCESS_MODE_DISABLED, "Strategy must resume")
 	strategy.free()
 	if failures == 0:
-		print("PASS: HoMM-style stacks (23/8/2 vs 16/4), casualty maths, attack-vs-defence, range penalty, initiative order, retaliation, full battle, victory, rematch and map state preservation")
+		print("PASS: HoMM-style stacks (23/8/2 vs 16/4), casualty maths, attack-vs-defence, range penalty, initiative order, retaliation, full battle, victory, return-to-map and state preservation")
 	quit(1 if failures > 0 else 0)

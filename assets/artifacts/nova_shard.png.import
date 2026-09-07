@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dkqi7rtrbynvb"
-path="res://.godot/imported/orc.png-7d6f2cb3b108a07c25675357b696228b.ctex"
+uid="uid://bsdwqlm14vvci"
+path="res://.godot/imported/nova_shard.png-98d233d4a6d21dabfa0860e44fbe27d7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hero_ships/orc.png"
-dest_files=["res://.godot/imported/orc.png-7d6f2cb3b108a07c25675357b696228b.ctex"]
+source_file="res://assets/artifacts/nova_shard.png"
+dest_files=["res://.godot/imported/nova_shard.png-98d233d4a6d21dabfa0860e44fbe27d7.ctex"]
 
 [params]
 

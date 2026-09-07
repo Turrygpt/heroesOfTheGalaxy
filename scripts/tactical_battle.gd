@@ -2,12 +2,20 @@ extends Node2D
 
 const GRID_COLUMNS := 15
 const GRID_ROWS := 9
-const HEX_RADIUS := 48.0
-const HEX_HEIGHT := HEX_RADIUS * sqrt(3.0)
+const HEX_RADIUS := 65.0
+## Гекс острой вершиной (pointy-top): ряды — ровная горизонталь, смещаются
+## по чётности РЯДА (а не колонки, как было раньше при плоской вершине).
+## HEX_WIDTH — шаг между соседями в одном ряду; HEX_RADIUS*1.5 — шаг между рядами.
+const HEX_WIDTH := HEX_RADIUS * sqrt(3.0)
+## От этого ранга корабль занимает 2 клетки по горизонтали (см. _footprint_cells).
+const MULTI_CELL_MIN_TIER := 4
 const GRID_COLOR := Color(0.27, 0.42, 0.55, 0.36)
 const GOLD_COLOR := Color("e5b956")
 const PLAYER_COLOR := Color("3ca5ff")
 const ENEMY_COLOR := Color("ef5350")
+## Выхлоп двигателей (см. _draw_engine_exhaust) — нейтралы (торговцы/пираты)
+## отдельно от орков, поэтому свой цвет, а не ENEMY_COLOR у обоих.
+const NEUTRAL_ENGINE_COLOR := Color("f4d35e")
 const INVALID_CELL := Vector2i(-1, -1)
 const BEAM_DURATION := 0.35
 const MOVE_DURATION := 0.35
@@ -23,31 +31,17 @@ const CUBE_DIRECTIONS := [
 	Vector3i(1, -1, 0), Vector3i(1, 0, -1), Vector3i(0, 1, -1),
 	Vector3i(-1, 1, 0), Vector3i(-1, 0, 1), Vector3i(0, -1, 1),
 ]
-## --- Заход с тыла ---------------------------------------------------------
-## Корабль «смотрит» туда, куда в последний раз летел (см. _start_unit_move);
-## залп не разворачивает пачку — развернуться можно только манёвром, иначе
-## обойти кого-то с тыла было бы невозможно.
-## Тыловая дуга — 120° позади: косинус угла между курсом цели и направлением
-## на стрелка меньше -0.5.
-const REAR_ARC_COS := -0.5
-## Удар в корму бьёт сильнее и не получает ответного залпа — это и есть
-## награда за манёвр вместо лобового сближения.
-const REAR_DAMAGE_BONUS := 0.25
-## Курс по умолчанию: земляне смотрят вправо, противник — влево (стороны
-## стоят по краям поля, см. SIDE1_CELLS/SIDE2_CELLS).
-const DEFAULT_FACING := {1: Vector2.RIGHT, 2: Vector2.LEFT}
-
 ## --- Веса выбора клетки для манёвра (см. _best_enemy_move_cell) ------------
-## Замысел ровно один: держать цель в дальности залпа и по возможности зайти
-## ей в корму. Разрывать дистанцию корабль НЕ пытается — пятиться от каждого
-## встречного он не должен. Единственное исключение — окружение: когда
-## вплотную стоит SURROUNDED_LIMIT кораблей и больше, пачка выходит из клещей,
-## а преследователям приходится тратить ход на догон.
+## Замысел ровно один: держать цель в дальности залпа. Разрывать дистанцию
+## корабль НЕ пытается — пятиться от каждого встречного он не должен.
+## Единственное исключение — окружение: когда вплотную стоит SURROUNDED_LIMIT
+## кораблей и больше, пачка выходит из клещей, а преследователям приходится
+## тратить ход на догон. Направление подхода (в лоб/сбоку) на исход боя не
+## влияет — как в HoMM3, тут нет ни бонуса за заход в тыл, ни разворота
+## спрайта под конкретную сторону атаки.
 ##
 ## Возможность отстреляться в этот же ход дороже всего остального вместе.
 const MOVE_SCORE_CAN_SHOOT := 1000.0
-## Премия за клетку в тыловой дуге цели — главный мотив манёвра.
-const MOVE_SCORE_REAR := 120.0
 ## Со скольких соседей клетка считается окружением.
 const SURROUNDED_LIMIT := 2
 ## Штраф за каждого лишнего соседа сверх порога. Подобран так, чтобы двое
@@ -60,15 +54,34 @@ const MOVE_SCORE_DISTANCE := 1.0
 ## вовсе (ровно это и произошло на первом прогоне).
 const MOVE_SCORE_APPROACH := 50.0
 
+## Фон боя — слоями от самого дальнего к ближнему. tactical_backdrop неподвижен
+## (условно "бесконечно далеко"), остальные три едут за курсором мыши на свою
+## "strength" в пикселях (см. _draw_parallax_layer/_update_parallax_target) —
+## чем ближе слой, тем сильнее сдвиг, это и даёт ощущение объёма без камеры.
 const SPACE_BACKDROP := preload("res://assets/space/tactical_backdrop.png")
+const PARALLAX_LAYERS := [
+	{"texture": preload("res://assets/space/parallax_stars_far.png"), "strength": 6.0},
+	{"texture": preload("res://assets/space/parallax_nebula_mid.png"), "strength": 14.0},
+	{"texture": preload("res://assets/space/parallax_dust_near.png"), "strength": 26.0},
+]
+## Запас за краями экрана, чтобы сдвиг слоя никогда не оголил его границу.
+const PARALLAX_OVERSCAN := 48.0
+## Папка с декоративными задниками (планета/луна/туманность) — см. промт для
+## генерации в AGENTS.md. Файлов может не быть вообще (фича не завязана на их
+## наличие), тогда _pick_backdrop_object() просто ничего не выбирает.
+const BACKDROP_OBJECTS_DIR := "res://assets/space/backdrops"
+## Не на каждом бою — контраст фонового объекта важнее, если он не примелькался.
+const BACKDROP_OBJECT_CHANCE := 0.35
 const BATTLE_HUD := preload("res://scripts/tactical_battle_hud.gd")
 const BATTLE_REWARDS := preload("res://scripts/battle_rewards.gd")
 const BATTLE_RESULTS_DIALOG := preload("res://scripts/battle_results_dialog.gd")
 const PROTOCOL_BOOK_HUD := preload("res://scripts/protocol_book_hud.gd")
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
-## Боевая тема. Карта (space_strategy_map.gd:SPACE_MUSIC) в это время уже
+## Боевые темы. Карта (space_strategy_map.gd:SPACE_MUSIC_DIR) в это время уже
 ## затихла через return_map.pause_music() — здесь плавно нарастаем поверх.
-const BATTLE_MUSIC := preload("res://music/Market Pulse (Fight Rhythm Mix).mp3")
+## Папка со всеми треками — любое количество mp3, _start_music берёт случайный
+## (см. music/battle/README.md, тот же приём, что и main_menu.gd).
+const BATTLE_MUSIC_DIR := "res://music/battle"
 const BATTLE_MUSIC_VOLUME_DB := -8.0
 ## Общая длительность кроссфейда, тот же интервал, что у карты
 ## (space_strategy_map.gd:MUSIC_FADE_DURATION) — оба перехода звучат синхронно.
@@ -173,6 +186,29 @@ var last_hovered_cell: Vector2i = INVALID_CELL
 var hex_center_cache: Dictionary = {}
 var path_distance_cache: Dictionary = {}
 
+## --- Попап характеристик корабля при наведении ----------------------------
+## Задержка перед показом (курсор должен простоять над одной и той же пачкой
+## HOVER_TOOLTIP_DELAY секунд) — иначе попап мигал бы при каждом проходе мыши
+## по полю боя.
+const HOVER_TOOLTIP_DELAY := 2.0
+var hover_target_index := -1
+var hover_timer := 0.0
+var hover_tooltip_visible := false
+var last_mouse_position := Vector2.ZERO
+
+## --- Параллакс фона -------------------------------------------------------
+## Камера в бою неподвижна (см. _ready: ANCHOR_MODE_FIXED_TOP_LEFT), поэтому
+## слои фона едут не за камерой, а за курсором мыши: -1..1 от центра экрана
+## по каждой оси, сглаженное по времени (_tick_battle), само смещение в
+## пикселях считает _draw_parallax_layer через "strength" каждого слоя.
+var parallax_target := Vector2.ZERO
+var parallax_offset := Vector2.ZERO
+## Случайно выбранный при старте боя фоновый объект (планета/луна/туманность,
+## см. _pick_backdrop_object) — пусто, если папка ассетов пуста или не повезло
+## с броском. Не путать с обелисками/препятствиями поля: это чистая декорация
+## заднего плана, боя не касается.
+var backdrop_object: Dictionary = {}
+
 
 func _ready() -> void:
 	auto_battle_used = auto_battle or quick_battle
@@ -198,17 +234,38 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup(units, turn_order)
 	hud.end_turn_requested.connect(_end_active_turn)
-	hud.restart_requested.connect(_restart_battle)
 	hud.return_requested.connect(_return_to_map)
 	hud.auto_requested.connect(_toggle_auto_battle)
 	get_viewport().size_changed.connect(queue_redraw)
 	_precompute_hex_centers()
+	_pick_backdrop_object()
 	_start_music()
 	_begin_active_turn()
 
 
+## Список файлов не кешируется — сканируется один раз за бой, дороговизна не
+## имеет значения. Пустая папка не ломает бой — просто нет музыки.
 func _start_music() -> void:
-	var stream: AudioStreamMP3 = BATTLE_MUSIC.duplicate()
+	var dir := DirAccess.open(BATTLE_MUSIC_DIR)
+	if dir == null:
+		return
+	var candidates: Array[String] = []
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "mp3":
+			candidates.append(file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	if candidates.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var chosen: String = candidates[rng.randi_range(0, candidates.size() - 1)]
+	var loaded := load(BATTLE_MUSIC_DIR.path_join(chosen)) as AudioStreamMP3
+	if loaded == null:
+		return
+	var stream: AudioStreamMP3 = loaded.duplicate()
 	stream.loop = true
 	music_player = AudioStreamPlayer.new()
 	music_player.stream = stream
@@ -239,8 +296,8 @@ func _precompute_hex_centers() -> void:
 		for row in range(GRID_ROWS):
 			var cell: Vector2i = Vector2i(column, row)
 			hex_center_cache[cell] = origin + Vector2(
-				HEX_RADIUS + cell.x * HEX_RADIUS * 1.5,
-				HEX_HEIGHT * 0.5 + cell.y * HEX_HEIGHT + (cell.x % 2) * HEX_HEIGHT * 0.5
+				HEX_WIDTH * 0.5 + cell.x * HEX_WIDTH + (cell.y % 2) * HEX_WIDTH * 0.5,
+				HEX_RADIUS + cell.y * HEX_RADIUS * 1.5
 			)
 
 
@@ -282,7 +339,6 @@ func _finalize_unit(unit: Dictionary) -> Dictionary:
 	unit["anim_from"] = unit["cell"]
 	unit["anim_t"] = 1.0
 	unit["effects"] = []
-	unit["facing"] = DEFAULT_FACING[int(unit["side"])]
 	return unit
 
 
@@ -307,7 +363,8 @@ func _generate_obstacles() -> void:
 	rng.randomize()
 	var reserved := {}
 	for unit in units:
-		reserved[unit["cell"]] = true
+		for cell in _footprint_cells(unit):
+			reserved[cell] = true
 	var cluster_count := rng.randi_range(3, 4)
 	var placed := 0
 	var attempts := cluster_count * 60
@@ -426,9 +483,22 @@ func _tick_battle(delta: float) -> void:
 		animating = true
 		if cast_effects[index]["time"] >= CAST_DURATION:
 			cast_effects.remove_at(index)
+	if parallax_offset.distance_squared_to(parallax_target) > 0.0001:
+		parallax_offset = parallax_offset.lerp(parallax_target, clampf(delta * 4.0, 0.0, 1.0))
+		animating = true
 	mouse_move_throttle -= delta
 	if mouse_move_throttle < 0.0:
 		mouse_move_throttle = 0.0
+	var hovered_unit_index := _unit_at_cell(hovered_cell) if hovered_cell != INVALID_CELL else -1
+	if hovered_unit_index != hover_target_index:
+		hover_target_index = hovered_unit_index
+		hover_timer = 0.0
+		hover_tooltip_visible = false
+	elif hover_target_index != -1 and not hover_tooltip_visible:
+		hover_timer += delta
+		if hover_timer >= HOVER_TOOLTIP_DELAY:
+			hover_tooltip_visible = true
+			animating = true
 	if enemy_turn_delay >= 0.0:
 		enemy_turn_delay -= delta
 		if enemy_turn_delay <= 0.0:
@@ -449,6 +519,15 @@ func _tick_battle(delta: float) -> void:
 		_advance_turn()
 
 
+## -1..1 от центра экрана по каждой оси — само умножение на "strength" слоя
+## живёт в _draw_parallax_layer, здесь только нормализованное направление.
+func _update_parallax_target(mouse_position: Vector2) -> void:
+	var center := get_viewport_rect().size * 0.5
+	if center.x <= 0.0 or center.y <= 0.0:
+		return
+	parallax_target = ((mouse_position - center) / center).clamp(Vector2(-1.0, -1.0), Vector2(1.0, 1.0))
+
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE and selected_protocol != "":
@@ -458,11 +537,15 @@ func _input(event: InputEvent) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
+		last_mouse_position = event.position
+		_update_parallax_target(event.position)
 		if mouse_move_throttle <= 0.0:
 			var new_cell: Vector2i = _cell_at_position(event.position)
 			if new_cell != last_hovered_cell:
 				hovered_cell = new_cell
 				last_hovered_cell = new_cell
+				hover_timer = 0.0
+				hover_tooltip_visible = false
 				queue_redraw()
 				_update_hud()
 			mouse_move_throttle = 0.016
@@ -486,7 +569,12 @@ func _handle_cell_click(cell: Vector2i) -> void:
 		_try_cast_at_cell(cell)
 		return
 	var target_index := _unit_at_cell(cell)
-	if target_index >= 0:
+	# Собственный "хвост" (IV+ ранг) — не цель для клика, а часть текущей
+	# позиции; клик по нему должен уходить в манёвр ниже (пачка идёт вперёд на
+	# клетку), а не гаситься тут. Клик по "носу" (своя cell) — как и раньше,
+	# не движение и не атака.
+	var is_own_tail: bool = target_index == active_unit_index and cell != _active_unit()["cell"]
+	if target_index >= 0 and not is_own_tail:
 		if _can_shoot_unit(target_index):
 			_attack_unit(active_unit_index, target_index, false)
 			_maybe_finish_active_turn()
@@ -529,7 +617,7 @@ func _range_penalty(distance: int) -> float:
 	return 1.0 if distance <= POINT_BLANK_DISTANCE else 0.7
 
 
-func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int, from_rear: bool = false) -> int:
+func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int) -> int:
 	var count := _stack_count(attacker)
 	var damage_min := _stat(attacker, "damage_min")
 	var damage_max := _stat(attacker, "damage_max")
@@ -540,8 +628,6 @@ func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int,
 	else:
 		base = count * (damage_min + damage_max) * 0.5
 	var total := base * _damage_multiplier(attacker, target) * _range_penalty(distance)
-	if from_rear:
-		total *= 1.0 + REAR_DAMAGE_BONUS
 	return maxi(1, int(round(total)))
 
 
@@ -602,8 +688,12 @@ func _end_active_turn() -> void:
 	_advance_turn()
 
 
+## Ответный залп срабатывает синхронно внутри _attack_unit и может убить
+## самого стрелка раньше, чем он успел походить (moved остаётся false) —
+## мёртвый отряд всё равно ничего больше не может, ход обязан пойти дальше.
 func _maybe_finish_active_turn() -> void:
-	if _active_unit()["moved"] and _active_unit()["shot"]:
+	var active := _active_unit()
+	if active["hp"] <= 0 or (active["moved"] and active["shot"]):
 		turn_pending = true
 
 
@@ -729,51 +819,12 @@ func _best_enemy_target() -> int:
 
 func _start_unit_move(unit: Dictionary, destination: Vector2i) -> void:
 	unit["anim_from"] = unit["cell"]
-	_update_facing(unit, unit["cell"], destination)
 	unit["cell"] = destination
 	unit["anim_t"] = 0.0
 	unit["moved"] = true
 	path_distance_cache.clear()
 	if not quick_battle:
 		ProceduralSfx.play_move(unit)
-
-
-## Курс пачки — направление последнего перелёта в экранных координатах.
-## Считаем по центрам гексов, а не по кубическим направлениям: так «тыл»
-## совпадает с тем, что игрок видит на поле.
-func _update_facing(unit: Dictionary, from_cell: Vector2i, to_cell: Vector2i) -> void:
-	if from_cell == to_cell:
-		return
-	var origin := _grid_origin()
-	var delta := _hex_center(to_cell, origin) - _hex_center(from_cell, origin)
-	if delta.length_squared() > 0.0:
-		unit["facing"] = delta.normalized()
-
-
-## Стреляют ли по цели с кормы. Дистанция роли не играет: тыл прикрыт хуже и
-## для залпа издалека тоже.
-func _is_rear_attack(attacker: Dictionary, target: Dictionary) -> bool:
-	var facing: Vector2 = target.get("facing", DEFAULT_FACING[int(target["side"])])
-	if facing.length_squared() <= 0.0:
-		return false
-	var origin := _grid_origin()
-	var to_attacker := _hex_center(attacker["cell"], origin) - _hex_center(target["cell"], origin)
-	if to_attacker.length_squared() <= 0.0:
-		return false
-	return facing.normalized().dot(to_attacker.normalized()) < REAR_ARC_COS
-
-
-## Окажется ли клетка в тыловой дуге цели — тот же расчёт, но для клетки, в
-## которую ИИ только собирается лететь.
-func _cell_is_in_rear_arc(cell: Vector2i, target: Dictionary) -> bool:
-	var facing: Vector2 = target.get("facing", DEFAULT_FACING[int(target["side"])])
-	if facing.length_squared() <= 0.0:
-		return false
-	var origin := _grid_origin()
-	var to_cell := _hex_center(cell, origin) - _hex_center(target["cell"], origin)
-	if to_cell.length_squared() <= 0.0:
-		return false
-	return facing.normalized().dot(to_cell.normalized()) < REAR_ARC_COS
 
 
 ## Сколько живых кораблей противоположной стороны стоит вплотную к клетке.
@@ -810,8 +861,10 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 	for cell in obstacle_at:
 		blocked[cell] = true
 	for unit in units:
-		if unit["hp"] > 0 and unit["cell"] != current_cell:
-			blocked[unit["cell"]] = true
+		if unit["hp"] <= 0 or _footprint_cells(unit).has(current_cell):
+			continue
+		for occupied in _footprint_cells(unit):
+			blocked[occupied] = true
 
 	var reachable: Dictionary = {current_cell: 0}
 	var frontier: Array[Vector2i] = [current_cell]
@@ -831,6 +884,9 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 	var best_cell: Vector2i = current_cell
 	var best_score := -INF
 	for cell in reachable:
+		# Корма корабля IV+ ранга тоже должна встать на свободную клетку.
+		if not _footprint_valid(_footprint_for_move(active, cell), active_unit_index):
+			continue
 		var score := _move_cell_score(cell, active, target, shot_range)
 		if score > best_score:
 			best_score = score
@@ -839,8 +895,8 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 
 
 ## Оценка клетки для манёвра. Возможность отстреляться перевешивает всё
-## остальное; среди стреляющих клеток лучшая — в тыловой дуге цели. Разрывать
-## дистанцию корабль не пытается: единственная причина уйти — окружение.
+## остальное. Разрывать дистанцию корабль не пытается: единственная причина
+## уйти — окружение.
 func _move_cell_score(cell: Vector2i, active: Dictionary, target: Dictionary, shot_range: int) -> float:
 	var target_cell: Vector2i = target["cell"]
 	var target_distance := _hex_distance(cell, target_cell)
@@ -850,10 +906,7 @@ func _move_cell_score(cell: Vector2i, active: Dictionary, target: Dictionary, sh
 		# Стрелять неоткуда: сближаемся, окружение — лишь уточнение между
 		# одинаково близкими клетками.
 		return -MOVE_SCORE_APPROACH * float(target_distance) - encircled
-	var score := MOVE_SCORE_CAN_SHOOT - encircled - MOVE_SCORE_DISTANCE * float(target_distance)
-	if _cell_is_in_rear_arc(cell, target):
-		score += MOVE_SCORE_REAR
-	return score
+	return MOVE_SCORE_CAN_SHOOT - encircled - MOVE_SCORE_DISTANCE * float(target_distance)
 
 
 func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) -> void:
@@ -861,8 +914,7 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 	var target: Dictionary = units[target_index]
 	var origin := _grid_origin()
 	var distance := _hex_distance(attacker["cell"], target["cell"])
-	var from_rear := _is_rear_attack(attacker, target)
-	var damage := _roll_stack_damage(attacker, target, distance, from_rear)
+	var damage := _roll_stack_damage(attacker, target, distance)
 	var losses := _casualties_for(target, damage)
 	var delay := BEAM_DURATION if is_retaliation else 0.0
 	if not quick_battle:
@@ -887,7 +939,7 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 	attacker["shot"] = true
 	if is_retaliation:
 		attacker["retaliated"] = true
-	var prefix := "Ответный залп · " if is_retaliation else ("Заход с тыла · " if from_rear else "")
+	var prefix := "Ответный залп · " if is_retaliation else ""
 	if target["hp"] <= 0:
 		last_event = "%s%s уничтожает отряд «%s»" % [prefix, attacker["label"], target["label"]]
 	elif losses > 0:
@@ -895,8 +947,7 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 	else:
 		last_event = "%s%s: %d урона" % [prefix, attacker["label"], damage]
 	# Ответный залп — только в упор и один раз за раунд, как контратака в HoMM3.
-	# Удар в корму ответа не получает: цель не успевает довернуть орудия.
-	if not is_retaliation and not from_rear and distance <= 1 and target["hp"] > 0 and not target["retaliated"]:
+	if not is_retaliation and distance <= 1 and target["hp"] > 0 and not target["retaliated"]:
 		_attack_unit(target_index, attacker_index, true)
 		return
 	_check_battle_end()
@@ -919,8 +970,10 @@ func _check_battle_end() -> void:
 
 
 ## Победителю начисляется опыт за потери противника; проигравшему — ноль.
-## Сначала окно итогов. Победа: закрытие окна (и выбор навыков, если герой
-## вырос) возвращает на карту галактики. Поражение оставляет на поле боя.
+## Сначала окно итогов, затем (после выбора навыков, если герой вырос) —
+## возврат на карту галактики. Переигровки нет: и победа, и поражение
+## завершают бой безвозвратно, последствия (потеря флота при поражении)
+## применяет _return_to_map через return_map._resolve_*.
 func _grant_experience() -> void:
 	if experience_granted:
 		return
@@ -957,17 +1010,18 @@ func _show_battle_results(player_hero: Hero, player_won: bool, xp_gained: int) -
 	dialog.finished.connect(_on_battle_results_closed.bind(player_hero, player_won))
 
 
-func _on_battle_results_closed(player_hero: Hero, player_won: bool) -> void:
+## И победа, и поражение закрывают бой окончательно (переигровки нет) —
+## закрытие окна итогов всегда ведёт на карту галактики, разница только в
+## том, всплывает ли перед этим окно выбора навыков.
+func _on_battle_results_closed(player_hero: Hero, _player_won: bool) -> void:
 	if player_hero != null and player_hero.has_pending_level_up():
 		var level_up := BATTLE_REWARDS.show_level_ups(self, player_hero)
-		if player_won or quick_battle:
-			if level_up != null:
-				level_up.finished.connect(_return_to_map)
-			else:
-				_return_to_map()
+		if level_up != null:
+			level_up.finished.connect(_return_to_map)
+		else:
+			_return_to_map()
 		return
-	if player_won or quick_battle:
-		_return_to_map()
+	_return_to_map()
 
 
 ## Как звать противника в подписях боя. Фракцию определяет HUD по самим
@@ -994,12 +1048,18 @@ func _side_alive(side: int) -> bool:
 func _can_move_to(cell: Vector2i) -> bool:
 	if not _cell_in_grid(cell):
 		return false
-	if _active_unit()["side"] != 1 or _active_unit()["moved"]:
+	var active := _active_unit()
+	if active["side"] != 1 or active["moved"] or cell == active["cell"]:
 		return false
-	if _unit_at_cell(cell) >= 0 or obstacle_at.has(cell):
+	var occupant := _unit_at_cell(cell)
+	# Клетка может быть собственным "хвостом" двигающейся пачки (IV+ ранг) —
+	# это не препятствие, а часть текущей позиции, ход туда легален.
+	if (occupant >= 0 and occupant != active_unit_index) or obstacle_at.has(cell):
 		return false
-	var distance := _path_distance(_active_unit()["cell"], cell)
-	return distance >= 0 and distance <= _stat(_active_unit(), "move")
+	if not _footprint_valid(_footprint_for_move(active, cell), active_unit_index):
+		return false
+	var distance := _path_distance(active["cell"], cell)
+	return distance >= 0 and distance <= _stat(active, "move")
 
 
 func _can_shoot_unit(target_index: int) -> bool:
@@ -1033,7 +1093,12 @@ func _active_unit() -> Dictionary:
 
 func _unit_at_cell(cell: Vector2i) -> int:
 	for index in range(units.size()):
-		if units[index]["hp"] > 0 and units[index]["cell"] == cell:
+		var unit: Dictionary = units[index]
+		if unit["hp"] <= 0:
+			continue
+		if unit["cell"] == cell:
+			return index
+		if _is_multi_cell(unit) and _secondary_cell(unit["cell"], int(unit["side"])) == cell:
 			return index
 	return -1
 
@@ -1047,15 +1112,17 @@ func _hex_distance(first: Vector2i, second: Vector2i) -> int:
 	)
 
 
+## "odd-r": острая вершина, смещаются нечётные РЯДЫ (см. HEX_WIDTH) — иначе
+## соседство/дистанции/LoS разойдутся с тем, что реально рисует _hex_center.
 func _offset_to_cube(cell: Vector2i) -> Vector3i:
-	var x := cell.x
-	var z := cell.y - (cell.x - (cell.x & 1)) / 2
+	var x := cell.x - (cell.y - (cell.y & 1)) / 2
+	var z := cell.y
 	return Vector3i(x, -x - z, z)
 
 
 func _cube_to_offset(cube: Vector3i) -> Vector2i:
-	var column := cube.x
-	var row := cube.z + (column - (column & 1)) / 2
+	var row := cube.z
+	var column := cube.x + (row - (row & 1)) / 2
 	return Vector2i(column, row)
 
 
@@ -1065,6 +1132,53 @@ func _hex_neighbors(cell: Vector2i) -> Array[Vector2i]:
 	for direction in CUBE_DIRECTIONS:
 		neighbors.append(_cube_to_offset(cube + direction))
 	return neighbors
+
+
+# --- Занятость поля кораблями IV+ ранга (2 клетки по горизонтали) -----------
+# Хвост — всегда сосед в том же РЯДУ: cell.x+1 у стороны 1, cell.x-1 у стороны
+# 2. Постоянно, а не в зависимости от направления подхода — курса (facing) у
+# пачек больше нет (см. §7a в AGENTS.md: как в HoMM3, направление атаки на
+# исход и позиционирование не влияет). Раньше хвост считался по курсу и после
+# диагонального манёвра съезжал по диагонали, а спрайт всё равно рисуется как
+# ровный горизонтальный прямоугольник (см. _draw_unit) — хитбокс и картинка
+# расходились, клик по видимому корпусу мог попасть в клетку, которая пачке не
+# принадлежит. Корма зафиксирована горизонтально, чтобы хитбокс всегда совпадал
+# с тем, что нарисовано.
+func _secondary_cell(cell: Vector2i, side: int) -> Vector2i:
+	return Vector2i(cell.x + (1 if side == 1 else -1), cell.y)
+
+
+func _is_multi_cell(unit: Dictionary) -> bool:
+	return int(unit.get("tier", 1)) >= MULTI_CELL_MIN_TIER
+
+
+## Клетки, реально занятые пачкой прямо сейчас (для блокировки хода/атаки/LoS).
+func _footprint_cells(unit: Dictionary) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = [unit["cell"]]
+	if _is_multi_cell(unit):
+		cells.append(_secondary_cell(unit["cell"], int(unit["side"])))
+	return cells
+
+
+## То же самое, но для клетки-кандидата манёвра.
+func _footprint_for_move(unit: Dictionary, destination: Vector2i) -> Array[Vector2i]:
+	if not _is_multi_cell(unit):
+		return [destination]
+	return [destination, _secondary_cell(destination, int(unit["side"]))]
+
+
+## Годится ли набор клеток под корпус пачки: в поле, без препятствий и без
+## чужого корабля (ignore_index — сама двигающаяся/проверяемая пачка).
+func _footprint_valid(cells: Array[Vector2i], ignore_index: int) -> bool:
+	for cell in cells:
+		if not _cell_in_grid(cell):
+			return false
+		if obstacle_at.has(cell):
+			return false
+		var occupant := _unit_at_cell(cell)
+		if occupant >= 0 and occupant != ignore_index:
+			return false
+	return true
 
 
 ## Кратчайший путь в гексах в обход препятствий и занятых клеток; -1, если
@@ -1080,8 +1194,10 @@ func _path_distance(from: Vector2i, to: Vector2i) -> int:
 	for cell in obstacle_at:
 		blocked[cell] = true
 	for unit in units:
-		if unit["hp"] > 0 and unit["cell"] != from:
-			blocked[unit["cell"]] = true
+		if unit["hp"] <= 0 or _footprint_cells(unit).has(from):
+			continue
+		for occupied in _footprint_cells(unit):
+			blocked[occupied] = true
 	var visited: Dictionary = {from: true}
 	var frontier: Array[Vector2i] = [from]
 	var distance: int = 0
@@ -1461,8 +1577,7 @@ func _spawn_cast_fx(center: Vector2, color: Color, radius: int) -> void:
 # --- Отрисовка ----------------------------------------------------------------
 
 func _draw() -> void:
-	draw_texture_rect(SPACE_BACKDROP, Rect2(Vector2.ZERO, get_viewport_rect().size), false)
-	draw_rect(get_viewport_rect(), Color(0.01, 0.025, 0.045, 0.35))
+	_draw_background()
 	var origin := _grid_origin()
 	_draw_battlefield_frame(origin)
 	for column in range(GRID_COLUMNS):
@@ -1491,6 +1606,91 @@ func _draw() -> void:
 			continue
 		_draw_floater(floater)
 	_draw_cast_effects()
+	if hover_tooltip_visible and not battle_finished and hover_target_index >= 0 and units[hover_target_index]["hp"] > 0:
+		_draw_unit_tooltip(units[hover_target_index])
+
+
+func _draw_background() -> void:
+	var viewport_size := get_viewport_rect().size
+	draw_texture_rect(SPACE_BACKDROP, Rect2(Vector2.ZERO, viewport_size), false)
+	_draw_backdrop_object(viewport_size, 10.0)
+	for layer in PARALLAX_LAYERS:
+		_draw_parallax_layer(layer["texture"], float(layer["strength"]), viewport_size)
+	draw_rect(Rect2(Vector2.ZERO, viewport_size), Color(0.01, 0.025, 0.045, 0.35))
+
+
+## Тайлится с запасом по краям (PARALLAX_OVERSCAN), чтобы сдвиг на strength
+## пикселей от parallax_offset никогда не открыл край текстуры.
+func _draw_parallax_layer(texture: Texture2D, strength: float, viewport_size: Vector2) -> void:
+	var shift := parallax_offset * strength
+	var rect := Rect2(
+		Vector2(-PARALLAX_OVERSCAN, -PARALLAX_OVERSCAN) + shift,
+		viewport_size + Vector2(PARALLAX_OVERSCAN, PARALLAX_OVERSCAN) * 2.0
+	)
+	draw_texture_rect(texture, rect, true)
+
+
+## Декоративная планета/луна/туманность на заднем плане — не на каждый бой
+## (см. BACKDROP_OBJECT_CHANCE), выбирается один раз при старте боя
+## (_pick_backdrop_object) и слегка едет с параллаксом наравне с дальними
+## звёздами: она "далеко", поэтому почти не сдвигается.
+func _draw_backdrop_object(viewport_size: Vector2, strength: float) -> void:
+	if backdrop_object.is_empty():
+		return
+	var texture: Texture2D = backdrop_object["texture"]
+	var size := minf(viewport_size.x, viewport_size.y) * float(backdrop_object["scale"])
+	var anchor: Vector2 = backdrop_object["anchor"]
+	var peek: float = backdrop_object["peek"]
+	# anchor 0/1 на каждой оси — какой угол экрана; peek — доля картинки,
+	# остающаяся в кадре (остальное уезжает за край для эффекта "выглядывает").
+	var center := Vector2(
+		_corner_center(anchor.x, viewport_size.x, size, peek),
+		_corner_center(anchor.y, viewport_size.y, size, peek)
+	)
+	center += parallax_offset * strength
+	draw_texture_rect(texture, Rect2(center - Vector2.ONE * size * 0.5, Vector2.ONE * size), false)
+
+
+## Центр картинки размера size на одной оси: anchor 0 — у начала (0), anchor 1
+## — у конца (viewport_axis). peek=1 — картинка целиком внутри экрана впритык
+## к краю, peek=0.5 — ровно половина видна, peek→0 — почти вся уезжает за край.
+func _corner_center(anchor_axis: float, viewport_axis: float, size: float, peek: float) -> float:
+	var sign := 1.0 - 2.0 * anchor_axis
+	return anchor_axis * viewport_axis + sign * size * (peek - 0.5)
+
+
+## Папка может быть пустой (или вовсе не создана) — фича не завязана на
+## наличие ассетов, просто ничего не рисует. Список файлов не кешируется:
+## вызывается один раз за бой, дороговизна не имеет значения.
+func _pick_backdrop_object() -> void:
+	var dir := DirAccess.open(BACKDROP_OBJECTS_DIR)
+	if dir == null:
+		return
+	var candidates: Array[String] = []
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "png":
+			candidates.append(file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	if candidates.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	if rng.randf() > BACKDROP_OBJECT_CHANCE:
+		return
+	var chosen: String = candidates[rng.randi_range(0, candidates.size() - 1)]
+	var texture := load(BACKDROP_OBJECTS_DIR.path_join(chosen)) as Texture2D
+	if texture == null:
+		return
+	var corners := [Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0), Vector2(1.0, 1.0)]
+	backdrop_object = {
+		"texture": texture,
+		"anchor": corners[rng.randi_range(0, corners.size() - 1)],
+		"scale": rng.randf_range(0.55, 0.95),
+		"peek": rng.randf_range(0.4, 0.65),
+	}
 
 
 ## Пушка (обычный залп 3-4 ранга) — толстый цветной луч с белым ядром и
@@ -1620,8 +1820,11 @@ func _is_attackable_cell(cell: Vector2i) -> bool:
 	return target_index >= 0 and _can_shoot_unit(target_index)
 
 
-## Ширина кораблей по тирам: VII в 2,3 раза крупнее I, без растяжения спрайта.
-const TACTICAL_SHIP_WIDTHS := [80.0, 98.0, 116.0, 134.0, 152.0, 170.0, 184.0]
+## Ширина кораблей по тирам, без растяжения спрайта. I-III — один корабль на
+## клетку, ширина не больше HEX_WIDTH, чтобы не вылезать в соседний гекс.
+## С IV (MULTI_CELL_MIN_TIER) корабль реально занимает 2 клетки по горизонтали
+## (см. _footprint_cells) — отсюда скачок ширины: рисуется во весь разворот.
+const TACTICAL_SHIP_WIDTHS := [90.0, 101.0, 113.0, 181.0, 202.0, 220.0, 231.0]
 
 
 func _draw_unit(index: int, origin: Vector2) -> void:
@@ -1639,24 +1842,40 @@ func _draw_unit(index: int, origin: Vector2) -> void:
 	var ship_size: Vector2 = region.size * (TACTICAL_SHIP_WIDTHS[tier_index] / region.size.x)
 	# All source ships face left. Earth ships face the pirates on the right.
 	draw_set_transform(center, 0.0, Vector2(-1.0 if is_player else 1.0, 1.0))
+	_draw_engine_exhaust(unit, ship_size)
 	draw_texture_rect_region(unit["texture"], Rect2(-ship_size * 0.5, ship_size), region)
 	draw_set_transform(Vector2.ZERO)
-	_draw_rear_arc(center, unit)
 	_draw_stack_badge(center, unit, color, index == active_unit_index)
 	_draw_effect_pips(center, unit)
 
 
-## Уязвимая корма: дуга 120° позади курса пачки. Рисуется у всех, чтобы
-## обход с тыла можно было планировать, а не обнаруживать по факту
-## (см. _is_rear_attack).
-func _draw_rear_arc(center: Vector2, unit: Dictionary) -> void:
-	var facing: Vector2 = unit.get("facing", DEFAULT_FACING[int(unit["side"])])
-	if facing.length_squared() <= 0.0:
-		return
-	var rear_angle := (-facing).angle()
-	var half_arc := acos(-REAR_ARC_COS)
-	draw_arc(center, 34.0, rear_angle - half_arc, rear_angle + half_arc, 20,
-		Color(1.0, 0.42, 0.32, 0.55), 3.0, true)
+## Игрок — синий, орки — красный, нейтралы (торговцы/пираты) — жёлтый.
+func _engine_color(unit: Dictionary) -> Color:
+	if unit["side"] == 1:
+		return PLAYER_COLOR
+	if String(unit.get("faction", "")) == "orc":
+		return ENEMY_COLOR
+	return NEUTRAL_ENGINE_COLOR
+
+
+## Рисуется в локальных координатах корабля (см. draw_set_transform в
+## _draw_unit) ДО текстуры — корпус перекрывает основание хвоста, наружу
+## торчит только сам выхлоп. "Зад" корабля — сторона +x в локальных
+## координатах: у исходного арта (нос смотрит влево) это правый край, а
+## транспонирование через тот же transform (зеркалит игрока) само разворачивает
+## его на нужную сторону экрана, как и корпус.
+func _draw_engine_exhaust(unit: Dictionary, ship_size: Vector2) -> void:
+	var color := _engine_color(unit)
+	var back_x := ship_size.x * 0.5
+	var half_height := ship_size.y * 0.22
+	var length := ship_size.y * 0.85
+	draw_circle(Vector2(back_x + length * 0.4, 0.0), half_height * 1.7, Color(color, 0.14))
+	for step in range(4):
+		var t := float(step) / 3.0
+		var radius := lerpf(half_height, half_height * 0.12, t)
+		var alpha := lerpf(0.85, 0.0, t)
+		draw_circle(Vector2(back_x + length * t, 0.0), radius, Color(color, alpha))
+	draw_circle(Vector2(back_x + half_height * 0.25, 0.0), half_height * 0.5, Color(Color.WHITE.lerp(color, 0.35), 0.9))
 
 
 func _draw_effect_pips(center: Vector2, unit: Dictionary) -> void:
@@ -1694,41 +1913,117 @@ func _draw_stack_badge(center: Vector2, unit: Dictionary, color: Color, is_activ
 	)
 
 
+## Полная карточка характеристик — показывается у курсора после
+## HOVER_TOOLTIP_DELAY секунд наведения на пачку (см. _tick_battle), в
+## отличие от короткой строки в HUD-подсказке (_hover_hint), которая видна
+## сразу и только для активного отряда игрока.
+func _draw_unit_tooltip(unit: Dictionary) -> void:
+	var font := ThemeDB.fallback_font
+	var font_size := 15
+	var lines: Array[String] = [
+		"%s — %s" % [unit["label"], unit["role"]],
+		"Кораблей в отряде: %d" % _stack_count(unit),
+		"Прочность корабля: %d" % _stat(unit, "hull"),
+		"Атака %d  ·  Защита %d" % [_stat(unit, "attack"), _stat(unit, "defense")],
+		"Урон залпа: %d–%d" % [_stat(unit, "damage_min"), _stat(unit, "damage_max")],
+		"Манёвр %d  ·  Дальность %d  ·  Инициатива %d" % [_stat(unit, "move"), _stat(unit, "range"), _stat(unit, "initiative")],
+	]
+	var effects_text := _effects_text(unit)
+	if effects_text != "":
+		lines.append("Эффекты: %s" % effects_text.trim_prefix("  ·  "))
+	var line_height := 19.0
+	var padding := Vector2(14.0, 10.0)
+	var content_width := 0.0
+	for line in lines:
+		content_width = maxf(content_width, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x)
+	var box_size := Vector2(content_width + padding.x * 2.0, lines.size() * line_height + padding.y * 2.0)
+	var viewport_size := get_viewport_rect().size
+	var box_position := last_mouse_position + Vector2(18.0, 18.0)
+	box_position.x = clampf(box_position.x, 0.0, viewport_size.x - box_size.x)
+	box_position.y = clampf(box_position.y, 0.0, viewport_size.y - box_size.y)
+	var box := Rect2(box_position, box_size)
+	draw_rect(box, Color(0.015, 0.04, 0.07, 0.96), true)
+	draw_rect(box, GOLD_COLOR, false, 1.5)
+	for index in range(lines.size()):
+		draw_string(
+			font,
+			box_position + Vector2(padding.x, padding.y + (index + 1) * line_height - 5.0),
+			lines[index],
+			HORIZONTAL_ALIGNMENT_LEFT,
+			content_width,
+			font_size,
+			GOLD_COLOR if index == 0 else Color(0.94, 0.97, 1.0)
+		)
+
+
+## Для корабля IV+ ранга — середина между носом и кормой (см. _footprint_cells),
+## иначе центр «носа», как и раньше.
+func _footprint_center(unit: Dictionary, cell: Vector2i, origin: Vector2) -> Vector2:
+	var primary := _hex_center(cell, origin)
+	if not _is_multi_cell(unit):
+		return primary
+	var secondary := _secondary_cell(cell, int(unit["side"]))
+	if not _cell_in_grid(secondary):
+		return primary
+	return (primary + _hex_center(secondary, origin)) * 0.5
+
+
 func _unit_visual_center(unit: Dictionary, origin: Vector2) -> Vector2:
-	var target := _hex_center(unit["cell"], origin)
+	var target := _footprint_center(unit, unit["cell"], origin)
 	var t: float = unit["anim_t"]
 	if t >= 1.0:
 		return target
-	var start := _hex_center(unit["anim_from"], origin)
+	var start := _footprint_center(unit, unit["anim_from"], origin)
 	var eased := t * t * (3.0 - 2.0 * t)
 	return start.lerp(target, eased)
 
 
 func _grid_size() -> Vector2:
 	return Vector2(
-		HEX_RADIUS * 2.0 + (GRID_COLUMNS - 1) * HEX_RADIUS * 1.5,
-		GRID_ROWS * HEX_HEIGHT + HEX_HEIGHT * 0.5
+		GRID_COLUMNS * HEX_WIDTH + HEX_WIDTH * 0.5,
+		HEX_RADIUS * 2.0 + (GRID_ROWS - 1) * HEX_RADIUS * 1.5
 	)
 
 
+## Карта занимает весь экран, кроме тонкой полосы HUD снизу (см.
+## tactical_battle_hud.gd: BAR_HEIGHT + BAR_MARGIN*2) — здесь та же величина
+## продублирована, чтобы не тянуть зависимость на CanvasLayer ради одного числа.
+const GRID_SIDE_MARGIN := 20.0
+const GRID_TOP_MARGIN := 20.0
+const GRID_BOTTOM_RESERVED := 96.0
+
+
 func _grid_origin() -> Vector2:
-	return (get_viewport_rect().size - _grid_size()) * 0.5 + Vector2(0, 6)
+	var viewport_size := get_viewport_rect().size
+	var available := Vector2(
+		viewport_size.x - GRID_SIDE_MARGIN * 2.0,
+		viewport_size.y - GRID_TOP_MARGIN - GRID_BOTTOM_RESERVED
+	)
+	return Vector2(GRID_SIDE_MARGIN, GRID_TOP_MARGIN) + (available - _grid_size()) * 0.5
 
 
 func _hex_center(cell: Vector2i, origin: Vector2) -> Vector2:
 	if hex_center_cache.has(cell):
 		return hex_center_cache[cell] as Vector2
 	return origin + Vector2(
-		HEX_RADIUS + cell.x * HEX_RADIUS * 1.5,
-		HEX_HEIGHT * 0.5 + cell.y * HEX_HEIGHT + (cell.x % 2) * HEX_HEIGHT * 0.5
+		HEX_WIDTH * 0.5 + cell.x * HEX_WIDTH + (cell.y % 2) * HEX_WIDTH * 0.5,
+		HEX_RADIUS + cell.y * HEX_RADIUS * 1.5
 	)
 
 
-func _hex_points(center: Vector2) -> PackedVector2Array:
+## Гекс острой вершиной: первая точка смещена на 30°, иначе вершины окажутся
+## слева/справа (плоская вершина) — тогда ряды центров рисовались бы не по
+## сетке _hex_center, которая уже пересчитана под острую вершину.
+## inset рисует видимый зазор между соседними гексами (сетка), но тем же
+## зазором нельзя проверять клики: тогда прямо на стыке двух клеток — а туда
+## как раз попадает центр корабля IV+ ранга, см. _footprint_center — остаётся
+## мёртвая полоса, не принадлежащая ни одному гексу. Для клика используем
+## полноразмерный полигон без inset (_cell_at_position).
+func _hex_points(center: Vector2, inset: float = 3.0) -> PackedVector2Array:
 	var points := PackedVector2Array()
 	for index in range(6):
-		var angle := index * PI / 3.0
-		points.append(center + Vector2(cos(angle), sin(angle)) * (HEX_RADIUS - 3.0))
+		var angle := index * PI / 3.0 + PI / 6.0
+		points.append(center + Vector2(cos(angle), sin(angle)) * (HEX_RADIUS - inset))
 	return points
 
 
@@ -1741,7 +2036,7 @@ func _cell_at_position(position: Vector2) -> Vector2i:
 			var center: Vector2 = hex_center_cache.get(cell, Vector2.ZERO) as Vector2
 			var distance := position.distance_to(center)
 			if distance < closest_distance and distance <= HEX_RADIUS + 2.0:
-				if Geometry2D.is_point_in_polygon(position, _hex_points(center)):
+				if Geometry2D.is_point_in_polygon(position, _hex_points(center, 0.0)):
 					closest_distance = distance
 					closest_cell = cell
 	return closest_cell
@@ -1854,20 +2149,6 @@ func _draw_hover_preview(origin: Vector2) -> void:
 	var color := ENEMY_COLOR if can_attack else PLAYER_COLOR
 	draw_dashed_line(start, destination, Color(color, 0.8), 2.0, 8.0)
 	draw_arc(destination, 27.0, 0, TAU, 32, color, 2.0, true)
-
-
-func _restart_battle() -> void:
-	var fresh_battle = load("res://scenes/TacticalBattle.tscn").instantiate()
-	fresh_battle.return_scene = return_scene
-	fresh_battle.return_map = return_map
-	fresh_battle.return_process_mode = return_process_mode
-	fresh_battle.player_units_override = player_units_override.duplicate(true)
-	fresh_battle.enemy_units_override = enemy_units_override.duplicate(true)
-	fresh_battle.guardian_index = guardian_index
-	get_tree().root.add_child(fresh_battle)
-	get_tree().current_scene = fresh_battle
-	_fade_out_and_release_music()
-	queue_free()
 
 
 func _return_to_map() -> void:

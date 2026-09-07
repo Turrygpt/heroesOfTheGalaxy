@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://b4um4b7smarlw"
+path="res://.godot/imported/Distant Star Oath.mp3-6528ceb7e4ea931d649aba06d6ba5e28.mp3str"
+
+[deps]
+
+source_file="res://music/map/Distant Star Oath.mp3"
+dest_files=["res://.godot/imported/Distant Star Oath.mp3-6528ceb7e4ea931d649aba06d6ba5e28.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

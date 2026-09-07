@@ -8,10 +8,10 @@ signal level_applied(hero: Hero, offer: Dictionary, skill_id: String)
 signal finished
 
 const DEFS := preload("res://scripts/hero_defs.gd")
-const GOLD := Color("e5b956")
-const BLUE := Color("67c6f0")
-const MUTED := Color("8da7ba")
-const INK := Color("e7f0f5")
+const GOLD := preload("res://scripts/ui_style.gd").GOLD
+const BLUE := preload("res://scripts/ui_style.gd").CYAN
+const MUTED := preload("res://scripts/ui_style.gd").MUTED
+const INK := preload("res://scripts/ui_style.gd").INK
 const PANEL_SIZE := Vector2(760, 560)
 
 var hero: Hero
@@ -46,16 +46,7 @@ func setup(target_hero: Hero) -> void:
 
 
 func _style(border: Color, background: Color = Color(0.022, 0.045, 0.07, 0.97)) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = background
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 18
-	style.content_margin_right = 18
-	style.content_margin_top = 14
-	style.content_margin_bottom = 14
-	return style
+	return preload("res://scripts/ui_style.gd").surface(border, background, 18, 14)
 
 
 func _label(text: String, font_size: int, color: Color, centered := false) -> Label:
@@ -83,7 +74,7 @@ func _show_next_level() -> void:
 	_body.add_child(_label("%s · %s" % [hero.class_title(), DEFS.CLASSES[hero.class_id]["blurb"]], 13, MUTED, true))
 	_body.add_child(HSeparator.new())
 	var stat_panel := PanelContainer.new()
-	stat_panel.add_theme_stylebox_override("panel", _style(Color(GOLD, 0.45)))
+	stat_panel.add_theme_stylebox_override("panel", preload("res://scripts/ui_style.gd").inset())
 	_body.add_child(stat_panel)
 	var stat_column := VBoxContainer.new()
 	stat_column.add_theme_constant_override("separation", 4)
@@ -115,7 +106,7 @@ func _show_next_level() -> void:
 func _skill_card(option: Dictionary) -> Control:
 	var card := PanelContainer.new()
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.add_theme_stylebox_override("panel", _style(Color(BLUE, 0.45)))
+	card.add_theme_stylebox_override("panel", preload("res://scripts/ui_style.gd").inset())
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 8)
 	card.add_child(column)
@@ -140,6 +131,7 @@ func _choice_button(text: String, skill_id: String) -> Button:
 	button.add_theme_stylebox_override("normal", _style(Color(GOLD, 0.6)))
 	button.add_theme_stylebox_override("hover", _style(GOLD, Color(0.09, 0.16, 0.22, 1.0)))
 	button.add_theme_stylebox_override("pressed", _style(GOLD, Color(0.12, 0.21, 0.28, 1.0)))
+	preload("res://scripts/ui_style.gd").apply_button(button)
 	button.pressed.connect(_on_choice.bind(skill_id))
 	return button
 

@@ -17,3 +17,6 @@ __pycache__/
 !.env.example
 Thumbs.db
 .DS_Store
+
+# Scratch output (UI screenshots/logs from tools/ui_shot.gd).
+/tmp/

@@ -8,7 +8,7 @@ signal close_requested
 var strategy_map: Node2D
 var music_player: AudioStreamPlayer
 
-## Тема экрана планеты. Карта (space_strategy_map.gd:SPACE_MUSIC) на это время
+## Тема экрана планеты. Карта (space_strategy_map.gd:SPACE_MUSIC_DIR) на это время
 ## затихает через strategy_map.pause_music() (см. _open_human_planet), а при
 ## закрытии экрана этот трек затухает симметрично (см. fade_out_music).
 const PLANET_MUSIC := preload("res://music/Human Castle.mp3")
@@ -1082,63 +1082,13 @@ func _buy_resource(resource_name: String, spin: SpinBox) -> void:
 
 ## Общий фон строки в списках "Строительство"/"Гарнизон".
 func _panel_row_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.035, 0.14, 0.21, 0.94)
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
-	style.border_color = Color(0.3, 0.72, 0.95, 0.85)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_right = 8
-	style.corner_radius_bottom_left = 8
-	style.content_margin_left = 14
-	style.content_margin_top = 12
-	style.content_margin_right = 14
-	style.content_margin_bottom = 12
-	return style
+	return preload("res://scripts/ui_style.gd").inset()
 
 
 ## Общий normal/hover/disabled вид для кнопок-действий в динамически
 ## построенных списках (строительство, наём, переброска флота).
 func _style_action_button(button: Button) -> void:
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.035, 0.14, 0.21, 0.94)
-	normal.border_width_left = 1
-	normal.border_width_top = 1
-	normal.border_width_right = 1
-	normal.border_width_bottom = 1
-	normal.border_color = Color(0.3, 0.72, 0.95, 0.85)
-	normal.corner_radius_top_left = 8
-	normal.corner_radius_top_right = 8
-	normal.corner_radius_bottom_right = 8
-	normal.corner_radius_bottom_left = 8
-	var hover := StyleBoxFlat.new()
-	hover.bg_color = Color(0.05, 0.27, 0.39, 0.98)
-	hover.border_width_left = 2
-	hover.border_width_top = 2
-	hover.border_width_right = 2
-	hover.border_width_bottom = 2
-	hover.border_color = Color(0.55, 0.88, 1, 1)
-	hover.corner_radius_top_left = 8
-	hover.corner_radius_top_right = 8
-	hover.corner_radius_bottom_right = 8
-	hover.corner_radius_bottom_left = 8
-	var disabled := StyleBoxFlat.new()
-	disabled.bg_color = Color(0.03, 0.12, 0.18, 0.9)
-	disabled.border_width_left = 1
-	disabled.border_width_top = 1
-	disabled.border_width_right = 1
-	disabled.border_width_bottom = 1
-	disabled.border_color = Color(0.4, 0.78, 1, 0.8)
-	disabled.corner_radius_top_left = 7
-	disabled.corner_radius_top_right = 7
-	disabled.corner_radius_bottom_right = 7
-	disabled.corner_radius_bottom_left = 7
-	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("hover", hover)
-	button.add_theme_stylebox_override("disabled", disabled)
+	preload("res://scripts/ui_style.gd").apply_button(button)
 
 
 func _unit_icon(unit: Dictionary, icon_size: Vector2) -> TextureRect:

@@ -9,9 +9,9 @@ signal protocol_chosen(id: String)
 signal closed
 
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
-const GOLD := Color("e5b956")
-const MUTED := Color("8da7ba")
-const INK := Color("e7f0f5")
+const GOLD := preload("res://scripts/ui_style.gd").GOLD
+const MUTED := preload("res://scripts/ui_style.gd").MUTED
+const INK := preload("res://scripts/ui_style.gd").INK
 const PANEL_BG := Color(0.024, 0.05, 0.078, 0.98)
 const CARD_BG := Color(0.045, 0.09, 0.13, 0.97)
 const CARD_BG_DIM := Color(0.03, 0.055, 0.08, 0.85)
@@ -79,6 +79,7 @@ func setup(hero_data: Dictionary, current_round: int) -> void:
 	footer_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(footer_spacer)
 	var close_button := _button("ЗАКРЫТЬ", MUTED, 140)
+	preload("res://scripts/ui_style.gd").apply_button(close_button)
 	close_button.pressed.connect(_close)
 	footer.add_child(close_button)
 
@@ -153,7 +154,7 @@ func _row(protocol_id: String, cast_round: int) -> Control:
 
 	var card := PanelContainer.new()
 	card.custom_minimum_size.y = 112
-	card.add_theme_stylebox_override("panel", _panel_style(Color(school_color, 0.65 if affordable else 0.22), CARD_BG if affordable else CARD_BG_DIM, 10))
+	card.add_theme_stylebox_override("panel", preload("res://scripts/ui_style.gd").inset(14, 10))
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
@@ -178,13 +179,14 @@ func _row(protocol_id: String, cast_round: int) -> Control:
 	action.custom_minimum_size.x = 132
 	row.add_child(action)
 	var cost_pill := PanelContainer.new()
-	cost_pill.add_theme_stylebox_override("panel", _panel_style(Color(school_color, 0.4 if affordable else 0.15), Color(0.02, 0.045, 0.07, 0.9), 6))
+	cost_pill.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var cost_label := _line_label("%d ЭНЕРГИИ" % cost, 12, ink)
 	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_pill.add_child(cost_label)
 	action.add_child(cost_pill)
 	var button := _button("УЖЕ СЕГОДНЯ" if already_cast else "ПРИМЕНИТЬ", school_color, 132)
 	button.disabled = not affordable
+	preload("res://scripts/ui_style.gd").apply_button(button)
 	button.pressed.connect(_choose.bind(protocol_id))
 	action.add_child(button)
 
@@ -219,17 +221,8 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _panel_style(border: Color, background: Color, corner_radius: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = background
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(corner_radius)
-	style.content_margin_left = 14
-	style.content_margin_right = 14
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
-	return style
+func _panel_style(border: Color, background: Color, _corner_radius: int) -> StyleBoxFlat:
+	return preload("res://scripts/ui_style.gd").surface(border, background, 14, 10)
 
 
 func _thin_rule(color: Color) -> Control:

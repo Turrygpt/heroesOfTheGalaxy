@@ -9,10 +9,10 @@ signal purchased(skill_id: String)
 signal closed
 
 const DEFS := preload("res://scripts/hero_defs.gd")
-const GOLD := Color("e5b956")
-const BLUE := Color("67c6f0")
-const MUTED := Color("8da7ba")
-const INK := Color("e7f0f5")
+const GOLD := preload("res://scripts/ui_style.gd").GOLD
+const BLUE := preload("res://scripts/ui_style.gd").CYAN
+const MUTED := preload("res://scripts/ui_style.gd").MUTED
+const INK := preload("res://scripts/ui_style.gd").INK
 const PANEL_SIZE := Vector2(760, 420)
 
 var hero: Hero
@@ -70,21 +70,13 @@ func setup(target_hero: Hero, credits_cost: int) -> void:
 	close_button.add_theme_color_override("font_color", MUTED)
 	close_button.add_theme_stylebox_override("normal", _style(Color(MUTED, 0.5)))
 	close_button.add_theme_stylebox_override("hover", _style(MUTED, Color(0.09, 0.16, 0.22, 1.0)))
+	preload("res://scripts/ui_style.gd").apply_button(close_button)
 	close_button.pressed.connect(_close)
 	body.add_child(close_button)
 
 
 func _style(border: Color, background: Color = Color(0.022, 0.045, 0.07, 0.97)) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = background
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 18
-	style.content_margin_right = 18
-	style.content_margin_top = 14
-	style.content_margin_bottom = 14
-	return style
+	return preload("res://scripts/ui_style.gd").surface(border, background, 18, 14)
 
 
 func _label(text: String, font_size: int, color: Color, centered := false) -> Label:
@@ -101,7 +93,7 @@ func _label(text: String, font_size: int, color: Color, centered := false) -> La
 func _skill_card(option: Dictionary) -> Control:
 	var card := PanelContainer.new()
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.add_theme_stylebox_override("panel", _style(Color(BLUE, 0.45)))
+	card.add_theme_stylebox_override("panel", preload("res://scripts/ui_style.gd").inset())
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 8)
 	card.add_child(column)
@@ -120,6 +112,7 @@ func _skill_card(option: Dictionary) -> Control:
 	button.add_theme_color_override("font_color", GOLD)
 	button.add_theme_stylebox_override("normal", _style(Color(GOLD, 0.6)))
 	button.add_theme_stylebox_override("hover", _style(GOLD, Color(0.09, 0.16, 0.22, 1.0)))
+	preload("res://scripts/ui_style.gd").apply_button(button)
 	button.pressed.connect(_on_choice.bind(String(option["id"])))
 	column.add_child(button)
 	return card

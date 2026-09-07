@@ -7,8 +7,8 @@ extends CanvasLayer
 
 signal closed
 
-const GOLD := Color("e5b956")
-const INK := Color("e7f0f5")
+const GOLD := preload("res://scripts/ui_style.gd").GOLD
+const INK := preload("res://scripts/ui_style.gd").INK
 const PANEL_SIZE := Vector2(620, 300)
 
 
@@ -62,22 +62,14 @@ func setup(title: String, description: String, texture: Texture2D = null) -> voi
 	close_button.add_theme_stylebox_override("normal", _style(Color(GOLD, 0.65)))
 	close_button.add_theme_stylebox_override("hover", _style(GOLD, Color(0.09, 0.16, 0.22, 1.0)))
 	close_button.add_theme_stylebox_override("pressed", _style(GOLD, Color(0.12, 0.21, 0.28, 1.0)))
+	preload("res://scripts/ui_style.gd").apply_button(close_button)
 	close_button.pressed.connect(_on_close)
 	body.add_child(close_button)
 	close_button.grab_focus()
 
 
 func _style(border: Color, background: Color = Color(0.022, 0.045, 0.07, 0.97)) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = background
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 12
-	style.content_margin_bottom = 12
-	return style
+	return preload("res://scripts/ui_style.gd").surface(border, background, 16, 12)
 
 
 func _label(text: String, font_size: int, color: Color, centered := false) -> Label:
