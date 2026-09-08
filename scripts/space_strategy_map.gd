@@ -36,11 +36,11 @@ const PLAYER_TWO_COLOR := Color("ef5350")
 ## сразу и headless-CLI, и редактор.
 const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
 const OrcAI := preload("res://scripts/orc_ai.gd")
+const HERO_ENGINE_EXHAUST_OVERLAY := preload("res://scripts/hero_engine_exhaust_overlay.gd")
 const HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/human.png")
 ## Флагман вождя орков — настоящий арт (холст 702x1301, не квадратный, в
 ## отличие от HERO_SHIP_TEXTURE 518x518).
 const ORC_HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/orc.png")
-const ORC_BASE_OVERLAY := preload("res://scripts/orc_base_overlay.gd")
 ## Спрайт корабля героя рисуется в масштабе 0.16 (см. Ship в
 ## SpaceStrategyMap.tscn).
 const HERO_SHIP_SCALE := 0.16
@@ -77,9 +77,9 @@ const RESOURCE_BUILDING_TEXTURES := {
 }
 ## Туман войны, как в HoMM: карта закрыта чёрным, герой открывает клетки в
 ## радиусе видимости корабля навсегда - однажды увиденное больше не гаснет.
-## FOG_ENABLED = false — временный выключатель для отладки: карта и миникарта
-## открыты, прогресс explored_cells не затирается.
-const FOG_ENABLED := false
+## FOG_ENABLED можно временно выключать для отладки, но в игре туман должен
+## скрывать карту и миникарту до разведки.
+const FOG_ENABLED := true
 const FOG_REVEAL_RADIUS := 4
 const FOG_COLOR := Color(0.0, 0.0, 0.0, 1.0)
 const GUARDIAN_PASSAGE_COUNT := 3
@@ -155,6 +155,9 @@ const PRODUCTION_BLUEPRINTS := [
 @onready var isotopes_value: Label = $HUD/ResourceBar/Margin/HBox/IsotopesSlot/Value
 @onready var side_hero_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/HeroList
 @onready var side_planet_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox/PlanetList
+@onready var side_hero_portrait: TextureRect = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/PortraitFrame/Margin/Portrait
+@onready var side_planet_portrait: TextureRect = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox/PortraitFrame/Margin/Portrait
+@onready var hero_card_portrait: TextureRect = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroPortrait
 @onready var hero_name_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox/HeroNameLabel
 @onready var stats_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox/StatsLabel
 @onready var skills_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/SkillsLabel
@@ -212,7 +215,7 @@ var orc_planet_owner := 2
 ## его состояние уезжает в сейв кампании отдельным словарём.
 var orc_ai: OrcAI
 var orc_ship_sprite: Sprite2D
-var orc_base_overlay: Node2D
+var hero_engine_exhaust_overlay: Node2D
 ## Отчёт орков за последний сол — показывается в панели навигации.
 var orc_report := ""
 ## "" пока кампания идёт, иначе "victory" / "defeat" — дальше ходов нет.
@@ -280,6 +283,7 @@ func _ready() -> void:
 	ship_sprite.position = ship_position
 	ship_sprite.rotation = -PI / 2.0 - SHIP_SOURCE_ANGLE
 	_refresh_orc_ship_sprite()
+	_create_hero_engine_exhaust_overlay()
 	camera.limit_left = 0
 	camera.limit_top = 0
 	camera.limit_right = roundi(MAP_SIZE.x * CELL_SIZE)
@@ -290,6 +294,15 @@ func _ready() -> void:
 		camera.zoom = snapshot.get("camera_zoom", camera.zoom)
 	end_day_button.pressed.connect(_end_day)
 	human_planet_name_button.pressed.connect(_open_human_planet)
+	side_hero_portrait.gui_input.connect(_on_hero_portrait_input)
+	hero_card_portrait.gui_input.connect(_on_hero_portrait_input)
+	side_planet_portrait.gui_input.connect(_on_planet_portrait_input)
+	side_hero_portrait.mouse_filter = Control.MOUSE_FILTER_STOP
+	hero_card_portrait.mouse_filter = Control.MOUSE_FILTER_STOP
+	side_planet_portrait.mouse_filter = Control.MOUSE_FILTER_STOP
+	side_hero_portrait.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	hero_card_portrait.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	side_planet_portrait.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	side_hero_list.item_selected.connect(_on_side_hero_selected)
 	side_planet_list.item_selected.connect(_on_side_planet_selected)
 	army_list.item_selected.connect(_clear_item_list_selection.bind(army_list))
@@ -315,6 +328,14 @@ func _save_campaign() -> bool:
 
 func can_use_campaign_menu() -> bool:
 	return visible and is_processing() and not is_moving
+
+
+func _create_hero_engine_exhaust_overlay() -> void:
+	hero_engine_exhaust_overlay = HERO_ENGINE_EXHAUST_OVERLAY.new()
+	hero_engine_exhaust_overlay.name = "HeroEngineExhaustOverlay"
+	hero_engine_exhaust_overlay.z_index = 2
+	add_child(hero_engine_exhaust_overlay)
+	hero_engine_exhaust_overlay.setup(self)
 
 
 ## Список файлов не кешируется — сканируется один раз при входе на карту,
@@ -465,12 +486,32 @@ func _swap_to_battle(battle: Node) -> void:
 func _open_human_planet() -> void:
 	if human_planet_owner != 1:
 		return
+	_open_planet_screen(false)
+
+
+func _open_hero_fleet_window() -> void:
+	if _player_hero() == null:
+		return
+	var fleet_screen := HUMAN_PLANET_SCREEN.instantiate()
+	fleet_screen.strategy_map = self
+	fleet_screen.fleet_only_mode = true
+	fleet_screen.space_modal_mode = true
+	fleet_screen.open_garrison_on_ready = true
+	fleet_screen.close_requested.connect(_close_human_planet.bind(fleet_screen))
+	add_child(fleet_screen)
+	set_process(false)
+	set_process_unhandled_input(false)
+
+
+func _open_planet_screen(fleet_only: bool) -> void:
 	var hero := _player_hero()
 	if hero != null:
 		hero.refill_energy()
 		_save_hero_roster()
 	var planet_screen := HUMAN_PLANET_SCREEN.instantiate()
 	planet_screen.strategy_map = self
+	planet_screen.fleet_only_mode = fleet_only
+	planet_screen.open_garrison_on_ready = fleet_only
 	planet_screen.close_requested.connect(_close_human_planet.bind(planet_screen))
 	pause_music()
 	add_child(planet_screen)
@@ -479,12 +520,20 @@ func _open_human_planet() -> void:
 
 
 func _close_human_planet(planet_screen: CanvasLayer) -> void:
+	var was_space_modal := bool(planet_screen.get("space_modal_mode"))
 	planet_screen.fade_out_music()
 	planet_screen.queue_free()
 	set_process(true)
 	set_process_unhandled_input(true)
-	resume_music()
+	if not was_space_modal:
+		resume_music()
 	_sync_human_planet_state()
+	# Экран планеты пишет здания и гарнизон в HumanPlanetState сразу, а
+	# загрузка кампании восстанавливает этот файл из общего сейва. Поэтому после
+	# выхода из планеты фиксируем весь снимок кампании: здания, гарнизон,
+	# потраченные ресурсы и кредиты должны откатываться вместе, а не по разным
+	# файлам.
+	_save_campaign()
 	_update_hud()
 
 
@@ -707,9 +756,13 @@ func _update_hero_card() -> void:
 
 	army_list.clear()
 	var unit_defs := UnitDefs.new()
-	for unit_id in hero.army:
-		var count: int = hero.army[unit_id]
-		var unit_data: Dictionary = unit_defs.UNITS.get(unit_id, {})
+	hero._ensure_army_slots()
+	for slot in hero.army_slots:
+		var unit_id := String(slot.get("unit_id", ""))
+		var count := int(slot.get("count", 0))
+		if unit_id.is_empty() or count <= 0:
+			continue
+		var unit_data: Dictionary = UnitDefs.get_unit(unit_id)
 		var unit_name: String = unit_data.get("label", unit_id)
 		army_list.add_item("%s: %d" % [unit_name, count])
 
@@ -852,6 +905,18 @@ func _on_side_hero_selected(_index: int) -> void:
 func _on_side_planet_selected(_index: int) -> void:
 	_center_camera_on_cell(HUMAN_PLANET_CENTER)
 	_clear_item_list_selection(_index, side_planet_list)
+
+
+func _on_hero_portrait_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_open_hero_fleet_window()
+		get_viewport().set_input_as_handled()
+
+
+func _on_planet_portrait_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_open_human_planet()
+		get_viewport().set_input_as_handled()
 
 
 func _center_camera_on_cell(cell: Vector2i) -> void:
@@ -1003,12 +1068,6 @@ func _setup_orc_ai(snapshot: Dictionary) -> void:
 	if snapshot.is_empty() and warlord != null and warlord.army.is_empty():
 		warlord.army = OrcAI.START_ARMY.duplicate()
 		_save_hero_roster()
-	# Постройки базы орков появляются вокруг их планеты по мере стройки ИИ.
-	# Оверлей создаётся кодом, а не в .tscn — как и спрайт вождя ниже.
-	orc_base_overlay = ORC_BASE_OVERLAY.new()
-	orc_base_overlay.name = "OrcBaseOverlay"
-	orc_base_overlay.z_index = 2
-	add_child(orc_base_overlay)
 	orc_ship_sprite = Sprite2D.new()
 	orc_ship_sprite.name = "OrcShip"
 	orc_ship_sprite.texture = ORC_HERO_SHIP_TEXTURE
@@ -1057,8 +1116,6 @@ func _refresh_orc_ship_sprite() -> void:
 		return
 	orc_ship_sprite.visible = orc_ai.hero_alive and is_cell_explored(orc_ai.hero_cell)
 	orc_ship_sprite.position = _cell_center(orc_ai.hero_cell)
-	if orc_base_overlay != null:
-		orc_base_overlay.queue_redraw()
 
 
 ## Точка входа для orc_ai.gd: захват месторождения орками идёт через ту же
@@ -1130,19 +1187,22 @@ func _start_orc_battle(kind: String) -> void:
 ## Флот игрока для боя. include_garrison — оборона родной планеты: к армии
 ## героя (если он дома) добавляются купленные, но не переданные корабли.
 func _player_battle_fleet(include_garrison: bool) -> Array[Dictionary]:
-	var fleet := {}
+	var entries: Array[Dictionary] = []
 	var hero := _player_hero()
 	if hero != null and (not include_garrison or player_fleet_at_home_planet()):
-		for unit_id in hero.army:
-			fleet[unit_id] = int(fleet.get(unit_id, 0)) + int(hero.army[unit_id])
+		hero._ensure_army_slots()
+		for slot in hero.army_slots:
+			var unit_id := String(slot.get("unit_id", ""))
+			var count := int(slot.get("count", 0))
+			if not unit_id.is_empty() and count > 0:
+				entries.append({"unit_id": unit_id, "count": count})
 	if include_garrison:
-		var garrison: Dictionary = HumanPlanetState.load_state()["garrison"]
-		for unit_id in garrison:
-			fleet[unit_id] = int(fleet.get(unit_id, 0)) + int(garrison[unit_id])
-	var entries: Array[Dictionary] = []
-	for unit_id in fleet:
-		if int(fleet[unit_id]) > 0:
-			entries.append({"unit_id": String(unit_id), "count": int(fleet[unit_id])})
+		var state := HumanPlanetState.load_state()
+		for slot in state.get("garrison_slots", []):
+			var unit_id := String(slot.get("unit_id", ""))
+			var count := int(slot.get("count", 0))
+			if not unit_id.is_empty() and count > 0:
+				entries.append({"unit_id": unit_id, "count": count})
 	return entries
 
 
@@ -1202,7 +1262,10 @@ func _resolve_orc_battle(kind: String, battle_units: Array, player_won: bool, re
 	var hero := _player_hero()
 	if not battle_units.is_empty():
 		if hero != null and not retreated:
-			hero.army = _surviving_player_army(battle_units)
+			if kind == "planet":
+				hero.set_army_from_dict(_surviving_player_army(battle_units))
+			else:
+				hero.set_army_from_slots(_surviving_player_slots(battle_units))
 		if warlord != null:
 			warlord.army = OrcAI.surviving_army(battle_units)
 	if retreated:
@@ -1252,7 +1315,7 @@ func _resolve_orc_defeat(kind: String) -> void:
 func _retreat_player_home(message: String) -> void:
 	var hero := _player_hero()
 	if hero != null:
-		hero.army = RETREAT_ARMY.duplicate()
+		hero.set_army_from_dict(RETREAT_ARMY)
 	current_cell = PLAYER_ONE_START_CELL
 	next_cell = current_cell
 	ship_position = _cell_center(current_cell)
@@ -1279,6 +1342,16 @@ func _after_orc_battle(kind: String) -> void:
 
 func _surviving_player_army(battle_units: Array) -> Dictionary:
 	var surviving := {}
+	for slot in _surviving_player_slots(battle_units):
+		var unit_id := String(slot.get("unit_id", ""))
+		var count := int(slot.get("count", 0))
+		if unit_id != "" and count > 0:
+			surviving[unit_id] = int(surviving.get(unit_id, 0)) + count
+	return surviving
+
+
+func _surviving_player_slots(battle_units: Array) -> Array[Dictionary]:
+	var surviving: Array[Dictionary] = []
 	for unit in battle_units:
 		if int((unit as Dictionary).get("side", 0)) != 1:
 			continue
@@ -1287,7 +1360,7 @@ func _surviving_player_army(battle_units: Array) -> Dictionary:
 		var unit_id := String((unit as Dictionary).get("unit_id", ""))
 		if hp <= 0 or hull <= 0 or unit_id == "":
 			continue
-		surviving[unit_id] = int(surviving.get(unit_id, 0)) + int(ceil(float(hp) / float(hull)))
+		surviving.append({"unit_id": unit_id, "count": int(ceil(float(hp) / float(hull)))})
 	return surviving
 
 
@@ -1465,10 +1538,7 @@ func _player_hero() -> Hero:
 
 
 func _start_guardian_battle(index: int) -> void:
-	var hero := _player_hero()
-	var player_fleet: Array[Dictionary] = []
-	for unit_id in hero.army:
-		player_fleet.append({"unit_id": unit_id, "count": int(hero.army[unit_id])})
+	var player_fleet: Array[Dictionary] = _player_battle_fleet(false)
 	var enemy_fleet: Array[Dictionary] = []
 	for entry in (guardians[index]["fleet"] as Array):
 		enemy_fleet.append((entry as Dictionary).duplicate())
@@ -1494,7 +1564,7 @@ func _resolve_guardian_battle(index: int, battle_units: Array, player_won: bool,
 	var hero := _player_hero()
 	if retreated:
 		if hero != null:
-			hero.army = RETREAT_ARMY.duplicate()
+			hero.set_army_from_dict(RETREAT_ARMY)
 		current_cell = PLAYER_ONE_START_CELL
 		next_cell = current_cell
 		ship_position = _cell_center(current_cell)
@@ -1509,20 +1579,7 @@ func _resolve_guardian_battle(index: int, battle_units: Array, player_won: bool,
 		queue_redraw()
 		return
 	if hero != null:
-		var surviving := {}
-		for unit in battle_units:
-			if int(unit.get("side", 0)) != 1:
-				continue
-			var hull: int = int(unit.get("hull", 1))
-			var hp: int = int(unit.get("hp", 0))
-			if hp <= 0 or hull <= 0:
-				continue
-			var unit_id := String(unit.get("unit_id", ""))
-			if unit_id == "":
-				continue
-			var count := int(ceil(float(hp) / float(hull)))
-			surviving[unit_id] = int(surviving.get(unit_id, 0)) + count
-		hero.army = surviving
+		hero.set_army_from_slots(_surviving_player_slots(battle_units))
 	if not player_won:
 		navigation_message = "Флот отступил. Пополните силы и попробуйте снова."
 		_show_object_reward_dialog("Итоги сражения", navigation_message)
@@ -1578,6 +1635,7 @@ func _generate_map_objects() -> void:
 			else:
 				_add_map_object(cell, kind, size)
 	_generate_corner_objects()
+	_generate_trading_posts()
 	_generate_wormhole_pairs()
 	map_object_overlay.queue_redraw()
 
@@ -1605,6 +1663,43 @@ func _generate_corner_objects() -> void:
 				_add_object_guardian(cell, kind, size)
 			else:
 				_add_map_object(cell, kind, size)
+
+
+## Торговые посты должны быть нейтральными точками интереса: генератор сначала
+## целится в симметричные клетки около середины карты, а если там занято
+## препятствием или другим объектом, ищет ближайшее свободное место.
+func _generate_trading_posts() -> void:
+	var kind := "trading_post"
+	var size := MapObjectDefs.size(kind)
+	for preferred_cell in MapObjectDefs.TRADING_POST_CELLS:
+		var cell := _find_free_object_cell_near(preferred_cell, size)
+		if cell.x < 0:
+			continue
+		_add_map_object(cell, kind, size)
+
+
+func _find_free_object_cell_near(preferred_cell: Vector2i, footprint: int = 1) -> Vector2i:
+	var best_cell := Vector2i(-1, -1)
+	var best_score := 999999
+	for radius in range(0, 9):
+		for x in range(preferred_cell.x - radius, preferred_cell.x + radius + 1):
+			for y in range(preferred_cell.y - radius, preferred_cell.y + radius + 1):
+				if absi(x - preferred_cell.x) != radius and absi(y - preferred_cell.y) != radius:
+					continue
+				var cell := Vector2i(x, y)
+				if not _cell_is_inside_map(cell) or not _cell_is_inside_map(cell + Vector2i.ONE * (footprint - 1)):
+					continue
+				if not _footprint_is_free_for_object(cell, footprint, 4):
+					continue
+				var human_distance := _chebyshev_distance(cell, HUMAN_PLANET_CENTER)
+				var orc_distance := _chebyshev_distance(cell, ORC_PLANET_CENTER)
+				var score := absi(human_distance - orc_distance) * 100 + _chebyshev_distance(cell, preferred_cell)
+				if score < best_score:
+					best_score = score
+					best_cell = cell
+		if best_cell.x >= 0:
+			return best_cell
+	return best_cell
 
 
 ## То же, что _find_free_object_cell, но в заданном прямоугольнике клеток.

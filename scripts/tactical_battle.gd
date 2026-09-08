@@ -21,6 +21,12 @@ const BEAM_DURATION := 0.35
 const MOVE_DURATION := 0.35
 const FLOATER_DURATION := 1.1
 const CAST_DURATION := 0.5
+## Лёгкая idle-анимация живых пачек: только визуальное смещение корпуса и
+## пульсация выхлопа, боевые клетки и хитбоксы остаются неизменными.
+const IDLE_BOB_AMOUNT := 3.0
+const IDLE_BOB_SPEED := 1.7
+const ENGINE_PULSE_SPEED := 5.0
+const ENGINE_PULSE_AMOUNT := 0.09
 const POINT_BLANK_DISTANCE := 1
 # Препятствия боя — те же виды, что на глобальной карте (см. space_obstacles.gd):
 # астероиды, обломки планетоида и кладбище кораблей блокируют и манёвр, и залп.
@@ -32,22 +38,28 @@ const CUBE_DIRECTIONS := [
 	Vector3i(-1, 1, 0), Vector3i(-1, 0, 1), Vector3i(0, -1, 1),
 ]
 ## --- Веса выбора клетки для манёвра (см. _best_enemy_move_cell) ------------
-## Замысел ровно один: держать цель в дальности залпа. Разрывать дистанцию
-## корабль НЕ пытается — пятиться от каждого встречного он не должен.
-## Единственное исключение — окружение: когда вплотную стоит SURROUNDED_LIMIT
-## кораблей и больше, пачка выходит из клещей, а преследователям приходится
-## тратить ход на догон. Направление подхода (в лоб/сбоку) на исход боя не
-## влияет — как в HoMM3, тут нет ни бонуса за заход в тыл, ни разворота
-## спрайта под конкретную сторону атаки.
+## Замысел: перед залпом ИИ делает манёвр в лучшую доступную позицию, если это
+## не ухудшает атаку. Разрывать дистанцию корабль ради трусливого кайта не
+## пытается, но дальнобойные пачки не обязаны лезть в упор под ответный залп.
+## Направление подхода (в лоб/сбоку) на исход боя не влияет — как в HoMM3, тут
+## нет ни бонуса за заход в тыл, ни разворота спрайта под конкретную сторону.
 ##
 ## Возможность отстреляться в этот же ход дороже всего остального вместе.
 const MOVE_SCORE_CAN_SHOOT := 1000.0
+## Небольшой бонус за сам факт манёвра перед атакой: если две клетки почти
+## равноценны, ИИ предпочитает перестроиться, а не стрелять с места.
+const MOVE_SCORE_REPOSITION := 24.0
+## Вес ожидаемого урона. Главная разница сейчас — полный урон в упор против
+## штрафа дальнего залпа, но формула оставлена общей для будущих эффектов.
+const MOVE_SCORE_DAMAGE := 2.0
+## Штраф за клетку в упор, где цель сможет дать ответный залп.
+const MOVE_SCORE_RETALIATION_RISK := 70.0
 ## Со скольких соседей клетка считается окружением.
 const SURROUNDED_LIMIT := 2
 ## Штраф за каждого лишнего соседа сверх порога. Подобран так, чтобы двое
 ## вплотную ещё не перевесили заход в корму, а трое — уже перевесили.
 const MOVE_SCORE_ENCIRCLED := 90.0
-## При прочих равных — ближе к цели.
+## При прочих равных — ближе к цели, но это слабее оценки урона/ответки.
 const MOVE_SCORE_DISTANCE := 1.0
 ## Если отстреляться нельзя ни из одной доступной клетки, сближение важнее
 ## всего: иначе обе стороны пятятся друг от друга и бой не заканчивается
@@ -132,8 +144,14 @@ const UNIT_BLUEPRINTS := [
 ## space_strategy_map.gd). Каждая запись — {unit_id, count}. Пустые массивы
 ## (по умолчанию, и при отладочном запуске сцены напрямую) сохраняют старое
 ## поведение — фиксированный состав UNIT_BLUEPRINTS.
-const SIDE1_CELLS := [Vector2i(1, 1), Vector2i(2, 3), Vector2i(1, 5), Vector2i(2, 7), Vector2i(1, 4)]
-const SIDE2_CELLS := [Vector2i(13, 1), Vector2i(13, 3), Vector2i(13, 5), Vector2i(13, 7), Vector2i(12, 4)]
+const SIDE1_CELLS := [
+	Vector2i(1, 1), Vector2i(2, 3), Vector2i(1, 5), Vector2i(2, 7),
+	Vector2i(1, 3), Vector2i(2, 5), Vector2i(1, 7),
+]
+const SIDE2_CELLS := [
+	Vector2i(13, 1), Vector2i(12, 3), Vector2i(13, 5), Vector2i(12, 7),
+	Vector2i(13, 3), Vector2i(12, 5), Vector2i(13, 7),
+]
 
 var player_units_override: Array[Dictionary] = []
 var enemy_units_override: Array[Dictionary] = []
@@ -174,6 +192,7 @@ var last_event := "Бой начался"
 var turn_pending := false
 var experience_granted := false
 var last_experience_gained := 0
+var visual_time := 0.0
 
 # --- Боевые протоколы героев (см. scripts/hero_protocols.gd) ---
 var heroes := {}
@@ -455,8 +474,12 @@ func _process(delta: float) -> void:
 
 
 func _tick_battle(delta: float) -> void:
+	visual_time += minf(delta, 0.05)
+	var has_living_units := false
 	var animating := false
 	for unit in units:
+		if unit["hp"] > 0:
+			has_living_units = true
 		if unit["anim_t"] < 1.0:
 			unit["anim_t"] = minf(1.0, unit["anim_t"] + delta / MOVE_DURATION)
 			animating = true
@@ -511,8 +534,9 @@ func _tick_battle(delta: float) -> void:
 			var pending_target := enemy_pending_target
 			enemy_pending_target = -1
 			_finish_enemy_turn(pending_target)
-	if animating:
+	if animating or has_living_units:
 		queue_redraw()
+	if animating:
 		_update_hud()
 	if turn_pending and not _visuals_busy():
 		turn_pending = false
@@ -887,17 +911,24 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 		# Корма корабля IV+ ранга тоже должна встать на свободную клетку.
 		if not _footprint_valid(_footprint_for_move(active, cell), active_unit_index):
 			continue
-		var score := _move_cell_score(cell, active, target, shot_range)
+		var score := _move_cell_score(cell, active, target, shot_range, current_cell)
 		if score > best_score:
 			best_score = score
 			best_cell = cell
 	return best_cell
 
 
-## Оценка клетки для манёвра. Возможность отстреляться перевешивает всё
-## остальное. Разрывать дистанцию корабль не пытается: единственная причина
-## уйти — окружение.
-func _move_cell_score(cell: Vector2i, active: Dictionary, target: Dictionary, shot_range: int) -> float:
+## Оценка клетки для манёвра. Возможность отстреляться перевешивает всё, но
+## среди стрелковых клеток ИИ ищет лучшую позицию: больше ожидаемый урон,
+## меньше риск ответного залпа, меньше окружение. Если несколько вариантов
+## близки, корабль предпочитает перестроиться перед атакой.
+func _move_cell_score(
+	cell: Vector2i,
+	active: Dictionary,
+	target: Dictionary,
+	shot_range: int,
+	start_cell: Vector2i = Vector2i(-999, -999)
+) -> float:
 	var target_cell: Vector2i = target["cell"]
 	var target_distance := _hex_distance(cell, target_cell)
 	var can_shoot := target_distance <= shot_range and _has_line_of_sight(cell, target_cell)
@@ -906,7 +937,26 @@ func _move_cell_score(cell: Vector2i, active: Dictionary, target: Dictionary, sh
 		# Стрелять неоткуда: сближаемся, окружение — лишь уточнение между
 		# одинаково близкими клетками.
 		return -MOVE_SCORE_APPROACH * float(target_distance) - encircled
-	return MOVE_SCORE_CAN_SHOOT - encircled - MOVE_SCORE_DISTANCE * float(target_distance)
+	var expected_damage := float(_expected_stack_damage(active, target, target_distance))
+	var retaliation_risk := _retaliation_risk(cell, active, target)
+	var reposition_bonus := MOVE_SCORE_REPOSITION if cell != start_cell else 0.0
+	return MOVE_SCORE_CAN_SHOOT \
+		+ expected_damage * MOVE_SCORE_DAMAGE \
+		+ reposition_bonus \
+		- retaliation_risk \
+		- encircled \
+		- MOVE_SCORE_DISTANCE * float(target_distance)
+
+
+func _retaliation_risk(cell: Vector2i, active: Dictionary, target: Dictionary) -> float:
+	if _hex_distance(cell, target["cell"]) > POINT_BLANK_DISTANCE:
+		return 0.0
+	if bool(target.get("retaliated", false)):
+		return 0.0
+	var expected := float(_expected_stack_damage(target, active, POINT_BLANK_DISTANCE))
+	var active_hp := maxi(1, int(active.get("hp", 1)))
+	var pressure := clampf(expected / float(active_hp), 0.0, 1.5)
+	return MOVE_SCORE_RETALIATION_RISK * pressure
 
 
 func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) -> void:
@@ -1829,7 +1879,7 @@ const TACTICAL_SHIP_WIDTHS := [90.0, 101.0, 113.0, 181.0, 202.0, 220.0, 231.0]
 
 func _draw_unit(index: int, origin: Vector2) -> void:
 	var unit: Dictionary = units[index]
-	var center := _unit_visual_center(unit, origin)
+	var center := _unit_visual_center(unit, origin) + _unit_idle_offset(index, unit)
 	var is_player: bool = unit["side"] == 1
 	var color := PLAYER_COLOR if is_player else ENEMY_COLOR
 	if index == active_unit_index:
@@ -1842,11 +1892,18 @@ func _draw_unit(index: int, origin: Vector2) -> void:
 	var ship_size: Vector2 = region.size * (TACTICAL_SHIP_WIDTHS[tier_index] / region.size.x)
 	# All source ships face left. Earth ships face the pirates on the right.
 	draw_set_transform(center, 0.0, Vector2(-1.0 if is_player else 1.0, 1.0))
-	_draw_engine_exhaust(unit, ship_size)
+	_draw_engine_exhaust(unit, ship_size, index)
 	draw_texture_rect_region(unit["texture"], Rect2(-ship_size * 0.5, ship_size), region)
 	draw_set_transform(Vector2.ZERO)
 	_draw_stack_badge(center, unit, color, index == active_unit_index)
 	_draw_effect_pips(center, unit)
+
+
+func _unit_idle_offset(index: int, unit: Dictionary) -> Vector2:
+	if float(unit.get("anim_t", 1.0)) < 1.0:
+		return Vector2.ZERO
+	var phase := visual_time * IDLE_BOB_SPEED + float(index) * 0.83
+	return Vector2(0.0, sin(phase) * IDLE_BOB_AMOUNT)
 
 
 ## Игрок — синий, орки — красный, нейтралы (торговцы/пираты) — жёлтый.
@@ -1864,18 +1921,19 @@ func _engine_color(unit: Dictionary) -> Color:
 ## координатах: у исходного арта (нос смотрит влево) это правый край, а
 ## транспонирование через тот же transform (зеркалит игрока) само разворачивает
 ## его на нужную сторону экрана, как и корпус.
-func _draw_engine_exhaust(unit: Dictionary, ship_size: Vector2) -> void:
+func _draw_engine_exhaust(unit: Dictionary, ship_size: Vector2, index: int) -> void:
 	var color := _engine_color(unit)
+	var pulse := 1.0 + sin(visual_time * ENGINE_PULSE_SPEED + float(index) * 1.37) * ENGINE_PULSE_AMOUNT
 	var back_x := ship_size.x * 0.5
 	var half_height := ship_size.y * 0.22
-	var length := ship_size.y * 0.85
-	draw_circle(Vector2(back_x + length * 0.4, 0.0), half_height * 1.7, Color(color, 0.14))
+	var length := ship_size.y * 0.85 * pulse
+	draw_circle(Vector2(back_x + length * 0.4, 0.0), half_height * 1.7 * pulse, Color(color, 0.14))
 	for step in range(4):
 		var t := float(step) / 3.0
-		var radius := lerpf(half_height, half_height * 0.12, t)
-		var alpha := lerpf(0.85, 0.0, t)
+		var radius := lerpf(half_height, half_height * 0.12, t) * pulse
+		var alpha := lerpf(0.85, 0.0, t) * lerpf(1.0, 0.9, absf(pulse - 1.0) / ENGINE_PULSE_AMOUNT)
 		draw_circle(Vector2(back_x + length * t, 0.0), radius, Color(color, alpha))
-	draw_circle(Vector2(back_x + half_height * 0.25, 0.0), half_height * 0.5, Color(Color.WHITE.lerp(color, 0.35), 0.9))
+	draw_circle(Vector2(back_x + half_height * 0.25, 0.0), half_height * 0.5 * pulse, Color(Color.WHITE.lerp(color, 0.35), 0.9))
 
 
 func _draw_effect_pips(center: Vector2, unit: Dictionary) -> void:

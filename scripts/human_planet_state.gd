@@ -19,6 +19,7 @@ const FORT_GROWTH_BONUS_BY_LEVEL := [0.0, 0.25, 0.5, 1.0]
 ## каждым уровнем. Общий источник для карты (SpaceStrategyMap) и экрана
 ## планеты (HumanPlanetScreen), чтобы обе подписи всегда совпадали.
 const COUNCIL_INCOME_BY_LEVEL := [0, 500, 1000, 2000, 4000]
+const GARRISON_SLOT_COUNT := 7
 
 
 static func council_income(level: int) -> int:
@@ -33,6 +34,7 @@ static func default_state() -> Dictionary:
 	return {
 		"built_levels": {"townhall": 1},
 		"garrison": {},
+		"garrison_slots": _empty_slots(GARRISON_SLOT_COUNT),
 		"available_growth": {},
 		"last_growth_day": 0,
 		# В один сол можно построить или улучшить только одно здание.
@@ -70,6 +72,12 @@ static func load_state() -> Dictionary:
 	var garrison = parsed.get("garrison", {})
 	if garrison is Dictionary:
 		state["garrison"] = _int_dict(garrison)
+	var garrison_slots = parsed.get("garrison_slots", [])
+	if parsed.has("garrison_slots") and garrison_slots is Array:
+		state["garrison_slots"] = clean_slots(garrison_slots, GARRISON_SLOT_COUNT)
+	else:
+		state["garrison_slots"] = slots_from_army(state["garrison"], GARRISON_SLOT_COUNT)
+	state["garrison"] = aggregate_slots(state["garrison_slots"])
 	var available_growth = parsed.get("available_growth", {})
 	if available_growth is Dictionary:
 		state["available_growth"] = _int_dict(available_growth)
@@ -86,6 +94,9 @@ static func load_state() -> Dictionary:
 
 
 static func save_state(state: Dictionary) -> void:
+	if state.get("garrison_slots", []) is Array:
+		state["garrison_slots"] = clean_slots(state["garrison_slots"], GARRISON_SLOT_COUNT)
+		state["garrison"] = aggregate_slots(state["garrison_slots"])
 	var file := FileAccess.open(STATE_PATH, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(state, "\t"))
@@ -96,6 +107,53 @@ static func _int_dict(source: Dictionary) -> Dictionary:
 	var result := {}
 	for key in source:
 		result[key] = int(source[key])
+	return result
+
+
+static func aggregate_slots(slots: Array) -> Dictionary:
+	var result := {}
+	for slot in slots:
+		if not slot is Dictionary:
+			continue
+		var unit_id := String(slot.get("unit_id", ""))
+		var count := int(slot.get("count", 0))
+		if unit_id.is_empty() or count <= 0:
+			continue
+		result[unit_id] = int(result.get(unit_id, 0)) + count
+	return result
+
+
+static func slots_from_army(source: Dictionary, slot_count: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for unit_id in source:
+		var count := int(source[unit_id])
+		if count > 0 and result.size() < slot_count:
+			result.append({"unit_id": String(unit_id), "count": count})
+	while result.size() < slot_count:
+		result.append({})
+	return result
+
+
+static func clean_slots(source: Array, slot_count: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for slot in source:
+		if result.size() >= slot_count:
+			break
+		if not slot is Dictionary:
+			result.append({})
+			continue
+		var unit_id := String(slot.get("unit_id", ""))
+		var count := int(slot.get("count", 0))
+		result.append({} if unit_id.is_empty() or count <= 0 else {"unit_id": unit_id, "count": count})
+	while result.size() < slot_count:
+		result.append({})
+	return result
+
+
+static func _empty_slots(slot_count: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for _index in range(slot_count):
+		result.append({})
 	return result
 
 

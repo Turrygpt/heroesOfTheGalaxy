@@ -60,8 +60,7 @@ var hex_radius := DEFAULT_HEX_RADIUS
 
 
 func _ready() -> void:
-	_build_ui()
-	_start_new_ship()
+	pass # Редактор создаётся только при первом нажатии F8.
 
 
 func _input(event: InputEvent) -> void:
@@ -69,12 +68,15 @@ func _input(event: InputEvent) -> void:
 		_toggle()
 		get_viewport().set_input_as_handled()
 		return
-	if root_panel.visible and event.is_action_pressed("ui_cancel"):
+	if is_instance_valid(root_panel) and root_panel.visible and event.is_action_pressed("ui_cancel"):
 		_toggle()
 		get_viewport().set_input_as_handled()
 
 
 func _toggle() -> void:
+	if not is_instance_valid(root_panel):
+		_build_ui()
+		_start_new_ship()
 	root_panel.visible = not root_panel.visible
 	if root_panel.visible:
 		_refresh_texture_list()

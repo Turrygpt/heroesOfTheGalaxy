@@ -99,6 +99,32 @@ func _run() -> void:
 	_check(battle.battle_finished, "A complete battle must reach a result without getting stuck")
 	battle.free()
 
+	# Реальный флот теперь хранится слотами: одинаковые корабли в разных слотах
+	# должны входить в бой отдельными пачками и занимать разные стартовые гексы.
+	battle = scene.instantiate()
+	battle.player_units_override = [
+		{"unit_id": "interceptor", "count": 4},
+		{"unit_id": "interceptor", "count": 7},
+		{"unit_id": "interceptor", "count": 2},
+		{"unit_id": "heavy_interceptor", "count": 3},
+		{"unit_id": "heavy_interceptor", "count": 5},
+		{"unit_id": "corvette", "count": 1},
+		{"unit_id": "corvette", "count": 2},
+	]
+	battle.enemy_units_override = [{"unit_id": "raider", "count": 1}]
+	root.add_child(battle)
+	battle.set_process(false)
+	var player_cells := {}
+	var player_counts: Array[int] = []
+	for unit in battle.units:
+		if int(unit["side"]) != 1:
+			continue
+		player_cells[unit["cell"]] = true
+		player_counts.append(int(unit["count"]))
+	_check(player_counts == [4, 7, 2, 3, 5, 1, 2], "Split army slots must enter battle as separate stacks in slot order")
+	_check(player_cells.size() == 7, "Seven player slots must occupy seven different start cells")
+	battle.free()
+
 	# Ответный залп срабатывает только в упор и только один раз за раунд.
 	battle = scene.instantiate()
 	root.add_child(battle)

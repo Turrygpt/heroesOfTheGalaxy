@@ -15,11 +15,15 @@ const MUSIC_FADED_VOLUME_DB := -40.0
 ## картинками остаётся фолбэком, если слоёв нет.
 const MENU_LAYERS_DIR := "res://assets/ui/main_menu_layers"
 const MENU_BACKGROUNDS_DIR := "res://assets/ui/main_menu_backgrounds"
+const GAME_VERSION := "0.1.0"
 
 var status: Label
 var menu_font: Font
 var music_player: AudioStreamPlayer
 var transition_started := false
+var loading_scene := ""
+var requested_load := false
+var menu_buttons: Array[Button] = []
 
 
 func _ready() -> void:
@@ -29,7 +33,7 @@ func _ready() -> void:
 	var viewport_width := get_viewport_rect().size.x
 	var edge_margin := int(clampf(viewport_width * 0.045, 22.0, 48.0))
 	var panel_margin := 30
-	var column_width := int(minf(520.0, viewport_width - edge_margin * 2.0 - panel_margin * 2.0))
+	var column_width := int(minf(400.0, viewport_width - edge_margin * 2.0 - panel_margin * 2.0))
 	column_width = maxi(column_width, 260)
 	var safe_area := MarginContainer.new()
 	safe_area.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -73,7 +77,8 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 12)
 	panel.add_child(column)
 
-	_button(column, "Новая игра", _new_game)
+	var primary := _button(column, "Новая игра", _new_game)
+	primary.grab_focus()
 	var load_button := _button(column, "Загрузить игру", _load_game)
 	load_button.disabled = CampaignSave.read_save().is_empty()
 	_button(column, "Настройки", GameSettings.open_menu)
@@ -88,7 +93,26 @@ func _ready() -> void:
 	status.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
 	status.add_theme_constant_override("shadow_offset_y", 1)
 	column.add_child(status)
-	_start_music()
+	_build_version_label()
+	call_deferred("_start_music")
+
+
+func _build_version_label() -> void:
+	var label := Label.new()
+	label.text = "Ранняя версия · %s" % GAME_VERSION
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	label.offset_left = -220
+	label.offset_top = 10
+	label.offset_right = -16
+	label.offset_bottom = 32
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	label.add_theme_font_override("font", menu_font)
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", Color(0.70, 0.78, 0.86, 0.40))
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	add_child(label)
 
 
 func _make_menu_font() -> Font:
@@ -135,7 +159,7 @@ func _menu_layers_available() -> bool:
 
 func _build_vignette() -> void:
 	var shade := ColorRect.new()
-	shade.color = Color(0.0, 0.0, 0.0, 0.12)
+	shade.color = Color(0.0, 0.0, 0.0, 0.04)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(shade)
@@ -182,7 +206,14 @@ func _start_music() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var chosen: String = candidates[rng.randi_range(0, candidates.size() - 1)]
-	var loaded := load(MENU_MUSIC_DIR.path_join(chosen)) as AudioStreamMP3
+	var path := MENU_MUSIC_DIR.path_join(chosen)
+	if ResourceLoader.load_threaded_request(path) != OK:
+		return
+	while ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+		await get_tree().process_frame
+	if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_LOADED:
+		return
+	var loaded := ResourceLoader.load_threaded_get(path) as AudioStreamMP3
 	if loaded == null:
 		return
 	var stream: AudioStreamMP3 = loaded.duplicate()
@@ -206,30 +237,91 @@ func _button(parent: Node, text: String, action: Callable) -> Button:
 	button.add_theme_color_override("font_hover_color", Color(1.0, 0.95, 0.82))
 	button.add_theme_color_override("font_pressed_color", Color(0.72, 0.9, 1.0))
 	button.add_theme_color_override("font_disabled_color", Color(0.55, 0.6, 0.66, 0.45))
-	preload("res://scripts/ui_style.gd").apply_button(button)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for state: String in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.018, 0.035, 0.062, 0.80)
+		style.border_color = Color(0.46, 0.65, 0.80, 0.40)
+		style.set_border_width_all(1)
+		style.set_corner_radius_all(3)
+		if text == "Новая игра":
+			style.bg_color = Color(0.12, 0.12, 0.10, 0.90)
+			style.border_color = Color(0.82, 0.68, 0.40, 0.85)
+		if state in ["hover", "pressed"]:
+			style.bg_color = Color(0.12, 0.20, 0.27, 0.96)
+			style.border_color = Color(0.95, 0.82, 0.55)
+		if state == "focus":
+			style.draw_center = false
+			style.border_color = Color(0.95, 0.82, 0.55, 0.9)
+		if state == "disabled":
+			style.bg_color.a = 0.35
+			style.border_color.a = 0.18
+		button.add_theme_stylebox_override(state, style)
 	button.pressed.connect(action)
 	parent.add_child(button)
+	menu_buttons.append(button)
 	return button
 
 
 func _new_game() -> void:
 	if transition_started:
 		return
-	CampaignSave.prepare_new_game()
+	requested_load = false
 	_fade_out_and_change_scene("res://scenes/StrategicMain.tscn")
 
 
 func _load_game() -> void:
 	if transition_started:
 		return
-	if not CampaignSave.prepare_load():
-		status.text = CampaignSave.error_message
-		return
+	requested_load = true
 	_fade_out_and_change_scene("res://scenes/StrategicMain.tscn")
 
 
 func _fade_out_and_change_scene(scene_path: String) -> void:
 	transition_started = true
+	loading_scene = scene_path
+	status.text = "Подготовка галактики…"
+	for button in menu_buttons:
+		button.disabled = true
+	if ResourceLoader.load_threaded_request(scene_path) != OK:
+		_loading_failed()
+
+
+## Фоновая загрузка сохраняет отзывчивость меню и показывает реальный прогресс.
+func _process(_delta: float) -> void:
+	if loading_scene.is_empty():
+		return
+	var progress: Array = []
+	var state := ResourceLoader.load_threaded_get_status(loading_scene, progress)
+	if state == ResourceLoader.THREAD_LOAD_LOADED:
+		var packed := ResourceLoader.load_threaded_get(loading_scene) as PackedScene
+		loading_scene = ""
+		if requested_load:
+			if not CampaignSave.prepare_load():
+				_loading_failed()
+				status.text = CampaignSave.error_message
+				return
+		else:
+			CampaignSave.prepare_new_game()
+		_fade_music()
+		if packed == null or get_tree().change_scene_to_packed(packed) != OK:
+			_loading_failed()
+	elif state == ResourceLoader.THREAD_LOAD_FAILED or state == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+		_loading_failed()
+	elif not progress.is_empty():
+		status.text = "Подготовка галактики… %d%%" % int(float(progress[0]) * 100.0)
+
+
+func _loading_failed() -> void:
+	loading_scene = ""
+	transition_started = false
+	status.text = "Не удалось загрузить галактику. Попробуйте ещё раз."
+	for button in menu_buttons:
+		button.disabled = false
+	menu_buttons[1].disabled = CampaignSave.read_save().is_empty()
+
+
+func _fade_music() -> void:
 	if is_instance_valid(music_player):
 		var fading_player := music_player
 		music_player = null
@@ -238,4 +330,3 @@ func _fade_out_and_change_scene(scene_path: String) -> void:
 		var tween := fading_player.create_tween()
 		tween.tween_property(fading_player, "volume_db", MUSIC_FADED_VOLUME_DB, MENU_MUSIC_FADE_DURATION)
 		tween.finished.connect(fading_player.queue_free)
-	get_tree().change_scene_to_file(scene_path)

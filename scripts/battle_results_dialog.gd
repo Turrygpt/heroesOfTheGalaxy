@@ -12,6 +12,7 @@ const RED := Color("f5826b")
 const MUTED := preload("res://scripts/ui_style.gd").MUTED
 const INK := preload("res://scripts/ui_style.gd").INK
 const PANEL_SIZE := Vector2(780, 620)
+const SHIP_ICON_SIZE := Vector2(58, 42)
 
 const REWARDS := preload("res://scripts/battle_rewards.gd")
 const DEFS := preload("res://scripts/hero_defs.gd")
@@ -112,16 +113,50 @@ func _casualty_column(title: String, color: Color, rows: Array) -> Control:
 	for row in rows:
 		start_total += int(row["start"])
 		lost_total += int(row["lost"])
-		var lost := int(row["lost"])
-		var line := "%s    %d → %d" % [row["label"], int(row["start"]), int(row["left"])]
-		if lost > 0:
-			line += "   (−%d)" % lost
-		column.add_child(_label(line, 15, INK if lost == 0 else Color(1.0, 0.72, 0.62, 1.0)))
+		column.add_child(_casualty_row(row))
 	if rows.is_empty():
 		column.add_child(_label("Нет отрядов", 14, MUTED, true))
 	else:
 		column.add_child(_label("Потеряно кораблей: %d из %d" % [lost_total, start_total], 13, MUTED, true))
 	return panel
+
+
+func _casualty_row(row: Dictionary) -> Control:
+	var lost := int(row["lost"])
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = SHIP_ICON_SIZE
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture = _row_icon_texture(row)
+	box.add_child(icon)
+
+	var text_column := VBoxContainer.new()
+	text_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_column.add_theme_constant_override("separation", 0)
+	box.add_child(text_column)
+	text_column.add_child(_label(String(row["label"]), 14, INK))
+
+	var count_line := "%d → %d" % [int(row["start"]), int(row["left"])]
+	if lost > 0:
+		count_line += "   потеряно: %d" % lost
+	text_column.add_child(_label(count_line, 13, MUTED if lost == 0 else Color(1.0, 0.72, 0.62, 1.0)))
+	return box
+
+
+func _row_icon_texture(row: Dictionary) -> Texture2D:
+	var source := row.get("texture", null) as Texture2D
+	if source == null:
+		return null
+	var region := row.get("region", Rect2()) as Rect2
+	if region.size.x <= 0.0 or region.size.y <= 0.0:
+		return source
+	var atlas := AtlasTexture.new()
+	atlas.atlas = source
+	atlas.region = region
+	return atlas
 
 
 func _style(border: Color, background: Color = Color(0.022, 0.045, 0.07, 0.97)) -> StyleBoxFlat:

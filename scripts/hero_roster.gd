@@ -3,10 +3,8 @@ extends Node
 ## Автозагрузка HeroRoster: хранит героев между стратегической картой и боями
 ## и умеет сохранять их в user://heroes.json.
 
-## Явный preload вместо глобального имени класса — свежий class_name не виден
-## автозагрузкам до пересканирования проекта редактором (та же причина, что у
-## MapObjectDefs в space_strategy_map.gd).
-const OrcAI := preload("res://scripts/orc_ai.gd")
+## Идентификатор героя не требует загрузки ИИ и всех его текстур.
+const ORC_HERO_ID := "orc_warlord"
 
 const SAVE_PATH := "user://heroes.json"
 
@@ -25,12 +23,12 @@ func _ready() -> void:
 func reset_to_default() -> void:
 	heroes.clear()
 	var admiral := Hero.create("player_admiral", "Адмирал Ковальски", "admiral")
-	admiral.army = {"interceptor": 15, "gunship": 6, "corvette": 2}
+	admiral.set_army_from_dict({"interceptor": 15, "gunship": 6, "corvette": 2})
 	register(admiral)
 	# Вождь орков — герой стороны 2. Его army и есть флот ИИ на карте
 	# (см. orc_ai.gd), поэтому он живёт в общем ростере и сохраняется вместе
 	# с героем игрока. Стартовый флот выдаёт OrcAI при создании кампании.
-	register(Hero.create(OrcAI.HERO_ID, "Вождь Гракх Железный Клык", "warlord"))
+	register(Hero.create(ORC_HERO_ID, "Вождь Гракх Железный Клык", "warlord"))
 
 
 func register(hero: Hero) -> void:
@@ -48,7 +46,7 @@ func player_hero() -> Hero:
 ## Противник игрока в бою (сторона 2). Сейчас это всегда вождь орков —
 ## нейтральные стражи ходят без героя (см. tactical_battle.gd:_make_hero).
 func enemy_hero() -> Hero:
-	return get_hero(OrcAI.HERO_ID)
+	return get_hero(ORC_HERO_ID)
 
 
 ## Начисляет опыт и сообщает интерфейсу, сколько уровней ждёт подтверждения.

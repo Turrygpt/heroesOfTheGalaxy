@@ -102,6 +102,9 @@ const KINDS := {
 		"family": "info", "name": "Станция-архив", "glyph": "?", "color": "8da7ba", "repeatable": true, "size": 2,
 		"texture": preload("res://assets/map_objects/archive_station.png"),
 	},
+	"trading_post": {
+		"family": "info", "name": "Торговый пост", "glyph": "₡", "color": "55d6c2", "repeatable": true, "size": 2,
+	},
 }
 
 ## Сколько экземпляров каждого вида раскидать по карте при генерации (см.
@@ -130,6 +133,10 @@ const WORMHOLE_PAIR_COUNT := 2
 ## ради чего лететь и чем поживиться по дороге. Виды берутся из общего KINDS,
 ## сверх их SPAWN_COUNT.
 const CORNER_LAYOUT := ["void_vault", "artifact_cache", "cargo_container", "derelict_station"]
+## Два нейтральных торговых поста на примерно равном удалении от обеих
+## стартовых планет. Точки лежат по разные стороны от центральной диагонали,
+## чтобы обе стороны могли дотянуться до торговли за сопоставимое время.
+const TRADING_POST_CELLS := [Vector2i(22, 42), Vector2i(42, 22)]
 ## Сторона квадрата угловой зоны в клетках: в неё генератор и целится.
 const CORNER_BOX := 12
 ## Отступ от края карты — у самой рамки объект некуда поставить, да и

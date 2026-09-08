@@ -90,9 +90,36 @@ func _test_leaves_only_encirclement() -> void:
 	battle.free()
 
 
+## Даже если ИИ уже может стрелять, он должен искать лучшую огневую позицию
+## и перестраиваться перед атакой, как игрок в Heroes вручную двигает стек
+## перед ударом.
+func _test_ai_repositions_before_shot() -> void:
+	var battle = _make_battle("corvette", 12, "raider", 12)
+	battle.active_unit_index = 1
+	var active: Dictionary = battle.units[1]
+	var target: Dictionary = battle.units[0]
+	active["cell"] = Vector2i(10, 4)
+	target["cell"] = Vector2i(8, 4)
+	active["moved"] = false
+	battle.hex_center_cache.clear()
+	battle._precompute_hex_centers()
+	var destination: Vector2i = battle._best_enemy_move_cell(0)
+	_check(destination != active["cell"],
+		"ИИ должен перестроиться перед атакой, если рядом есть лучшая огневая позиция")
+	_check(battle._hex_distance(destination, target["cell"]) <= battle._stat(active, "range"),
+		"Манёвр перед атакой обязан оставлять цель в дальности залпа")
+	battle._run_enemy_turn()
+	_check(active["moved"] and active["cell"] == destination,
+		"Ход ИИ должен начинаться с перемещения в выбранную позицию")
+	_check(battle.enemy_pending_target == 0 and battle.enemy_attack_delay >= 0.0,
+		"После манёвра ИИ должен запланировать атаку по исходной цели")
+	battle.free()
+
+
 func _run() -> void:
 	_test_dead_attacker_still_advances_turn()
 	_test_leaves_only_encirclement()
+	_test_ai_repositions_before_shot()
 	if failures == 0:
 		print("PASS: гибель активного отряда от ответки не вешает ход, выход из окружения")
 	quit(1 if failures else 0)

@@ -5,6 +5,7 @@ class FakeStrategyMap:
 	extends Node2D
 
 	var current_day := 3
+	var fleet_home := true
 	var player_one_credits := 1000
 	var player_one_resources := {
 		"Продукты": 100,
@@ -16,7 +17,7 @@ class FakeStrategyMap:
 	}
 
 	func player_fleet_at_home_planet() -> bool:
-		return true
+		return fleet_home
 
 	func can_afford(cost: Dictionary) -> bool:
 		for key in cost:
@@ -179,6 +180,7 @@ func _run() -> void:
 		return
 	_check_unit_upgrade(screen)
 	_check_fort_growth()
+	_check_fleet_slots_split_merge()
 	print("SHIP_BUILDINGS_REGRESSION_OK")
 	quit()
 
@@ -211,7 +213,7 @@ func _check_unit_upgrade(screen: Node) -> void:
 	screen.strategy_map = fake_map
 	var state := HumanPlanetState.default_state()
 	state["built_levels"]["fighter_yard"] = 2
-	state["garrison"] = {"interceptor": 3}
+	state["garrison_slots"] = [{"unit_id": "interceptor", "count": 3}, {}, {}, {}, {}, {}, {}]
 	HumanPlanetState.save_state(state)
 	var upgrade_cost := UnitDefs.upgrade_cost("interceptor")
 	if UnitDefs.upgrade_target("interceptor") != "heavy_interceptor":
@@ -220,7 +222,7 @@ func _check_unit_upgrade(screen: Node) -> void:
 	if int(upgrade_cost.get("credits", 0)) != 40 or int(upgrade_cost.get("Руда", 0)) != 1:
 		_fail("Interceptor upgrade price must be the elite/base cost difference")
 		return
-	screen._upgrade_stack("garrison", "interceptor")
+	screen._upgrade_stack("garrison", 0)
 	state = HumanPlanetState.load_state()
 	var garrison: Dictionary = state["garrison"]
 	if garrison.has("interceptor") or int(garrison.get("heavy_interceptor", 0)) != 3:
@@ -230,6 +232,55 @@ func _check_unit_upgrade(screen: Node) -> void:
 		_fail("Garrison upgrade must pay the cost difference for the whole stack")
 		return
 	fake_map.queue_free()
+
+
+func _check_fleet_slots_split_merge() -> void:
+	var screen = load("res://scenes/HumanPlanetScreen.tscn").instantiate()
+	var fake_map := FakeStrategyMap.new()
+	root.add_child(fake_map)
+	root.add_child(screen)
+	await process_frame
+	screen.strategy_map = fake_map
+	var roster := root.get_node("HeroRoster")
+	var previous = roster.heroes.get("player_admiral", null)
+	var hero := Hero.create("player_admiral", "Тестовый адмирал", "admiral")
+	hero.set_army_from_dict({})
+	roster.register(hero)
+	var state := HumanPlanetState.default_state()
+	state["garrison_slots"] = [{"unit_id": "interceptor", "count": 10}, {}, {}, {}, {}, {}, {}]
+	HumanPlanetState.save_state(state)
+	screen._split_stack("garrison", 0)
+	state = HumanPlanetState.load_state()
+	var slots: Array = state["garrison_slots"]
+	if int(slots[0].get("count", 0)) != 5 or int(slots[1].get("count", 0)) != 5:
+		_fail("Split must halve a stack into an empty slot: %s" % str(slots))
+	screen._move_stack_between_slots("garrison", 1, "garrison", 0)
+	state = HumanPlanetState.load_state()
+	slots = state["garrison_slots"]
+	if int(slots[0].get("count", 0)) != 10 or not (slots[1] as Dictionary).is_empty():
+		_fail("Dropping same units must merge stacks: %s" % str(slots))
+	screen._move_stack_between_slots("garrison", 0, "hero", 0)
+	if int(hero.army.get("interceptor", 0)) != 10:
+		_fail("Moving garrison stack to hero must preserve count: %s" % str(hero.army))
+	state = HumanPlanetState.load_state()
+	if not (state["garrison"] as Dictionary).is_empty():
+		_fail("Garrison aggregate must be empty after moving stack: %s" % str(state["garrison"]))
+	state["garrison_slots"] = [{"unit_id": "interceptor", "count": 4}, {}, {}, {}, {}, {}, {}]
+	HumanPlanetState.save_state(state)
+	hero.set_army_from_dict({})
+	fake_map.fleet_home = false
+	screen._move_stack_between_slots("garrison", 0, "hero", 0)
+	state = HumanPlanetState.load_state()
+	if int((state["garrison"] as Dictionary).get("interceptor", 0)) != 4 or not hero.army.is_empty():
+		_fail("Гарнизон нельзя передавать флоту, если корабль не пришвартован: гарнизон=%s герой=%s" % [str(state["garrison"]), str(hero.army)])
+	hero.set_army_from_dict({"interceptor": 4})
+	screen._split_stack("hero", 0)
+	if int(hero.army_slots[0].get("count", 0)) != 2 or int(hero.army_slots[1].get("count", 0)) != 2:
+		_fail("Внутри флота героя можно делить стек даже в экспедиции: %s" % str(hero.army_slots))
+	if previous != null:
+		roster.register(previous)
+	fake_map.queue_free()
+	screen.queue_free()
 
 
 func _check_one_building_per_day() -> void:

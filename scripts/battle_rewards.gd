@@ -55,6 +55,8 @@ static func side_casualties(units: Array, side: int) -> Array:
 			left = int(ceil(float(unit["hp"]) / float(hull)))
 		rows.append({
 			"label": String(unit.get("label", "Отряд")),
+			"texture": unit.get("texture", null),
+			"region": unit.get("region", Rect2()),
 			"start": start,
 			"left": left,
 			"lost": maxi(0, start - left),

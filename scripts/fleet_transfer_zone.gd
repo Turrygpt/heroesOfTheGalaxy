@@ -3,11 +3,13 @@ extends PanelContainer
 
 ## Универсальная зона для перетаскивания стеков между гарнизоном и героем.
 
-signal transfer_requested(unit_id: String, source_id: String, target_id: String)
+signal transfer_requested(unit_id: String, source_id: String, source_slot: int, target_id: String, target_slot: int)
 
 var unit_id := ""
 var source_id := ""
 var target_id := ""
+var source_slot := -1
+var target_slot := -1
 var drag_enabled := true
 var stack_count := 0
 
@@ -17,19 +19,24 @@ func _get_drag_data(_position: Vector2) -> Variant:
 		return null
 	var preview := _make_drag_preview(_position)
 	set_drag_preview(preview)
-	return {"unit_id": unit_id, "source_id": source_id}
+	return {"unit_id": unit_id, "source_id": source_id, "source_slot": source_slot}
 
 
 func _can_drop_data(_position: Vector2, data: Variant) -> bool:
 	return data is Dictionary \
 		and data.has("unit_id") \
 		and data.has("source_id") \
-		and String(data["source_id"]) != target_id \
 		and not target_id.is_empty()
 
 
 func _drop_data(_position: Vector2, data: Variant) -> void:
-	transfer_requested.emit(String(data["unit_id"]), String(data["source_id"]), target_id)
+	transfer_requested.emit(
+		String(data["unit_id"]),
+		String(data["source_id"]),
+		int(data.get("source_slot", -1)),
+		target_id,
+		target_slot
+	)
 
 
 func _make_drag_preview(grab_position: Vector2) -> Control:

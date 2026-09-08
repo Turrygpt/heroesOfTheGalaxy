@@ -1,8 +1,9 @@
 ## Единый снимок кампании. Настройки звука и редактора не относятся к прогрессу.
 extends Node
 
-const PLANET := preload("res://scripts/human_planet_state.gd")
-const OrcAI := preload("res://scripts/orc_ai.gd")
+const PLANET_PATH := "res://scripts/human_planet_state.gd"
+## Идентификатор героя не требует загрузки ИИ и всех его текстур.
+const ORC_HERO_ID := "orc_warlord"
 const SAVE_PATH := "user://campaign.save"
 const VERSION := 2
 ## Только данные карты, без узлов и текстур.
@@ -30,7 +31,7 @@ func read_save(path: String = SAVE_PATH) -> Dictionary:
 		return {}
 	if not data.get("map") is Dictionary or not data.get("heroes") is Dictionary or not data.get("planet") is Dictionary:
 		return {}
-	if not data.heroes.has("player_admiral") or not data.heroes.has(OrcAI.HERO_ID):
+	if not data.heroes.has("player_admiral") or not data.heroes.has(ORC_HERO_ID):
 		return {}
 	if not data.map.has("orc_ai"):
 		return {}
@@ -53,7 +54,7 @@ func save_campaign(map: Node, path: String = SAVE_PATH) -> bool:
 	var heroes := {}
 	for id in HeroRoster.heroes:
 		heroes[id] = HeroRoster.heroes[id].to_dict()
-	var payload := {"version": VERSION, "map": snapshot, "heroes": heroes, "planet": PLANET.load_state()}
+	var payload := {"version": VERSION, "map": snapshot, "heroes": heroes, "planet": load(PLANET_PATH).load_state()}
 	var temporary := path + ".tmp"
 	var file := FileAccess.open(temporary, FileAccess.WRITE)
 	if file == null:
@@ -79,7 +80,7 @@ func prepare_load(path: String = SAVE_PATH) -> bool:
 	for id in data.heroes:
 		HeroRoster.register(Hero.from_dict(data.heroes[id]))
 	HeroRoster.save_state()
-	PLANET.save_state(data.planet)
+	load(PLANET_PATH).save_state(data.planet)
 	pending_map = data.map
 	return true
 
@@ -89,7 +90,7 @@ func prepare_new_game() -> void:
 	pending_map.clear()
 	HeroRoster.reset_to_default()
 	HeroRoster.save_state()
-	PLANET.reset_to_default()
+	load(PLANET_PATH).reset_to_default()
 
 
 func take_map() -> Dictionary:

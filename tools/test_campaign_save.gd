@@ -35,11 +35,11 @@ func _run() -> void:
 	map.guardians[0]["alive"] = false
 	map.obelisks_collected = 2
 	map._reveal_around(Vector2i(30, 30), 4)
-	roster.player_hero().army = {"interceptor": 42}
+	roster.player_hero().set_army_from_dict({"interceptor": 42})
 	roster.player_hero().gain_experience(2000)
 	var planet := PLANET.default_state()
 	planet.built_levels["townhall"] = 3
-	planet.garrison = {"interceptor": 7}
+	planet.garrison_slots = [{"unit_id": "interceptor", "count": 7}, {}, {}, {}, {}, {}, {}]
 	PLANET.save_state(planet)
 	_check(campaign.save_campaign(map, TEST_PATH), "Сохранение записано")
 	_check(campaign.save_campaign(map, TEST_PATH), "Существующее сохранение заменяется")
@@ -62,6 +62,15 @@ func _run() -> void:
 	_check(map.obstacles == obstacles, "Геометрия карты сохранена")
 	_check(roster.player_hero().army["interceptor"] == 42, "Флот загружен")
 	_check(PLANET.load_state().garrison["interceptor"] == 7, "Гарнизон загружен")
+	var legacy_hero := Hero.from_dict({"id": "legacy", "army": {"interceptor": 5}})
+	_check(int(legacy_hero.army_slots[0].get("count", 0)) == 5, "Старый формат армии мигрирует в слоты")
+	var legacy_planet := PLANET.default_state()
+	legacy_planet.erase("garrison_slots")
+	legacy_planet["garrison"] = {"interceptor": 6}
+	var legacy_file := FileAccess.open(PLANET.STATE_PATH, FileAccess.WRITE)
+	legacy_file.store_string(JSON.stringify(legacy_planet, "\t"))
+	legacy_file.close()
+	_check(int(PLANET.load_state().garrison_slots[0].get("count", 0)) == 6, "Старый формат гарнизона мигрирует в слоты")
 	host.free()
 	campaign.prepare_new_game()
 	campaign.save_on_start = false

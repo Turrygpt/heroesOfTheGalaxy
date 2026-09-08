@@ -7,6 +7,9 @@ signal close_requested
 ## и ресурсы игрока. Без неё найм просто недоступен.
 var strategy_map: Node2D
 var music_player: AudioStreamPlayer
+var open_garrison_on_ready := false
+var fleet_only_mode := false
+var space_modal_mode := false
 ## Только для UiShot: позволяет наполнить гарнизон без записи в пользовательский сейв.
 var garrison_preview_state: Dictionary = {}
 
@@ -166,6 +169,8 @@ var barter_quote: Label
 var barter_button: Button
 
 @onready var back_button: Button = $Root/TopBar/Margin/HBox/BackButton
+@onready var background: TextureRect = $Root/Background
+@onready var cloud_layer: ColorRect = $Root/CloudLayer
 @onready var building_layer: Control = $Root/BuildingLayer
 @onready var editor_panel: PanelContainer = $Root/BuildingEditor
 @onready var size_slider: HSlider = $Root/BuildingEditor/Margin/VBox/SizeRow/SizeSlider
@@ -179,6 +184,7 @@ var barter_button: Button
 @onready var planet_info_level: Label = $Root/PlanetInfo/Margin/VBox/Level
 @onready var planet_info_income: Label = $Root/PlanetInfo/Margin/VBox/Income
 @onready var moon: TextureRect = $Root/Moon
+@onready var terrain_foreground: TextureRect = $Root/TerrainForeground
 @onready var construction_button: Button = $Root/BottomBar/Margin/Actions/Construction
 @onready var editor_button: Button = $Root/BottomBar/Margin/Actions/Editor
 @onready var construction_menu: PanelContainer = $Root/ConstructionMenu
@@ -193,6 +199,8 @@ var barter_button: Button
 @onready var modal_close: Button = $Root/BuildingModal/Center/Panel/Margin/VBox/CloseButton
 @onready var garrison_button: Button = $Root/BottomBar/Margin/Actions/Garrison
 @onready var garrison_screen: PanelContainer = $Root/GarrisonScreen
+@onready var production_panel: PanelContainer = $Root/GarrisonScreen/Margin/VBox/Content/ProductionPanel
+@onready var garrison_panel: PanelContainer = $Root/GarrisonScreen/Margin/VBox/Content/Armies/GarrisonPanel
 @onready var production_list: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/Content/ProductionPanel/Margin/VBox/ProductionScroll/ProductionList
 @onready var garrison_drop_host: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/Content/Armies/GarrisonPanel/Margin/VBox/GarrisonDropHost
 @onready var hero_drop_host: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/Content/Armies/HeroPanel/Margin/HBox/HeroArmy/HeroDropHost
@@ -200,6 +208,7 @@ var barter_button: Button
 @onready var garrison_hero_name: Label = $Root/GarrisonScreen/Margin/VBox/Content/Armies/HeroPanel/Margin/HBox/HeroInfo/Name
 @onready var garrison_hero_status: Label = $Root/GarrisonScreen/Margin/VBox/Content/Armies/HeroPanel/Margin/HBox/HeroInfo/Status
 @onready var garrison_close: Button = $Root/GarrisonScreen/Margin/VBox/CloseButton
+@onready var resource_bar: Control = $Root/ResourceBar
 @onready var resource_bar_credits: Label = $Root/ResourceBar/Margin/HBox/CreditsLabel
 @onready var resource_bar_products: Label = $Root/ResourceBar/Margin/HBox/ProductsSlot/Value
 @onready var resource_bar_ore: Label = $Root/ResourceBar/Margin/HBox/OreSlot/Value
@@ -278,7 +287,12 @@ func _ready() -> void:
 	_update_resource_bar()
 	_update_size_label()
 	moon_origin = moon.position
-	_start_music()
+	if fleet_only_mode:
+		_apply_fleet_only_mode()
+	if open_garrison_on_ready:
+		_open_garrison_screen()
+	if not space_modal_mode:
+		_start_music()
 
 
 func _start_music() -> void:
@@ -828,12 +842,34 @@ func _open_garrison_screen() -> void:
 	_close_exchange_screen()
 	if editor_panel.visible:
 		_close_building_editor()
+	if fleet_only_mode:
+		production_panel.hide()
+		garrison_panel.hide()
 	_update_garrison_screen()
 	garrison_screen.show()
 
 
 func _close_garrison_screen() -> void:
+	if fleet_only_mode:
+		_request_close()
+		return
 	garrison_screen.hide()
+
+
+func _apply_fleet_only_mode() -> void:
+	if space_modal_mode:
+		background.hide()
+		cloud_layer.hide()
+		terrain_foreground.hide()
+		moon.hide()
+		top_bar.hide()
+	else:
+		back_button.text = "НАЗАД НА КАРТУ"
+	bottom_bar.hide()
+	planet_info.hide()
+	resource_bar.hide()
+	production_panel.hide()
+	garrison_panel.hide()
 
 
 func _open_exchange_screen() -> void:
@@ -1142,7 +1178,7 @@ func _update_garrison_screen() -> void:
 
 	var state := garrison_preview_state if not garrison_preview_state.is_empty() else HumanPlanetState.load_state()
 	var levels: Dictionary = state.get("built_levels", {})
-	var garrison: Dictionary = state.get("garrison", {})
+	var garrison_slots: Array = state.get("garrison_slots", HumanPlanetState.slots_from_army(state.get("garrison", {}), GARRISON_SLOT_COUNT))
 	var growth: Dictionary = state.get("available_growth", {})
 	var production_ids := _active_production_ids(state)
 	for unit_id: String in production_ids:
@@ -1153,10 +1189,11 @@ func _update_garrison_screen() -> void:
 		production_list.add_child(_placeholder_label("Постройте первый ангар, чтобы запустить еженедельное производство."))
 
 	var hero := _player_hero()
-	var hero_army: Dictionary = hero.army if hero != null else {}
+	var hero_slots: Array = hero.army_slots if hero != null else []
 	var fleet_at_planet: bool = strategy_map != null and strategy_map.player_fleet_at_home_planet()
-	garrison_drop_host.add_child(_build_fleet_zone("garrison", garrison, fleet_at_planet, levels))
-	hero_drop_host.add_child(_build_fleet_zone("hero", hero_army, fleet_at_planet, levels))
+	var hero_enabled := fleet_at_planet or fleet_only_mode
+	garrison_drop_host.add_child(_build_fleet_zone("garrison", garrison_slots, fleet_at_planet, levels))
+	hero_drop_host.add_child(_build_fleet_zone("hero", hero_slots, hero_enabled, levels))
 
 	var portrait := AtlasTexture.new()
 	portrait.atlas = HERO_PORTRAIT
@@ -1166,7 +1203,7 @@ func _update_garrison_screen() -> void:
 		garrison_hero_name.text = "%s\nуровень %d" % [hero.hero_name, hero.level]
 	else:
 		garrison_hero_name.text = "НЕТ ГЕРОЯ"
-	garrison_hero_status.text = "Флот у планеты" if fleet_at_planet else "Флот в экспедиции"
+	garrison_hero_status.text = "Управление флотом" if fleet_only_mode else ("Флот у планеты" if fleet_at_planet else "Флот в экспедиции")
 	garrison_hero_status.add_theme_color_override(
 		"font_color", Color(0.51, 0.79, 0.76, 1) if fleet_at_planet else Color(0.82, 0.52, 0.42, 1)
 	)
@@ -1189,6 +1226,11 @@ func _active_production_ids(state: Dictionary) -> Array[String]:
 
 func _build_production_row(unit_id: String, weekly: int, available: int) -> Control:
 	var unit := UnitDefs.get_unit(unit_id)
+	var state := garrison_preview_state if not garrison_preview_state.is_empty() else HumanPlanetState.load_state()
+	var can_store := _slots_can_accept(
+		HumanPlanetState.clean_slots(state.get("garrison_slots", []), GARRISON_SLOT_COUNT),
+		unit_id
+	)
 	var row := PanelContainer.new()
 	row.add_theme_stylebox_override("panel", _panel_row_style())
 
@@ -1239,14 +1281,18 @@ func _build_production_row(unit_id: String, weekly: int, available: int) -> Cont
 		buy_button.add_theme_font_size_override("font_size", 12)
 		buy_button.text = "НАНЯТЬ"
 		_style_action_button(buy_button)
+		buy_button.disabled = not can_store
+		if not can_store:
+			buy_button.tooltip_text = "В гарнизоне нет свободного слота."
 		buy_button.pressed.connect(_recruit_unit.bind(unit_id, spin))
 		buy_row.add_child(buy_button)
 	return row
 
 
-func _build_fleet_zone(zone_id: String, army: Dictionary, enabled: bool, levels: Dictionary) -> Control:
+func _build_fleet_zone(zone_id: String, slots: Array, enabled: bool, levels: Dictionary) -> Control:
 	var zone := FLEET_TRANSFER_ZONE.new()
 	zone.target_id = zone_id
+	zone.target_slot = -1
 	zone.custom_minimum_size = Vector2(0, 200)
 	zone.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var style := preload("res://scripts/ui_style.gd").surface(Color("444a52"), Color("121519"), 10, 10)
@@ -1261,40 +1307,32 @@ func _build_fleet_zone(zone_id: String, army: Dictionary, enabled: bool, levels:
 	cards.mouse_filter = Control.MOUSE_FILTER_PASS
 	zone.add_child(cards)
 
-	var has_units := false
-	var shown_slots := 0
 	var slot_count := GARRISON_SLOT_COUNT if zone_id == "garrison" else HERO_ARMY_SLOT_COUNT
-	for raw_id in army:
-		var unit_id := String(raw_id)
-		var count := int(army[raw_id])
-		if count <= 0:
-			continue
-		has_units = true
-		shown_slots += 1
-		cards.add_child(_build_fleet_card(unit_id, count, zone_id, enabled, levels))
-	if not has_units:
-		var empty := _placeholder_label("Перетащите корабли сюда")
-		empty.custom_minimum_size = FLEET_CARD_SIZE
-		empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		cards.add_child(empty)
-		shown_slots = 1
-	while shown_slots < slot_count:
-		cards.add_child(_build_empty_fleet_slot())
-		shown_slots += 1
+	var cleaned := HumanPlanetState.clean_slots(slots, slot_count)
+	for slot_index in range(slot_count):
+		var slot: Dictionary = cleaned[slot_index]
+		var unit_id := String(slot.get("unit_id", ""))
+		var count := int(slot.get("count", 0))
+		if unit_id.is_empty() or count <= 0:
+			cards.add_child(_build_empty_fleet_slot(zone_id, slot_index, enabled))
+		else:
+			cards.add_child(_build_fleet_card(unit_id, count, zone_id, slot_index, enabled, levels))
 	return zone
 
 
-func _build_fleet_card(unit_id: String, count: int, source_id: String, enabled: bool, levels: Dictionary) -> Control:
+func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_index: int, enabled: bool, levels: Dictionary) -> Control:
 	var unit := UnitDefs.get_unit(unit_id)
 	var card := FLEET_TRANSFER_ZONE.new()
 	card.unit_id = unit_id
 	card.source_id = source_id
 	card.target_id = source_id
+	card.source_slot = slot_index
+	card.target_slot = slot_index
 	card.drag_enabled = enabled
 	card.stack_count = count
 	card.custom_minimum_size = FLEET_CARD_SIZE
 	card.mouse_default_cursor_shape = Control.CURSOR_DRAG if enabled else Control.CURSOR_FORBIDDEN
-	card.tooltip_text = "%s · %d кораблей\nПеретащите весь стек в другой ряд" % [String(unit["label"]), count]
+	card.tooltip_text = "%s · %d кораблей\nПеретащите на пустой слот, такой же стек или другой стек." % [String(unit["label"]), count]
 	card.add_theme_stylebox_override("panel", preload("res://scripts/ui_style.gd").button_style("normal"))
 	card.transfer_requested.connect(_on_fleet_stack_dropped)
 	var box := VBoxContainer.new()
@@ -1331,15 +1369,29 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, enabled: 
 		]
 		upgrade_button.disabled = strategy_map == null or not strategy_map.can_afford(upgrade_cost)
 		_style_action_button(upgrade_button)
-		upgrade_button.pressed.connect(_upgrade_stack.bind(source_id, unit_id))
+		upgrade_button.pressed.connect(_upgrade_stack.bind(source_id, slot_index))
 		box.add_child(upgrade_button)
+	if enabled and count > 1:
+		var split_button := Button.new()
+		split_button.custom_minimum_size = Vector2(0, 28)
+		split_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		split_button.add_theme_font_size_override("font_size", 11)
+		split_button.text = "РАЗДЕЛИТЬ"
+		split_button.tooltip_text = "Отделить половину кораблей в свободный слот."
+		_style_action_button(split_button)
+		split_button.pressed.connect(_split_stack.bind(source_id, slot_index))
+		box.add_child(split_button)
 	return card
 
 
-func _build_empty_fleet_slot() -> Control:
-	var slot := PanelContainer.new()
+func _build_empty_fleet_slot(zone_id: String, slot_index: int, enabled: bool) -> Control:
+	var slot := FLEET_TRANSFER_ZONE.new()
+	slot.target_id = zone_id
+	slot.target_slot = slot_index
+	slot.drag_enabled = false
 	slot.custom_minimum_size = FLEET_CARD_SIZE
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.mouse_filter = Control.MOUSE_FILTER_STOP if enabled else Control.MOUSE_FILTER_IGNORE
+	slot.transfer_requested.connect(_on_fleet_stack_dropped)
 	var style := preload("res://scripts/ui_style.gd").surface(Color("303844"), Color("101419"), 8, 8)
 	style.bg_color = Color(0.05, 0.06, 0.075, 0.58)
 	style.border_color = Color(0.22, 0.27, 0.32, 0.9)
@@ -1347,49 +1399,59 @@ func _build_empty_fleet_slot() -> Control:
 	return slot
 
 
-func _on_fleet_stack_dropped(unit_id: String, source_id: String, target_id: String) -> void:
-	if source_id == target_id:
+func _on_fleet_stack_dropped(_unit_id: String, source_id: String, source_slot: int, target_id: String, target_slot: int) -> void:
+	if source_slot < 0 or target_slot < 0:
 		return
-	if source_id == "garrison" and target_id == "hero":
-		_transfer_to_hero(unit_id)
-	elif source_id == "hero" and target_id == "garrison":
-		_transfer_to_garrison(unit_id)
+	if source_id == target_id and source_slot == target_slot:
+		return
+	_move_stack_between_slots(source_id, source_slot, target_id, target_slot)
 
 
-func _upgrade_stack(source_id: String, unit_id: String) -> void:
+func _upgrade_stack(source_id: String, slot_index: int) -> void:
 	if strategy_map == null or not strategy_map.player_fleet_at_home_planet():
 		return
-	var target_id := UnitDefs.upgrade_target(unit_id)
-	if target_id.is_empty():
-		return
 	var state := HumanPlanetState.load_state()
-	if not UnitDefs.upgrade_available(unit_id, state.get("built_levels", {})):
+	var slots := _slots_for_side(source_id, state)
+	if slot_index < 0 or slot_index >= slots.size():
 		return
-	var count := 0
-	var hero := _player_hero()
-	if source_id == "garrison":
-		var garrison: Dictionary = state.get("garrison", {})
-		count = int(garrison.get(unit_id, 0))
-	elif source_id == "hero" and hero != null:
-		count = int(hero.army.get(unit_id, 0))
-	if count <= 0:
+	var slot: Dictionary = slots[slot_index]
+	var unit_id := String(slot.get("unit_id", ""))
+	var count := int(slot.get("count", 0))
+	var target_id := UnitDefs.upgrade_target(unit_id)
+	if target_id.is_empty() or count <= 0:
+		return
+	if not UnitDefs.upgrade_available(unit_id, state.get("built_levels", {})):
 		return
 	var cost := _scaled_cost(UnitDefs.upgrade_cost(unit_id), count)
 	if not strategy_map.can_afford(cost):
 		return
 	strategy_map.pay_cost(cost)
-	if source_id == "garrison":
-		var garrison: Dictionary = state.get("garrison", {})
-		garrison.erase(unit_id)
-		garrison[target_id] = int(garrison.get(target_id, 0)) + count
-		state["garrison"] = garrison
-		HumanPlanetState.save_state(state)
-	elif source_id == "hero" and hero != null:
-		hero.remove_from_army(unit_id, count)
-		hero.add_to_army(target_id, count)
-		_save_hero_roster()
+	slots[slot_index] = {"unit_id": target_id, "count": count}
+	_store_slots_for_side(source_id, slots, state)
 	_update_garrison_screen()
 	_update_resource_bar()
+
+
+func _split_stack(source_id: String, slot_index: int) -> void:
+	if source_id != "hero" and (strategy_map == null or not strategy_map.player_fleet_at_home_planet()):
+		return
+	var state := HumanPlanetState.load_state()
+	var slots := _slots_for_side(source_id, state)
+	if slot_index < 0 or slot_index >= slots.size():
+		return
+	var empty_index := _first_empty_slot(slots)
+	if empty_index < 0:
+		return
+	var slot: Dictionary = slots[slot_index]
+	var count := int(slot.get("count", 0))
+	if count <= 1:
+		return
+	var split_count := count / 2
+	slot["count"] = count - split_count
+	slots[slot_index] = slot
+	slots[empty_index] = {"unit_id": String(slot["unit_id"]), "count": split_count}
+	_store_slots_for_side(source_id, slots, state)
+	_update_garrison_screen()
 
 
 func _scaled_cost(cost: Dictionary, count: int) -> Dictionary:
@@ -1426,50 +1488,95 @@ func _recruit_unit(unit_id: String, spin: SpinBox) -> void:
 	var cost := _scaled_cost(UnitDefs.get_unit(unit_id).get("cost", {}), count)
 	if not strategy_map.can_afford(cost):
 		return
+	var slots := HumanPlanetState.clean_slots(state.get("garrison_slots", []), GARRISON_SLOT_COUNT)
+	if not _slots_can_accept(slots, unit_id):
+		return
 	strategy_map.pay_cost(cost)
 	growth[unit_id] = available - count
 	state["available_growth"] = growth
-	var garrison: Dictionary = state.get("garrison", {})
-	garrison[unit_id] = int(garrison.get(unit_id, 0)) + count
-	state["garrison"] = garrison
+	_add_to_slots(slots, unit_id, count)
+	state["garrison_slots"] = slots
 	HumanPlanetState.save_state(state)
 	_update_garrison_screen()
 	_update_resource_bar()
 
 
-func _transfer_to_hero(unit_id: String) -> void:
-	var hero := _player_hero()
-	if hero == null:
-		return
-	if strategy_map == null or not strategy_map.player_fleet_at_home_planet():
+func _move_stack_between_slots(source_id: String, source_slot: int, target_id: String, target_slot: int) -> void:
+	if (source_id != "hero" or target_id != "hero") and (strategy_map == null or not strategy_map.player_fleet_at_home_planet()):
 		return
 	var state := HumanPlanetState.load_state()
-	var garrison: Dictionary = state.get("garrison", {})
-	var count := int(garrison.get(unit_id, 0))
-	if count <= 0:
+	var source_slots := _slots_for_side(source_id, state)
+	var target_slots := source_slots if source_id == target_id else _slots_for_side(target_id, state)
+	if source_slot < 0 or source_slot >= source_slots.size() or target_slot < 0 or target_slot >= target_slots.size():
 		return
-	hero.add_to_army(unit_id, count)
-	garrison.erase(unit_id)
-	state["garrison"] = garrison
-	HumanPlanetState.save_state(state)
-	_save_hero_roster()
+	var moving: Dictionary = source_slots[source_slot]
+	if _slot_is_empty(moving):
+		return
+	var target: Dictionary = target_slots[target_slot]
+	if _slot_is_empty(target):
+		target_slots[target_slot] = moving
+		source_slots[source_slot] = {}
+	elif String(target.get("unit_id", "")) == String(moving.get("unit_id", "")):
+		target["count"] = int(target.get("count", 0)) + int(moving.get("count", 0))
+		target_slots[target_slot] = target
+		source_slots[source_slot] = {}
+	else:
+		target_slots[target_slot] = moving
+		source_slots[source_slot] = target
+	_store_slots_for_side(source_id, source_slots, state)
+	if source_id != target_id:
+		_store_slots_for_side(target_id, target_slots, state)
 	_update_garrison_screen()
 
 
-func _transfer_to_garrison(unit_id: String) -> void:
+func _slots_for_side(side_id: String, state: Dictionary) -> Array[Dictionary]:
+	if side_id == "garrison":
+		return HumanPlanetState.clean_slots(state.get("garrison_slots", []), GARRISON_SLOT_COUNT)
 	var hero := _player_hero()
 	if hero == null:
-		return
-	var count := int(hero.army.get(unit_id, 0))
-	if hero.remove_from_army(unit_id, count) <= 0:
-		return
-	var state := HumanPlanetState.load_state()
-	var garrison: Dictionary = state.get("garrison", {})
-	garrison[unit_id] = int(garrison.get(unit_id, 0)) + count
-	state["garrison"] = garrison
-	HumanPlanetState.save_state(state)
-	_save_hero_roster()
-	_update_garrison_screen()
+		return []
+	hero._ensure_army_slots()
+	return Hero._clean_slots(hero.army_slots, HERO_ARMY_SLOT_COUNT)
+
+
+func _store_slots_for_side(side_id: String, slots: Array[Dictionary], state: Dictionary) -> void:
+	if side_id == "garrison":
+		state["garrison_slots"] = HumanPlanetState.clean_slots(slots, GARRISON_SLOT_COUNT)
+		HumanPlanetState.save_state(state)
+	else:
+		var hero := _player_hero()
+		if hero != null:
+			hero.set_army_from_slots(slots)
+			_save_hero_roster()
+
+
+func _add_to_slots(slots: Array[Dictionary], unit_id: String, count: int) -> void:
+	for slot in slots:
+		if String(slot.get("unit_id", "")) == unit_id:
+			slot["count"] = int(slot.get("count", 0)) + count
+			return
+	var empty_index := _first_empty_slot(slots)
+	if empty_index >= 0:
+		slots[empty_index] = {"unit_id": unit_id, "count": count}
+
+
+func _slots_can_accept(slots: Array, unit_id: String) -> bool:
+	for slot in slots:
+		if _slot_is_empty(slot) or String((slot as Dictionary).get("unit_id", "")) == unit_id:
+			return true
+	return false
+
+
+func _first_empty_slot(slots: Array) -> int:
+	for index in range(slots.size()):
+		if _slot_is_empty(slots[index]):
+			return index
+	return -1
+
+
+func _slot_is_empty(slot: Variant) -> bool:
+	return not slot is Dictionary or String((slot as Dictionary).get("unit_id", "")).is_empty() \
+		or int((slot as Dictionary).get("count", 0)) <= 0
 
 
 func _save_hero_roster() -> void:
