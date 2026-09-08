@@ -18,6 +18,7 @@ var skills := {}  # skill_id -> ранг 1..3
 var artifacts := {}  # artifact_id (см. HeroDefs.ARTIFACTS) -> true, без тиров
 var energy := 0
 var army := {}  # unit_id (см. unit_defs.gd) -> количество кораблей
+var army_slots: Array[Dictionary] = []  # до 7 стеков: {"unit_id": String, "count": int}
 ## Сколько уровней получено, но ещё не подтверждено выбором навыка.
 var pending_level_ups := 0
 
@@ -342,6 +343,7 @@ func map_movement_multiplier() -> float:
 # --- Флот ---------------------------------------------------------------
 
 func army_is_empty() -> bool:
+	_sync_army_from_slots()
 	for unit_id in army:
 		if int(army[unit_id]) > 0:
 			return false
@@ -351,20 +353,117 @@ func army_is_empty() -> bool:
 func add_to_army(unit_id: String, count: int) -> void:
 	if count <= 0:
 		return
+	_ensure_army_slots()
+	for slot in army_slots:
+		if String(slot.get("unit_id", "")) == unit_id:
+			slot["count"] = int(slot.get("count", 0)) + count
+			_sync_army_from_slots()
+			return
+	for index in range(army_slots.size()):
+		if _slot_is_empty(army_slots[index]):
+			army_slots[index] = {"unit_id": unit_id, "count": count}
+			_sync_army_from_slots()
+			return
 	army[unit_id] = int(army.get(unit_id, 0)) + count
 
 
 ## Убирает из флота до count кораблей, возвращает, сколько реально убрано.
 func remove_from_army(unit_id: String, count: int) -> int:
+	_ensure_army_slots()
 	var have := int(army.get(unit_id, 0))
 	var removed := mini(have, count)
 	if removed <= 0:
 		return 0
-	if removed >= have:
-		army.erase(unit_id)
-	else:
-		army[unit_id] = have - removed
+	var left := removed
+	for index in range(army_slots.size() - 1, -1, -1):
+		var slot := army_slots[index]
+		if String(slot.get("unit_id", "")) != unit_id:
+			continue
+		var slot_count := int(slot.get("count", 0))
+		var take := mini(slot_count, left)
+		slot_count -= take
+		left -= take
+		army_slots[index] = {} if slot_count <= 0 else {"unit_id": unit_id, "count": slot_count}
+		if left <= 0:
+			break
+	_sync_army_from_slots()
 	return removed
+
+
+func set_army_from_slots(slots: Array[Dictionary]) -> void:
+	army_slots = _clean_slots(slots, 7)
+	_sync_army_from_slots()
+
+
+func set_army_from_dict(source: Dictionary) -> void:
+	army = _int_army(source)
+	army_slots = _slots_from_army(army, 7)
+
+
+func _ensure_army_slots() -> void:
+	if army_slots.is_empty() and not army.is_empty():
+		army_slots = _slots_from_army(army, 7)
+	while army_slots.size() < 7:
+		army_slots.append({})
+
+
+func _sync_army_from_slots() -> void:
+	if army_slots.is_empty():
+		return
+	army = aggregate_slots(army_slots)
+
+
+static func aggregate_slots(slots: Array) -> Dictionary:
+	var result := {}
+	for slot in slots:
+		if not slot is Dictionary:
+			continue
+		var unit_id := String(slot.get("unit_id", ""))
+		var count := int(slot.get("count", 0))
+		if unit_id.is_empty() or count <= 0:
+			continue
+		result[unit_id] = int(result.get(unit_id, 0)) + count
+	return result
+
+
+static func _slots_from_army(source: Dictionary, slot_count: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for unit_id in source:
+		var count := int(source[unit_id])
+		if count > 0 and result.size() < slot_count:
+			result.append({"unit_id": String(unit_id), "count": count})
+	while result.size() < slot_count:
+		result.append({})
+	return result
+
+
+static func _clean_slots(source: Array, slot_count: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for slot in source:
+		if result.size() >= slot_count:
+			break
+		if not slot is Dictionary:
+			result.append({})
+			continue
+		var unit_id := String(slot.get("unit_id", ""))
+		var count := int(slot.get("count", 0))
+		result.append({} if unit_id.is_empty() or count <= 0 else {"unit_id": unit_id, "count": count})
+	while result.size() < slot_count:
+		result.append({})
+	return result
+
+
+static func _int_army(source: Dictionary) -> Dictionary:
+	var result := {}
+	for unit_id in source:
+		var count := int(source[unit_id])
+		if count > 0:
+			result[String(unit_id)] = count
+	return result
+
+
+static func _slot_is_empty(slot: Dictionary) -> bool:
+	return String(slot.get("unit_id", "")).is_empty() or int(slot.get("count", 0)) <= 0
 
 
 func daily_income_bonus() -> int:
@@ -401,6 +500,7 @@ func skill_lines() -> Array:
 # --- Сохранение --------------------------------------------------------------
 
 func to_dict() -> Dictionary:
+	_sync_army_from_slots()
 	return {
 		"id": id,
 		"hero_name": hero_name,
@@ -413,6 +513,7 @@ func to_dict() -> Dictionary:
 		"energy": energy,
 		"pending_level_ups": pending_level_ups,
 		"army": army.duplicate(),
+		"army_slots": army_slots.duplicate(true),
 	}
 
 
@@ -440,6 +541,13 @@ static func from_dict(data: Dictionary) -> Hero:
 			hero.artifacts[artifact_id] = true
 	hero.energy = int(data.get("energy", hero.max_energy()))
 	hero.pending_level_ups = int(data.get("pending_level_ups", 0))
-	for unit_id in (data.get("army", {}) as Dictionary):
-		hero.army[unit_id] = int(data["army"][unit_id])
+	var slots = data.get("army_slots", [])
+	if data.has("army_slots") and slots is Array:
+		var typed_slots: Array[Dictionary] = []
+		for item in slots:
+			if item is Dictionary:
+				typed_slots.append(item)
+		hero.set_army_from_slots(typed_slots)
+	else:
+		hero.set_army_from_dict(data.get("army", {}) as Dictionary)
 	return hero

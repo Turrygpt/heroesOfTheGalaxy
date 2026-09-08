@@ -10,10 +10,10 @@ const MENU_MUSIC_VOLUME_DB := -8.0
 ## и затухает уже поверх загрузки новой сцены.
 const MENU_MUSIC_FADE_DURATION := 0.6
 const MUSIC_FADED_VOLUME_DB := -40.0
-## Папка с картинками фона — любое количество png/jpg, код сам сканирует и
-## берёт случайную (см. `assets/ui/main_menu_backgrounds/README.md`). Название
-## игры на них уже нарисовано, отдельным текстом его дублировать не нужно
-## (см. _ready — Label с текстом заголовка сознательно убран).
+## Слои стартового кадра (планета, кольцо, луны, астероиды, логотип) плюс
+## процедурный космос — см. `menu_space_backdrop.gd`. Папка с готовыми
+## картинками остаётся фолбэком, если слоёв нет.
+const MENU_LAYERS_DIR := "res://assets/ui/main_menu_layers"
 const MENU_BACKGROUNDS_DIR := "res://assets/ui/main_menu_backgrounds"
 
 var status: Label
@@ -96,6 +96,10 @@ func _make_menu_font() -> Font:
 
 
 func _build_background() -> void:
+	if _menu_layers_available():
+		var backdrop := preload("res://scripts/menu_space_backdrop.gd").new()
+		add_child(backdrop)
+		return
 	var texture := _pick_random_background_texture()
 	if texture != null:
 		var image_rect := TextureRect.new()
@@ -106,8 +110,7 @@ func _build_background() -> void:
 		image_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(image_rect)
 		return
-	# Ни одной картинки в MENU_BACKGROUNDS_DIR — старый плоский фон с
-	# процедурными звёздами вместо пустого экрана.
+	# Ни слоёв, ни картинок — плоский фон с процедурными звёздами.
 	var background := ColorRect.new()
 	background.color = Color("07111f")
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -121,6 +124,13 @@ func _build_background() -> void:
 		star.color = Color(0.5, 0.75, 1.0, stars.randf_range(0.15, 0.65))
 		star.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(star)
+
+
+func _menu_layers_available() -> bool:
+	for file_name in ["planet_surface.png", "ring.png", "moons.png", "asteroids.png", "logo.png"]:
+		if not FileAccess.file_exists(MENU_LAYERS_DIR.path_join(file_name)):
+			return false
+	return true
 
 
 func _build_vignette() -> void:
