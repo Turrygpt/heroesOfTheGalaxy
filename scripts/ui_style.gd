@@ -8,13 +8,11 @@ const INK := Color("edf0f2")
 const MUTED := Color("a0a7af")
 const GOLD := Color("d6ba80")
 const CYAN := Color("82c9c1")
+const GAME_FONT := preload("res://assets/fonts/RussoOne-Regular.ttf")
 
 
 static func font() -> Font:
-	var result := SystemFont.new()
-	result.font_names = PackedStringArray(["Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", "Noto Sans", "Arial"])
-	result.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
-	return result
+	return GAME_FONT
 
 
 static func surface(accent: Color = BORDER, background: Color = SURFACE, horizontal: float = 16, vertical: float = 12) -> StyleBoxFlat:
