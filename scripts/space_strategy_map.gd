@@ -24,10 +24,28 @@ const PLANET_FOOTPRINT_RADIUS := 1
 const PRODUCTION_MIN_PLANET_DISTANCE := 6
 const PRODUCTION_MAX_PLANET_DISTANCE := 24
 const PRODUCTION_MIN_SPACING := 4
+const RARE_PRODUCTION_MIN_PLANET_DISTANCE := 15
+const PRODUCTION_SECTOR_GRID := 4
+const HARD_OBJECT_MIN_PLANET_DISTANCE := 22
+const HARD_OBJECT_EDGE_DISTANCE := 5
+## Рядом с каждой планетой всегда есть базовые продукты и руда; остальные
+## месторождения становятся целями для дальних вылазок.
+const LOCAL_PRODUCTION_MIN_DISTANCE := 10
+const LOCAL_PRODUCTION_MAX_DISTANCE := 15
+const PATROL_COUNT := 8
+const PATROL_RADIUS := 9
+## 3×3 клетки вокруг патрульного корабля: центр и по одному соседу с каждой
+## стороны. Диагонали также входят в зону агрессии.
+const PATROL_AGGRO_RADIUS := 1
+const GUARDED_RESOURCE_CACHE_COUNT := 6
+const RESOURCE_CACHE_AMOUNT_MIN := 5
+const RESOURCE_CACHE_AMOUNT_MAX := 18
 ## Здание занимает 2×2 клетки; "cell" сайта — верхний левый угол этого
 ## квадрата, к нему же привязывается посадка корабля.
 const PRODUCTION_FOOTPRINT := Vector2i(2, 2)
-const OBSTACLE_COUNT := 48
+## На карте должно быть достаточно мелких ориентиров и обходов, иначе полёт
+## по пустому космосу ломает ощущение приключенческой карты.
+const OBSTACLE_COUNT := 92
 const OBSTACLE_CLEARANCE := 2
 const PLAYER_ONE_COLOR := Color("3ca5ff")
 const PLAYER_TWO_COLOR := Color("ef5350")
@@ -77,14 +95,16 @@ const RESOURCE_BUILDING_TEXTURES := {
 }
 ## Туман войны, как в HoMM: карта закрыта чёрным, герой открывает клетки в
 ## радиусе видимости корабля навсегда - однажды увиденное больше не гаснет.
-## FOG_ENABLED можно временно выключать для отладки, но в игре туман должен
-## скрывать карту и миникарту до разведки.
+## На случайной карте туман временно отключён для отладки генерации. Для
+## обычной кампании оставляем классическое открытие карты разведкой.
 const FOG_ENABLED := true
 const FOG_REVEAL_RADIUS := 4
 const FOG_COLOR := Color(0.0, 0.0, 0.0, 1.0)
 const GUARDIAN_PASSAGE_COUNT := 3
-## Составы стражей: 1 — семь поясов пиратов, 2 — торговцы на шахтах и 4 пачки на базе.
-const GUARDIAN_ROSTER_VERSION := 2
+## Составы стражей: 1 — семь поясов пиратов, 2 — торговцы на шахтах и 4 пачки на базе,
+## 3 — лёгкая охрана базовых ферм и рудных шахт, 4 — усиленная охрана редких
+## месторождений.
+const GUARDIAN_ROSTER_VERSION := 4
 const GUARDIAN_MEDIUM_DISTANCE := 16
 const GUARDIAN_STRONG_DISTANCE := 24
 ## Пикапы и трофеи ресурсов растут с удалением от родной планеты: рядом
@@ -103,13 +123,20 @@ const DERELICT_STATION_RESOURCE_TYPES_MIN := 2
 const DERELICT_STATION_RESOURCE_TYPES_MAX := 3
 const DERELICT_STATION_RESOURCE_AMOUNT_MIN := 3
 const DERELICT_STATION_RESOURCE_AMOUNT_MAX := 5
-const CARGO_CREDITS_MIN := 1000
-const CARGO_CREDITS_MAX := 2500
-const CARGO_EXPERIENCE_MIN := 500
-const CARGO_EXPERIENCE_MAX := 1500
+const CARGO_EXPERIENCE_VALUES := [500, 1000, 1500]
+const CARGO_CREDITS_VALUES := [1000, 1500, 2000]
+const PIRATE_BASE_DAILY_INCOME := 1000
+const PIRATE_BASE_RESOURCE_MIN := 10
+const PIRATE_BASE_RESOURCE_MAX := 15
+const DISTRESS_JOIN_COUNT_MIN := 5
+const DISTRESS_JOIN_COUNT_MAX := 10
+const DISTRESS_JOIN_TIER_MIN := 1
+const DISTRESS_JOIN_TIER_MAX := 3
+const TRAINING_GROUND_XP := 1000
 const RESOURCE_ICON_ATLAS := preload("res://assets/resources/basic.png")
 const CREDITS_ICON := preload("res://assets/resources/credits.png")
 const EXPERIENCE_ICON := preload("res://assets/resources/experience.png")
+const NITRO_FUEL_ICON := preload("res://assets/resources/nitro_fuel.png")
 const RESOURCE_ICON_REGIONS := {
 	"Продукты": Rect2(0, 0, 512, 512),
 	"Руда": Rect2(512, 0, 512, 512),
@@ -185,6 +212,8 @@ var map_objects: Array[Dictionary] = []
 var map_object_at := {}
 var obelisks_collected := 0
 var bonus_daily_income := 0
+## Временная прибавка к дневным ходам от маяка; обнуляется в начале новой недели.
+var weekly_movement_bonus := 0
 ## Клетки в радиусе действия хотя бы одного активированного маяка (см.
 ## _trigger_beacon) - на обычной клетке (стоимость 1) эффекта не даёт, т.к.
 ## это и так теоретический минимум, но вдвое ускоряет проход туманностей.
@@ -220,6 +249,10 @@ var hero_engine_exhaust_overlay: Node2D
 var orc_report := ""
 ## "" пока кампания идёт, иначе "victory" / "defeat" — дальше ходов нет.
 var campaign_outcome := ""
+var fog_enabled := FOG_ENABLED
+## Истина только для карт, созданных кнопкой «Случайная карта». Значение
+## восстанавливается по map_seed, поэтому старые сохранения не ломаются.
+var random_map_mode := false
 var human_planetary_council_level := 1
 var orc_planetary_council_level := 1
 var player_one_resources := {
@@ -236,6 +269,11 @@ func _ready() -> void:
 	if open_tactical_when_run_directly and get_tree().current_scene == self:
 		call_deferred("_open_tactical_battle")
 		return
+	if CampaignSave.random_map_requested:
+		map_seed = 0
+		CampaignSave.random_map_requested = false
+	random_map_mode = map_seed == 0
+	fog_enabled = false if random_map_mode else FOG_ENABLED
 	if map_seed != 0:
 		map_random.seed = map_seed
 	else:
@@ -499,6 +537,19 @@ func _open_hero_fleet_window() -> void:
 	fleet_screen.open_garrison_on_ready = true
 	fleet_screen.close_requested.connect(_close_human_planet.bind(fleet_screen))
 	add_child(fleet_screen)
+	set_process(false)
+	set_process_unhandled_input(false)
+
+
+func _open_trading_post() -> void:
+	var trade_screen := HUMAN_PLANET_SCREEN.instantiate()
+	trade_screen.strategy_map = self
+	trade_screen.space_modal_mode = true
+	trade_screen.trading_post_mode = true
+	trade_screen.close_requested.connect(_close_human_planet.bind(trade_screen))
+	add_child(trade_screen)
+	await trade_screen.ready
+	trade_screen._open_exchange_screen()
 	set_process(false)
 	set_process_unhandled_input(false)
 
@@ -827,7 +878,9 @@ func _end_day() -> void:
 	_sync_human_planet_state()
 	_collect_daily_income()
 	current_day += 1
-	movement_points = MOVEMENT_POINTS_PER_DAY
+	if current_day % 7 == 1:
+		weekly_movement_bonus = 0
+	movement_points = MOVEMENT_POINTS_PER_DAY + weekly_movement_bonus
 	var hero := _player_hero()
 	if hero != null:
 		hero.recharge_energy()
@@ -835,6 +888,7 @@ func _end_day() -> void:
 	navigation_message = _collect_daily_production()
 	if current_day % 7 == 1:
 		var growth_text := _apply_weekly_growth()
+		_apply_neutral_weekly_growth()
 		if growth_text != "":
 			if navigation_message != "":
 				navigation_message = "%s %s" % [growth_text, navigation_message]
@@ -1055,6 +1109,21 @@ func _apply_weekly_growth() -> String:
 	HumanPlanetState.apply_weekly_growth(state, current_day)
 	HumanPlanetState.save_state(state)
 	return "Неделя %d: гарнизон замка пополнен новыми кораблями." % (current_day / 7 + 1)
+
+
+## Нейтральные стражи не стоят на месте бесконечно: каждую неделю живые пачки
+## растут на 10% от текущего размера, поэтому поздняя зачистка карты опаснее.
+func _apply_neutral_weekly_growth() -> void:
+	for guardian in guardians:
+		if not bool(guardian.get("alive", true)):
+			continue
+		var fleet: Array = guardian.get("fleet", [])
+		for entry in fleet:
+			var count := int((entry as Dictionary).get("count", 0))
+			if count <= 0:
+				continue
+			var grown := maxi(count + 1, int(round(float(count) * 1.10)))
+			(entry as Dictionary)["count"] = grown
 
 
 # --- Искусственный противник: орки (сторона 2) ------------------------------
@@ -1316,6 +1385,7 @@ func _retreat_player_home(message: String) -> void:
 	var hero := _player_hero()
 	if hero != null:
 		hero.set_army_from_dict(RETREAT_ARMY)
+	_consume_movement_after_retreat()
 	current_cell = PLAYER_ONE_START_CELL
 	next_cell = current_cell
 	ship_position = _cell_center(current_cell)
@@ -1326,6 +1396,12 @@ func _retreat_player_home(message: String) -> void:
 	planned_destination = Vector2i(-1, -1)
 	navigation_message = message
 	_show_object_reward_dialog("Отступление", message)
+
+
+func _consume_movement_after_retreat() -> void:
+	## Бегство из боя возвращает героя домой, но стоит всего остатка сола:
+	## игрок не должен сразу лететь дальше после аварийного отхода.
+	movement_points = 0
 
 
 ## Бой на ходу орков этот ход прерывал — его надо доиграть; бой, начатый
@@ -1371,13 +1447,14 @@ func _generate_guardians() -> void:
 	guardian_at.clear()
 	_guard_production_sites()
 	_guard_passages()
+	_generate_patrols()
 	guardian_overlay.queue_redraw()
 
 
 func _guard_production_sites() -> void:
 	for site_index in range(production_sites.size()):
 		var cell: Vector2i = production_sites[site_index]["cell"]
-		var template := GuardianDefs.trader_template_for_distance(_threat_distance(cell))
+		var template := _production_guard_template(production_sites[site_index], cell)
 		_add_guardian(cell, template, site_index)
 
 
@@ -1403,8 +1480,94 @@ func _guard_passages() -> void:
 		picked += 1
 
 
+## Патруль — самостоятельный мобильный страж с зоной контроля радиусом 9
+## клеток. Декоративные здания и корабли рядом не создаются: корабль патруля
+## должен однозначно читаться как противник, с которым будет бой.
+func _generate_patrols() -> void:
+	var placed := 0
+	var attempts := 0
+	while placed < PATROL_COUNT and attempts < 1000:
+		attempts += 1
+		var guarded_sites: Array[int] = []
+		var anchor_site := -1
+		if not production_sites.is_empty():
+			anchor_site = map_random.randi_range(0, production_sites.size() - 1)
+			guarded_sites = _patrol_resource_group(anchor_site)
+		var patrol_center: Vector2i = production_sites[anchor_site]["cell"] if anchor_site >= 0 \
+			else Vector2i(
+				map_random.randi_range(10, MAP_SIZE.x - 11),
+				map_random.randi_range(10, MAP_SIZE.y - 11))
+		var cell := patrol_center + Vector2i(
+			map_random.randi_range(-PATROL_RADIUS, PATROL_RADIUS),
+			map_random.randi_range(-PATROL_RADIUS, PATROL_RADIUS))
+		if anchor_site < 0:
+			cell = patrol_center
+		if not _cell_is_free_for_object(cell, 12):
+			continue
+		if _chebyshev_distance(cell, HUMAN_PLANET_CENTER) < 10 \
+			or _chebyshev_distance(cell, ORC_PLANET_CENTER) < 10:
+			continue
+		var patrol_kind := "pirate" if placed % 2 == 0 else "trader"
+		var template := _guardian_template_for_distance(_threat_distance(cell)) if patrol_kind == "pirate" \
+			else GuardianDefs.trader_template_for_distance(_threat_distance(cell))
+		var index := guardians.size()
+		var patrol := {
+			"cell": cell, "template": template, "fleet": GuardianDefs.fleet_for(template),
+			"kind": patrol_kind, "alive": true, "site_index": -1,
+			"patrol": true, "patrol_radius": PATROL_RADIUS,
+			"aggro_radius": PATROL_AGGRO_RADIUS, "patrol_id": placed,
+			"guarded_sites": guarded_sites,
+		}
+		if patrol_kind == "trader":
+			patrol["reward"] = {
+				"type": "resources", "resource_name": _random_resource_name(),
+				"amount": map_random.randi_range(2, 10),
+			}
+		guardians.append(patrol)
+		guardian_at[cell] = index
+		placed += 1
+
+
+## Выбирает для патруля район из 2–5 ресурсных точек. Ближайшие точки берутся
+## к случайному якорю, поэтому группа выглядит как единый охраняемый кластер.
+func _patrol_resource_group(anchor_site: int) -> Array[int]:
+	var ranked: Array[Dictionary] = []
+	var anchor_cell: Vector2i = production_sites[anchor_site]["cell"]
+	for index in range(production_sites.size()):
+		if index == anchor_site:
+			continue
+		ranked.append({
+			"index": index,
+			"distance": _chebyshev_distance(anchor_cell, production_sites[index]["cell"]),
+		})
+	ranked.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a["distance"]) < int(b["distance"])
+	)
+	var wanted := map_random.randi_range(2, 6)
+	var result: Array[int] = [anchor_site]
+	var resource_types := {String(production_sites[anchor_site]["resource"]): true}
+	for offset in range(ranked.size()):
+		if result.size() >= wanted:
+			break
+		var candidate: Dictionary = ranked[offset]
+		var candidate_index := int(candidate["index"])
+		var resource_name := String(production_sites[candidate_index]["resource"])
+		if resource_types.has(resource_name):
+			continue
+		resource_types[resource_name] = true
+		result.append(candidate_index)
+	return result
+
+
 func _guardian_template_for_distance(distance: int) -> String:
 	return GuardianDefs.template_for_distance(distance)
+
+
+func _production_guard_template(site: Dictionary, cell: Vector2i) -> String:
+	var resource := String(site.get("resource", ""))
+	if resource == "Продукты" or resource == "Руда":
+		return "trader_basic_resource"
+	return GuardianDefs.rare_trader_template_for_distance(_threat_distance(cell))
 
 
 ## Пояс угрозы клетки. Считается от БЛИЖАЙШЕЙ из двух родных планет, а не
@@ -1433,7 +1596,9 @@ func _refresh_guardian_rosters(saved_version: int) -> void:
 			guardian["kind"] = "pirate"
 			continue
 		if int(guardian.get("site_index", -1)) >= 0:
-			var template := GuardianDefs.trader_template_for_distance(_threat_distance(guardian["cell"]))
+			var site_index := int(guardian.get("site_index", -1))
+			var site: Dictionary = production_sites[site_index] if site_index < production_sites.size() else {}
+			var template := _production_guard_template(site, guardian["cell"])
 			guardian["template"] = template
 			guardian["fleet"] = GuardianDefs.fleet_for(template)
 			guardian["kind"] = "trader"
@@ -1474,10 +1639,10 @@ func _chebyshev_distance(a: Vector2i, b: Vector2i) -> int:
 
 func _init_fog() -> void:
 	fog_image = Image.create(MAP_SIZE.x, MAP_SIZE.y, false, Image.FORMAT_RGBA8)
-	fog_image.fill(Color.TRANSPARENT if not FOG_ENABLED else FOG_COLOR)
+	fog_image.fill(Color.TRANSPARENT if not fog_enabled else FOG_COLOR)
 	fog_texture = ImageTexture.create_from_image(fog_image)
 	if is_instance_valid(fog_overlay):
-		fog_overlay.visible = FOG_ENABLED
+		fog_overlay.visible = fog_enabled
 
 
 ## Открывает клетки в радиусе radius (по Чебышёву) вокруг center навсегда —
@@ -1503,7 +1668,7 @@ func _reveal_around(center: Vector2i, radius: int) -> bool:
 
 
 func is_cell_explored(cell: Vector2i) -> bool:
-	return true if not FOG_ENABLED else explored_cells.has(cell)
+	return true if not fog_enabled else explored_cells.has(cell)
 
 
 ## Открывает туман на пути следования на шаг раньше физического прибытия —
@@ -1518,9 +1683,11 @@ func _begin_move_to(cell: Vector2i) -> void:
 ## Хук на прибытие в клетку (см. _process): останавливает движение и
 ## запускает бой, если клетка охраняется живым стражем.
 func _check_guardian_encounter(cell: Vector2i) -> bool:
-	if not guardian_at.has(cell):
+	var index: int = guardian_at.get(cell, -1)
+	if index < 0:
+		index = _patrol_guardian_in_aggro(cell)
+	if index < 0:
 		return false
-	var index: int = guardian_at[cell]
 	var guardian: Dictionary = guardians[index]
 	if not guardian["alive"]:
 		return false
@@ -1530,6 +1697,17 @@ func _check_guardian_encounter(cell: Vector2i) -> bool:
 		return true
 	_start_guardian_battle(index)
 	return true
+
+
+func _patrol_guardian_in_aggro(cell: Vector2i) -> int:
+	for index in range(guardians.size()):
+		var guardian: Dictionary = guardians[index]
+		if not bool(guardian.get("alive", false)) or not bool(guardian.get("patrol", false)):
+			continue
+		var radius := int(guardian.get("aggro_radius", PATROL_AGGRO_RADIUS))
+		if _chebyshev_distance(cell, guardian["cell"]) <= radius:
+			return index
+	return -1
 
 
 func _player_hero() -> Hero:
@@ -1563,18 +1741,7 @@ func _resolve_guardian_battle(index: int, battle_units: Array, player_won: bool,
 		return
 	var hero := _player_hero()
 	if retreated:
-		if hero != null:
-			hero.set_army_from_dict(RETREAT_ARMY)
-		current_cell = PLAYER_ONE_START_CELL
-		next_cell = current_cell
-		ship_position = _cell_center(current_cell)
-		ship_sprite.position = ship_position
-		camera.position = ship_position.round()
-		is_moving = false
-		planned_path.clear()
-		planned_destination = Vector2i(-1, -1)
-		navigation_message = "Герой сбежал в замок. Из флота уцелел 1 истребитель."
-		_show_object_reward_dialog("Отступление", navigation_message)
+		_retreat_player_home("Герой сбежал в замок. Из флота уцелел 1 истребитель.")
 		_update_hud()
 		queue_redraw()
 		return
@@ -1627,7 +1794,8 @@ func _generate_map_objects() -> void:
 		var count := int(MapObjectDefs.SPAWN_COUNT.get(kind, 0))
 		var size := MapObjectDefs.size(kind)
 		for _index in range(count):
-			var cell := _find_free_object_cell(4, size)
+			var cell := _find_free_hard_object_cell(size) if family == "guardian_reward" \
+				else _find_free_object_cell(4, size)
 			if cell.x < 0:
 				continue
 			if family == "guardian_reward":
@@ -1637,7 +1805,46 @@ func _generate_map_objects() -> void:
 	_generate_corner_objects()
 	_generate_trading_posts()
 	_generate_wormhole_pairs()
+	_generate_guarded_resource_caches()
 	map_object_overlay.queue_redraw()
+
+
+## Видимые ресурсные точки: один значок ресурса и один флот рядом.
+## Это отдельные тайники, а не здания, чтобы цель читалась сразу.
+func _generate_guarded_resource_caches() -> void:
+	for _index in range(GUARDED_RESOURCE_CACHE_COUNT):
+		var cell := _find_free_object_cell(12, 1)
+		if cell.x < 0:
+			continue
+		var amount := map_random.randi_range(RESOURCE_CACHE_AMOUNT_MIN, RESOURCE_CACHE_AMOUNT_MAX)
+		var neighbours := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+		neighbours.shuffle()
+		var guardian_cell := Vector2i(-1, -1)
+		for offset in neighbours:
+			var candidate: Vector2i = cell + offset
+			if not _cell_is_inside_map(candidate) or not _cell_is_free_for_object(candidate, 12):
+				continue
+			guardian_cell = candidate
+			break
+		if guardian_cell.x < 0:
+			continue
+		_add_map_object(cell, "resource_cache", 1)
+		var object_index := map_objects.size() - 1
+		map_objects[object_index]["resource_name"] = _random_resource_name()
+		map_objects[object_index]["amount"] = amount
+		var template := "weak" if amount <= 8 else ("medium" if amount <= 13 else "strong")
+		_add_resource_cache_guardian(guardian_cell, template)
+
+
+func _add_resource_cache_guardian(cell: Vector2i, template: String) -> void:
+	var index := guardians.size()
+	guardians.append({
+		"cell": cell, "template": template, "fleet": GuardianDefs.fleet_for(template),
+		"kind": "pirate", "alive": true, "site_index": -1,
+		"patrol": true, "aggro_radius": PATROL_AGGRO_RADIUS,
+		"resource_cache_guard": true,
+	})
+	guardian_at[cell] = index
 
 
 ## Углы карты: в каждом — схрон Древних с крупным трофеем и несколько мелких
@@ -1657,6 +1864,10 @@ func _generate_corner_objects() -> void:
 		for kind in MapObjectDefs.CORNER_LAYOUT:
 			var size := MapObjectDefs.size(kind)
 			var cell := _find_free_object_cell_in_box(corner[0], corner[1], size)
+			if MapObjectDefs.family(kind) == "guardian_reward" \
+				and _nearest_planet_distance(cell) < HARD_OBJECT_MIN_PLANET_DISTANCE:
+				# Ближний к планете угол не должен содержать охраняемый трофей.
+				continue
 			if cell.x < 0:
 				continue
 			if MapObjectDefs.family(kind) == "guardian_reward":
@@ -1700,6 +1911,48 @@ func _find_free_object_cell_near(preferred_cell: Vector2i, footprint: int = 1) -
 		if best_cell.x >= 0:
 			return best_cell
 	return best_cell
+
+
+func _find_free_hard_object_cell(footprint: int) -> Vector2i:
+	for _attempt in range(700):
+		var cell := Vector2i(
+			map_random.randi_range(2, MAP_SIZE.x - 2 - footprint),
+			map_random.randi_range(2, MAP_SIZE.y - 2 - footprint))
+		if _nearest_planet_distance(cell) < HARD_OBJECT_MIN_PLANET_DISTANCE:
+			continue
+		if not _footprint_is_free_for_object(cell, footprint, 4):
+			continue
+		if not _hard_object_location(cell, footprint):
+			continue
+		return cell
+	# Редкий запасной вариант всё равно остаётся вдали от планет.
+	for _attempt in range(400):
+		var fallback := Vector2i(
+			map_random.randi_range(2, MAP_SIZE.x - 2 - footprint),
+			map_random.randi_range(2, MAP_SIZE.y - 2 - footprint))
+		if _nearest_planet_distance(fallback) >= HARD_OBJECT_MIN_PLANET_DISTANCE \
+			and _footprint_is_free_for_object(fallback, footprint, 4):
+			return fallback
+	return Vector2i(-1, -1)
+
+
+func _nearest_planet_distance(cell: Vector2i) -> int:
+	return mini(
+		_chebyshev_distance(cell, HUMAN_PLANET_CENTER),
+		_chebyshev_distance(cell, ORC_PLANET_CENTER))
+
+
+func _hard_object_location(cell: Vector2i, footprint: int) -> bool:
+	var edge_distance := mini(
+		mini(cell.x, MAP_SIZE.x - 1 - (cell.x + footprint - 1)),
+		mini(cell.y, MAP_SIZE.y - 1 - (cell.y + footprint - 1)))
+	if edge_distance <= HARD_OBJECT_EDGE_DISTANCE:
+		return true
+	for occupied_cell in _footprint_cells(cell, footprint):
+		for offset in [Vector2i.ZERO, Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			if obstacle_at.has(occupied_cell + offset):
+				return true
+	return false
 
 
 ## То же, что _find_free_object_cell, но в заданном прямоугольнике клеток.
@@ -1799,16 +2052,46 @@ func _object_footprint_center(anchor: Vector2i, size: int) -> Vector2:
 
 
 func _roll_object_reward(def: Dictionary, cell: Vector2i) -> Dictionary:
+	if String(def.get("name", "")) == "Пиратская база":
+		return {
+			"type": "pirate_base_treasure",
+			"resource_name": _random_resource_name(),
+			"amount": map_random.randi_range(PIRATE_BASE_RESOURCE_MIN, PIRATE_BASE_RESOURCE_MAX),
+			"daily_income": PIRATE_BASE_DAILY_INCOME,
+		}
 	var pool: Array = def.get("reward_pool", ["resources"])
 	var reward_type: String = pool[map_random.randi_range(0, pool.size() - 1)]
 	match reward_type:
 		"resources":
 			if String(def.get("name", "")) == "Заброшенная станция":
 				return {"type": "multi_resources", "items": _roll_derelict_station_resources()}
+			if String(def.get("name", "")) == "Дрейфующий корабль":
+				return {
+					"type": "resources",
+					"resource_name": _random_resource_name(),
+					"amount": map_random.randi_range(5, 10),
+				}
 			return {
 				"type": "resources",
 				"resource_name": _random_resource_name(),
 				"amount": _distance_loot_amount(cell, 4, 8, 10, 16),
+			}
+		"artifact":
+			var reward_hero := _player_hero()
+			var artifact_id := _random_unowned_artifact(reward_hero) if reward_hero != null else ""
+			if artifact_id != "":
+				return {"type": "artifact", "artifact_id": artifact_id}
+			# Повторный визит не должен создавать пустую награду после сбора всех артефактов.
+			return {
+				"type": "resources",
+				"resource_name": _random_resource_name(),
+				"amount": _distance_loot_amount(cell, 6, 10, 14, 22),
+			}
+		"ships":
+			return {
+				"type": "ships",
+				"unit_id": "pirate_destroyer",
+				"count": map_random.randi_range(1, 2),
 			}
 		"stat_boost":
 			return {"type": "stat_boost", "stat": _random_primary_stat()}
@@ -1942,6 +2225,17 @@ func _grant_object_reward(reward: Dictionary) -> String:
 			if parts.is_empty():
 				return ""
 			return "Найдено: %s." % ", ".join(parts)
+		"salvage":
+			var parts: Array[String] = []
+			for item in reward.get("items", []):
+				var resource_name := String(item["resource_name"])
+				var amount := int(item["amount"])
+				add_resource(resource_name, amount)
+				parts.append("%d %s" % [amount, resource_name])
+			var credits := int(reward["credits"])
+			add_credits(credits)
+			parts.append("%d кредитов" % credits)
+			return "Найдено: %s." % ", ".join(parts)
 		"credits":
 			var amount := int(reward["amount"])
 			add_credits(amount)
@@ -1953,6 +2247,17 @@ func _grant_object_reward(reward: Dictionary) -> String:
 			var stat_id := String(reward["stat"])
 			hero.stats[stat_id] = int(hero.stats.get(stat_id, 0)) + 1
 			return "Артефакт усиливает героя: +1 к характеристике «%s»." % HeroDefs.STAT_NAMES.get(stat_id, stat_id)
+		"artifact":
+			var reward_hero := _player_hero()
+			var artifact_id := String(reward.get("artifact_id", ""))
+			if reward_hero == null or artifact_id == "" or not HeroDefs.ARTIFACTS.has(artifact_id):
+				return ""
+			if not reward_hero.add_artifact(artifact_id):
+				return ""
+			return "Получен артефакт «%s»: %s" % [
+				String(HeroDefs.ARTIFACTS[artifact_id]["name"]),
+				String(HeroDefs.ARTIFACTS[artifact_id]["description"]),
+			]
 		"income":
 			var amount := int(reward["amount"])
 			var state := HumanPlanetState.load_state()
@@ -1961,6 +2266,17 @@ func _grant_object_reward(reward: Dictionary) -> String:
 			bonus_daily_income += amount
 			_update_hud()
 			return "Захвачена казна пиратов: +%d кредитов ежедневно." % amount
+		"pirate_base_treasure":
+			var resource_name := String(reward["resource_name"])
+			var amount := int(reward["amount"])
+			var daily_income := int(reward.get("daily_income", PIRATE_BASE_DAILY_INCOME))
+			add_resource(resource_name, amount)
+			var state := HumanPlanetState.load_state()
+			state["bonus_daily_income"] = int(state.get("bonus_daily_income", 0)) + daily_income
+			HumanPlanetState.save_state(state)
+			bonus_daily_income += daily_income
+			_update_hud()
+			return "Пиратская база захвачена: +%d %s и +%d кредитов ежедневно." % [amount, resource_name, daily_income]
 		"mercenaries":
 			var hero := _player_hero()
 			if hero == null:
@@ -1970,6 +2286,18 @@ func _grant_object_reward(reward: Dictionary) -> String:
 			hero.add_to_army(unit_id, count)
 			var unit_label := String(UnitDefs.get_unit(unit_id).get("label", unit_id))
 			return "К флоту присоединились наёмники: %s ×%d." % [unit_label, count]
+		"ships":
+			var hero := _player_hero()
+			if hero == null:
+				return ""
+			var unit_id := String(reward["unit_id"])
+			var count := int(reward["count"])
+			if not _hero_can_accept_unit(hero, unit_id):
+				return "Нет свободного слота флота: корабли остались на дрейфующем корабле."
+			hero.add_to_army(unit_id, count)
+			var unit_label := String(UnitDefs.get_unit(unit_id).get("label", unit_id))
+			_save_hero_roster()
+			return "К флоту присоединились: %s ×%d." % [unit_label, count]
 		"treasure":
 			var resource_name := String(reward["resource_name"])
 			var amount := int(reward["amount"])
@@ -2006,12 +2334,34 @@ func _reward_items_for_reward(reward: Dictionary) -> Array[Dictionary]:
 		"multi_resources":
 			for item in reward.get("items", []):
 				items.append(_resource_reward_item(String(item["resource_name"]), int(item["amount"])))
+		"salvage":
+			for item in reward.get("items", []):
+				items.append(_resource_reward_item(String(item["resource_name"]), int(item["amount"])))
+			items.append({"icon": CREDITS_ICON, "amount": int(reward["credits"])})
 		"credits":
 			items.append({"icon": CREDITS_ICON, "amount": int(reward["amount"])})
+		"pirate_base_treasure":
+			items.append(_resource_reward_item(String(reward["resource_name"]), int(reward["amount"])))
+			items.append({"icon": CREDITS_ICON, "amount": int(reward.get("daily_income", PIRATE_BASE_DAILY_INCOME))})
+		"artifact":
+			var artifact_id := String(reward.get("artifact_id", ""))
+			var artifact: Dictionary = HeroDefs.ARTIFACTS.get(artifact_id, {})
+			if artifact.has("texture"):
+				items.append({"icon": artifact["texture"], "amount": 1})
 		"treasure":
 			items.append(_resource_reward_item(String(reward["resource_name"]), int(reward["amount"])))
 			items.append({"icon": CREDITS_ICON, "amount": int(reward["credits"])})
+		"ships":
+			items.append({"icon": UnitDefs.get_unit(String(reward["unit_id"])).get("texture"), "amount": int(reward["count"])})
 	return items
+
+
+func _hero_can_accept_unit(hero: Hero, unit_id: String) -> bool:
+	hero._ensure_army_slots()
+	for slot in hero.army_slots:
+		if slot.is_empty() or String(slot.get("unit_id", "")) == unit_id:
+			return true
+	return false
 
 
 func _resource_reward_item(resource_name: String, amount: int) -> Dictionary:
@@ -2095,9 +2445,6 @@ func _check_map_object_encounter(cell: Vector2i) -> bool:
 			_trigger_info(index)
 	map_object_overlay.queue_redraw()
 	return false
-
-
-const TRAINING_GROUND_XP := 150
 
 
 func _trigger_hero_xp(index: int) -> void:
@@ -2226,16 +2573,24 @@ func _trigger_beacon(index: int) -> void:
 			beacon_boost_cells[boosted_cell] = true
 			if slow_cells.has(boosted_cell):
 				navigation_grid.set_point_weight_scale(boosted_cell, float(_cell_move_cost(boosted_cell)))
-	var description := "Активирован — движение в радиусе %d клеток ускорено." % radius
+	weekly_movement_bonus = 2
+	movement_points = MOVEMENT_POINTS_PER_DAY + weekly_movement_bonus
+	var description := "Активирован — нитротопливо даёт +2 хода ежедневно до конца недели."
 	navigation_message = "Маяк-ретранслятор: " + description
-	_show_object_reward_dialog(String(def.get("name", "Маяк")), description, def.get("texture"))
+	_show_object_reward_dialog(String(def.get("name", "Маяк")), description, def.get("texture"), [
+		{"icon": NITRO_FUEL_ICON, "amount": 1},
+	])
+	_update_hud()
 
 
 func _trigger_loot(index: int) -> void:
 	var def := MapObjectDefs.get_kind(map_objects[index]["kind"])
+	if String(map_objects[index]["kind"]) == "resource_cache":
+		_trigger_resource_cache(index)
+		return
 	map_objects[index]["consumed"] = true
-	var credits := map_random.randi_range(CARGO_CREDITS_MIN, CARGO_CREDITS_MAX)
-	var experience := map_random.randi_range(CARGO_EXPERIENCE_MIN, CARGO_EXPERIENCE_MAX)
+	var credits: int = CARGO_CREDITS_VALUES[map_random.randi_range(0, CARGO_CREDITS_VALUES.size() - 1)]
+	var experience: int = CARGO_EXPERIENCE_VALUES[map_random.randi_range(0, CARGO_EXPERIENCE_VALUES.size() - 1)]
 	var description := "Внутри контейнера уцелели платёжные чипы и навигационные архивы. Выберите, что забрать:"
 	var choices: Array[Dictionary] = [
 		{"id": "credits", "label": "%d кредитов" % credits, "icon": CREDITS_ICON},
@@ -2249,6 +2604,20 @@ func _trigger_loot(index: int) -> void:
 		func(choice_id: String) -> void:
 			_apply_cargo_container_reward(choice_id, credits, experience)
 	)
+
+
+func _trigger_resource_cache(index: int) -> void:
+	var object: Dictionary = map_objects[index]
+	object["consumed"] = true
+	var resource_name := String(object.get("resource_name", "Руда"))
+	var amount := int(object.get("amount", map_random.randi_range(RESOURCE_CACHE_AMOUNT_MIN, RESOURCE_CACHE_AMOUNT_MAX)))
+	add_resource(resource_name, amount)
+	var description := "Найдено: %d %s." % [amount, resource_name]
+	navigation_message = "Ресурсный тайник: " + description
+	_update_hud()
+	_show_object_reward_dialog("Ресурсный тайник", description, null, [
+		_resource_reward_item(resource_name, amount),
+	])
 
 
 func _apply_cargo_container_reward(choice_id: String, credits: int, experience: int) -> void:
@@ -2279,7 +2648,7 @@ func _trigger_artifact(index: int) -> void:
 		return
 	var artifact_id := _random_unowned_artifact(hero)
 	if artifact_id == "":
-		var amount := map_random.randi_range(200, 400)
+		var amount := 1500
 		add_credits(amount)
 		var empty_description := "Среди обломков нашлись кредиты (+%d)." % amount
 		navigation_message = "Ящик с артефактами пуст — " + empty_description
@@ -2307,6 +2676,9 @@ func _random_unowned_artifact(hero: Hero) -> String:
 
 
 func _trigger_quest(index: int) -> void:
+	if String(map_objects[index]["kind"]) == "distress_signal":
+		_trigger_distress_signal(index)
+		return
 	var object := map_objects[index]
 	var brief_def := MapObjectDefs.get_kind(object["kind"])
 	if not object["briefed"]:
@@ -2358,9 +2730,59 @@ func _trigger_quest(index: int) -> void:
 	])
 
 
+func _trigger_distress_signal(index: int) -> void:
+	var object_def := MapObjectDefs.get_kind("distress_signal")
+	var hero := _player_hero()
+	if hero == null:
+		return
+	var faction := "pirate" if map_random.randi_range(0, 1) == 0 else "trader"
+	var tier := map_random.randi_range(DISTRESS_JOIN_TIER_MIN, DISTRESS_JOIN_TIER_MAX)
+	var count := map_random.randi_range(DISTRESS_JOIN_COUNT_MIN, DISTRESS_JOIN_COUNT_MAX)
+	var unit_id := "%s_%s" % [faction, ["fighter", "gunship", "corvette"][tier - 1]]
+	var unit_label := String(UnitDefs.get_unit(unit_id).get("label", unit_id))
+	var description := "На сигнал откликнулся отряд: %s ×%d. Принять их во флот?" % [unit_label, count]
+	var choices: Array[Dictionary] = [
+		{"id": "accept", "label": "Принять", "icon": UnitDefs.get_unit(unit_id).get("texture")},
+		{"id": "decline", "label": "Отказать", "icon": object_def.get("texture")},
+	]
+	_show_object_choice_dialog(
+		String(object_def.get("name", "Сигнал бедствия")),
+		description,
+		choices,
+		object_def.get("texture"),
+		func(choice_id: String) -> void:
+			map_objects[index]["consumed"] = true
+			if choice_id == "accept":
+				if _hero_can_accept_unit(hero, unit_id):
+					hero.add_to_army(unit_id, count)
+					_save_hero_roster()
+					navigation_message = "К флоту присоединились: %s ×%d." % [unit_label, count]
+				else:
+					navigation_message = "Во флоте нет свободного слота для новых кораблей."
+			else:
+				navigation_message = "Сигнал бедствия отклонён."
+			_update_hud()
+	)
+
+
 func _trigger_info(index: int) -> void:
 	var kind := String(map_objects[index]["kind"])
 	var def := MapObjectDefs.get_kind(kind)
+	if kind == "emergency_buoy":
+		_trigger_emergency_buoy(index)
+		return
+	if kind == "trading_post":
+		_open_trading_post()
+		return
+	if kind == "archive_station":
+		var hero := _player_hero()
+		if hero != null:
+			var restored := hero.refill_energy()
+			_save_hero_roster()
+			var energy_description := "Реактор восстановил энергию: +%d." % restored
+			navigation_message = energy_description
+			_show_object_reward_dialog(String(def.get("name", "Станция-архив")), energy_description, def.get("texture"))
+		return
 	if not bool(def.get("repeatable", false)):
 		map_objects[index]["consumed"] = true
 	var pool: Array = MapObjectDefs.ARCHIVE_TIPS if kind == "archive_station" else MapObjectDefs.SIGNPOST_HINTS
@@ -2369,11 +2791,80 @@ func _trigger_info(index: int) -> void:
 	_show_object_reward_dialog(String(def.get("name", "Объект")), description, def.get("texture"))
 
 
+## Радиус раскрывает здание целиком и небольшой участок вокруг него.
+const EMERGENCY_BUOY_REVEAL_RADIUS := 3
+const EMERGENCY_BUOY_RESOURCE_MIN := 1
+const EMERGENCY_BUOY_RESOURCE_MAX := 3
+const EMERGENCY_BUOY_RESOURCE_KIND_MIN := 2
+const EMERGENCY_BUOY_RESOURCE_KIND_MAX := 3
+const EMERGENCY_BUOY_CREDITS_MIN := 100
+const EMERGENCY_BUOY_CREDITS_MAX := 1000
+const EMERGENCY_BUOY_CREDITS_STEP := 100
+
+
+## Буй передаёт координаты ближайшего ещё скрытого здания с ресурсным трофеем.
+func _trigger_emergency_buoy(index: int) -> void:
+	var def := MapObjectDefs.get_kind("emergency_buoy")
+	var origin: Vector2i = map_objects[index]["cell"]
+	var target: Dictionary = {}
+	var nearest_distance := MAP_SIZE.x + MAP_SIZE.y
+	for guardian in guardians:
+		if not bool(guardian.get("alive", false)) or int(guardian.get("size", 1)) < 2:
+			continue
+		var reward: Dictionary = guardian.get("reward", {})
+		if String(reward.get("type", "")) not in ["resources", "multi_resources", "treasure"]:
+			continue
+		var cell: Vector2i = guardian["cell"]
+		if is_cell_explored(cell):
+			continue
+		var distance := _chebyshev_distance(origin, cell)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			target = guardian
+	var description := "Скрытых зданий с ценными ресурсами больше нет."
+	if not target.is_empty():
+		var cell: Vector2i = target["cell"]
+		_reveal_around(cell, EMERGENCY_BUOY_REVEAL_RADIUS)
+		fog_overlay.queue_redraw()
+		var target_def := MapObjectDefs.get_kind(String(target["object_kind"]))
+		description = "Получены координаты: %s (%d, %d). Участок карты раскрыт. Ценные ресурсы охраняются — победите защитников, чтобы забрать трофеи." % [target_def["name"], cell.x, cell.y]
+	map_objects[index]["consumed"] = true
+	var salvage := _emergency_buoy_salvage_reward()
+	description += "\nВ контейнере буя уцелел аварийный запас: %s." % _grant_object_reward(salvage).trim_prefix("Найдено: ").trim_suffix(".")
+	navigation_message = description
+	_update_hud()
+	_show_object_reward_dialog(String(def["name"]), description, def.get("texture"), _reward_items_for_reward(salvage))
+
+
+func _emergency_buoy_salvage_reward() -> Dictionary:
+	var candidates: Array[String] = []
+	for resource_name in RESOURCE_ICON_REGIONS.keys():
+		candidates.append(String(resource_name))
+	var items: Array[Dictionary] = []
+	var kind_count := map_random.randi_range(EMERGENCY_BUOY_RESOURCE_KIND_MIN, EMERGENCY_BUOY_RESOURCE_KIND_MAX)
+	for _i in range(mini(kind_count, candidates.size())):
+		var index := map_random.randi_range(0, candidates.size() - 1)
+		var resource_name := candidates[index]
+		candidates.remove_at(index)
+		items.append({
+			"resource_name": resource_name,
+			"amount": map_random.randi_range(EMERGENCY_BUOY_RESOURCE_MIN, EMERGENCY_BUOY_RESOURCE_MAX),
+		})
+	var credit_steps := EMERGENCY_BUOY_CREDITS_MAX / EMERGENCY_BUOY_CREDITS_STEP
+	var min_steps := EMERGENCY_BUOY_CREDITS_MIN / EMERGENCY_BUOY_CREDITS_STEP
+	return {
+		"type": "salvage",
+		"items": items,
+		"credits": map_random.randi_range(min_steps, credit_steps) * EMERGENCY_BUOY_CREDITS_STEP,
+	}
+
+
 func _generate_production_sites() -> void:
 	production_sites.clear()
 	var occupied_cells: Array[Vector2i] = []
 	_add_random_production_cluster(HUMAN_PLANET_CENTER, map_random, occupied_cells)
 	_add_random_production_cluster(ORC_PLANET_CENTER, map_random, occupied_cells)
+	_add_distant_production_sites(occupied_cells)
 
 
 func _make_production_nameplate(text: String) -> PanelContainer:
@@ -2500,6 +2991,13 @@ func _build_reserved_cells() -> Dictionary:
 	for site in production_sites:
 		_reserve_box(reserved, site["cell"], site["cell"] + PRODUCTION_FOOTPRINT - Vector2i.ONE, OBSTACLE_CLEARANCE)
 	_reserve_around(reserved, PLAYER_ONE_START_CELL, OBSTACLE_CLEARANCE)
+	# Узкий межпланетный коридор оставляет только одну безопасную нитку пути;
+	# широкая свободная магистраль сделала бы всю карту открытым полем.
+	_reserve_corridor(reserved, HUMAN_PLANET_CENTER, ORC_PLANET_CENTER, 0)
+	for center in [HUMAN_PLANET_CENTER, ORC_PLANET_CENTER]:
+		for site in production_sites:
+			if _chebyshev_distance(site["cell"], center) <= LOCAL_PRODUCTION_MAX_DISTANCE + 1:
+				_reserve_corridor(reserved, center, site["cell"], 0)
 	return reserved
 
 
@@ -2511,6 +3009,19 @@ func _reserve_box(reserved: Dictionary, box_min: Vector2i, box_max: Vector2i, ma
 	for x in range(box_min.x - margin, box_max.x + margin + 1):
 		for y in range(box_min.y - margin, box_max.y + margin + 1):
 			reserved[Vector2i(x, y)] = true
+
+
+func _reserve_corridor(reserved: Dictionary, from_cell: Vector2i, to_cell: Vector2i, width: int) -> void:
+	var distance := maxi(absi(to_cell.x - from_cell.x), absi(to_cell.y - from_cell.y))
+	for step in range(distance + 1):
+		var ratio := float(step) / float(maxi(distance, 1))
+		var center := Vector2i(
+			roundi(lerpf(float(from_cell.x), float(to_cell.x), ratio)),
+			roundi(lerpf(float(from_cell.y), float(to_cell.y), ratio))
+		)
+		for x in range(-width, width + 1):
+			for y in range(-width, width + 1):
+				reserved[center + Vector2i(x, y)] = true
 
 
 func _create_obstacle_sprites() -> void:
@@ -2538,35 +3049,96 @@ func _add_random_production_cluster(
 	random: RandomNumberGenerator,
 	occupied_cells: Array[Vector2i]
 ) -> void:
-	for blueprint in PRODUCTION_BLUEPRINTS:
-		var candidate := Vector2i.ZERO
-		var found_position := false
-		for attempt in range(500):
-			var offset := Vector2i(
-				random.randi_range(-PRODUCTION_MAX_PLANET_DISTANCE, PRODUCTION_MAX_PLANET_DISTANCE),
-				random.randi_range(-PRODUCTION_MAX_PLANET_DISTANCE, PRODUCTION_MAX_PLANET_DISTANCE)
+	# Базовые ресурсы стоят по одному экземпляру в случайном кольце
+	# примерно в 10–15 клетках от планеты.
+	for local_index in range(2):
+		var local_blueprint: Dictionary = PRODUCTION_BLUEPRINTS[local_index * 2]
+		var candidate := _find_local_production_position(planet_center, occupied_cells)
+		if candidate.x >= 0:
+			var local_site := local_blueprint.duplicate()
+			local_site["cell"] = candidate
+			production_sites.append(local_site)
+			occupied_cells.append(candidate)
+		else:
+			push_error("Не удалось разместить базовую ферму или шахту рядом с планетой")
+
+
+## Редкие ресурсы распределяются по секторам, а не кучкуются вокруг планет.
+## Каждый из четырёх дальних типов встречается по три раза на карте.
+func _add_distant_production_sites(occupied_cells: Array[Vector2i]) -> void:
+	var sector_counts := {}
+	for resource_copy in range(3):
+		for blueprint_index in range(4, PRODUCTION_BLUEPRINTS.size()):
+			var blueprint: Dictionary = PRODUCTION_BLUEPRINTS[blueprint_index]
+			var sector_order: Array[Vector2i] = []
+			for sx in range(PRODUCTION_SECTOR_GRID):
+				for sy in range(PRODUCTION_SECTOR_GRID):
+					sector_order.append(Vector2i(sx, sy))
+			sector_order.shuffle()
+			sector_order.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+				return int(sector_counts.get(a, 0)) < int(sector_counts.get(b, 0))
 			)
-			var distance := maxi(absi(offset.x), absi(offset.y))
-			if distance < PRODUCTION_MIN_PLANET_DISTANCE or distance > PRODUCTION_MAX_PLANET_DISTANCE:
-				continue
-			candidate = planet_center + offset
-			if not _cell_is_inside_map(candidate) \
-					or not _cell_is_inside_map(candidate + PRODUCTION_FOOTPRINT - Vector2i.ONE):
-				continue
-			if _footprint_overlaps_planet(candidate, HUMAN_PLANET_CENTER) \
-					or _footprint_overlaps_planet(candidate, ORC_PLANET_CENTER):
-				continue
-			if not _production_position_is_free(candidate, occupied_cells):
-				continue
-			found_position = true
-			break
-		if not found_position:
-			push_error("Не удалось разместить производство рядом с планетой")
+			var placed := false
+			for sector in sector_order:
+				var candidate := _find_production_in_sector(sector, occupied_cells)
+				if candidate.x < 0:
+					continue
+				var site: Dictionary = blueprint.duplicate()
+				site["cell"] = candidate
+				production_sites.append(site)
+				occupied_cells.append(candidate)
+				sector_counts[sector] = int(sector_counts.get(sector, 0)) + 1
+				placed = true
+				break
+			if not placed:
+				push_error("Не удалось равномерно разместить редкое месторождение")
+
+
+func _find_production_in_sector(sector: Vector2i, occupied_cells: Array[Vector2i]) -> Vector2i:
+	var sector_width := MAP_SIZE.x / PRODUCTION_SECTOR_GRID
+	var sector_height := MAP_SIZE.y / PRODUCTION_SECTOR_GRID
+	var min_cell := Vector2i(sector.x * sector_width + 2, sector.y * sector_height + 2)
+	var max_cell := Vector2i(
+		(sector.x + 1) * sector_width - PRODUCTION_FOOTPRINT.x - 2,
+		(sector.y + 1) * sector_height - PRODUCTION_FOOTPRINT.y - 2)
+	for _attempt in range(80):
+		if max_cell.x < min_cell.x or max_cell.y < min_cell.y:
+			return Vector2i(-1, -1)
+		var candidate := Vector2i(
+			map_random.randi_range(min_cell.x, max_cell.x),
+			map_random.randi_range(min_cell.y, max_cell.y))
+		if _chebyshev_distance(candidate, HUMAN_PLANET_CENTER) < RARE_PRODUCTION_MIN_PLANET_DISTANCE \
+			or _chebyshev_distance(candidate, ORC_PLANET_CENTER) < RARE_PRODUCTION_MIN_PLANET_DISTANCE:
 			continue
-		var site: Dictionary = blueprint.duplicate()
-		site["cell"] = candidate
-		production_sites.append(site)
-		occupied_cells.append(candidate)
+		if _footprint_overlaps_planet(candidate, HUMAN_PLANET_CENTER) \
+			or _footprint_overlaps_planet(candidate, ORC_PLANET_CENTER):
+			continue
+		if _production_position_is_free(candidate, occupied_cells):
+			return candidate
+	return Vector2i(-1, -1)
+
+
+func _find_local_production_position(
+	planet_center: Vector2i, occupied_cells: Array[Vector2i]
+) -> Vector2i:
+	for _attempt in range(500):
+		var offset := Vector2i(
+			map_random.randi_range(-LOCAL_PRODUCTION_MAX_DISTANCE, LOCAL_PRODUCTION_MAX_DISTANCE),
+			map_random.randi_range(-LOCAL_PRODUCTION_MAX_DISTANCE, LOCAL_PRODUCTION_MAX_DISTANCE)
+		)
+		var distance := maxi(absi(offset.x), absi(offset.y))
+		if distance < LOCAL_PRODUCTION_MIN_DISTANCE or distance > LOCAL_PRODUCTION_MAX_DISTANCE:
+			continue
+		var candidate: Vector2i = planet_center + offset
+		if not _cell_is_inside_map(candidate) \
+			or not _cell_is_inside_map(candidate + PRODUCTION_FOOTPRINT - Vector2i.ONE):
+			continue
+		if _footprint_overlaps_planet(candidate, HUMAN_PLANET_CENTER) \
+			or _footprint_overlaps_planet(candidate, ORC_PLANET_CENTER):
+			continue
+		if _production_position_is_free(candidate, occupied_cells):
+			return candidate
+	return Vector2i(-1, -1)
 
 
 func _footprint_overlaps_planet(anchor: Vector2i, planet_center: Vector2i) -> bool:

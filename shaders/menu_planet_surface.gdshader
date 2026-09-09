@@ -5,6 +5,8 @@ uniform sampler2D surface_tex : repeat_enable, filter_linear_mipmap;
 uniform sampler2D weather_tex : repeat_enable, filter_linear_mipmap;
 // Освещённость нарастает вместе с восходом; ночные огни сохраняют яркость.
 uniform float daylight_exposure = 1.0;
+uniform float city_light_power = 1.0;
+uniform float city_light_threshold = 0.55;
 uniform float seconds_per_turn = 960.0;
 uniform vec3 light_dir = vec3(0.45, 0.85, -0.38);
 uniform vec3 atmosphere_color = vec3(0.20, 0.52, 1.0);
@@ -51,8 +53,8 @@ void fragment() {
 		float urban_noise = noise(uv * vec2(540.0, 270.0));
 		float cluster = smoothstep(0.30, 0.61, urban_noise);
 		float roads = (1.0 - smoothstep(0.008, 0.025, abs(urban_noise - 0.52))) * cluster;
-		float cities = (1.0 - smoothstep(0.02, max(0.16, fwidth(grid.x) * 0.5), distance)) * step(0.55, hash_21(cell));
-		color += vec3(1.0, 0.65, 0.24) * (cities * cluster * 4.0 + roads * 0.09) * land * night;
+		float cities = (1.0 - smoothstep(0.02, max(0.16, fwidth(grid.x) * 0.5), distance)) * step(city_light_threshold, hash_21(cell));
+		color += vec3(1.0, 0.65, 0.24) * (cities * cluster * 4.0 + roads * 0.09) * land * night * city_light_power;
 		// Кучевые облака: раздельные округлые ячейки внутри погодных фронтов.
 		vec2 weather = uv * vec2(108.0, 54.0) + vec2(turn * 1.8, 0.0);
 		float front = noise(weather);

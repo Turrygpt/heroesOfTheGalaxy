@@ -24,23 +24,23 @@ const KINDS := {
 	# --- Стражи с наградой (регистрируются в guardians, не в map_objects) ---
 	"derelict_station": {
 		"family": "guardian_reward", "name": "Заброшенная станция", "glyph": "◈", "size": 2,
-		"color": "8fa6c2", "guard_template": "weak", "reward_pool": ["resources"],
+		"color": "8fa6c2", "guard_template": "weak", "reward_pool": ["resources", "artifact"],
 		"texture": preload("res://assets/map_objects/derelict_station.png"),
 	},
 	"derelict_ship": {
 		"family": "guardian_reward", "name": "Дрейфующий корабль", "glyph": "◈",
-		"color": "6f88a8", "guard_template": "weak", "reward_pool": ["resources", "stat_boost"],
+		"color": "6f88a8", "guard_template": "weak", "reward_pool": ["resources", "ships"],
 		"texture": preload("res://assets/map_objects/derelict_ship.png"),
 	},
 	"pirate_base": {
 		"family": "guardian_reward", "name": "Пиратская база", "glyph": "☠", "size": 2,
 		"color": "ef5350", "guard_template": "pirate_base", "fixed_guard": true,
-		"reward_pool": ["income", "mercenaries"],
+		"reward_pool": ["pirate_base_treasure"],
 		"texture": preload("res://assets/map_objects/pirate_base.png"),
 	},
 	"abandoned_shipyard": {
 		"family": "guardian_reward", "name": "Заброшенная верфь", "glyph": "⚓", "size": 2,
-		"color": "e5b956", "guard_template": "medium", "reward_pool": ["unlock_dwelling"],
+		"color": "e5b956", "guard_template": "medium", "reward_pool": ["unlock_dwelling", "artifact"],
 		"texture": preload("res://assets/map_objects/abandoned_shipyard.png"),
 	},
 	## Угловой «схрон»: аналог утопии драконов из HoMM3. Стоит только в углах
@@ -50,7 +50,7 @@ const KINDS := {
 	"void_vault": {
 		"family": "guardian_reward", "name": "Схрон Древних", "glyph": "✹", "size": 2,
 		"color": "ffd23f", "guard_template": "flagship", "fixed_guard": true,
-		"reward_pool": ["treasure"],
+		"reward_pool": ["treasure", "artifact"],
 		"texture": preload("res://assets/map_objects/void_vault.png"),
 	},
 	# --- Прокачка героя -------------------------------------------------------
@@ -88,6 +88,9 @@ const KINDS := {
 		"family": "artifact", "name": "Ящик с артефактами", "glyph": "☆", "color": "ffd23f",
 		"texture": preload("res://assets/map_objects/artifact_cache.png"),
 	},
+	"resource_cache": {
+		"family": "loot", "name": "Ресурсный тайник", "glyph": "◆", "color": "55d6c2",
+	},
 	"distress_signal": {
 		"family": "quest", "name": "Сигнал бедствия", "glyph": "!", "color": "ef5350",
 		"texture": preload("res://assets/map_objects/distress_signal.png"),
@@ -104,6 +107,7 @@ const KINDS := {
 	},
 	"trading_post": {
 		"family": "info", "name": "Торговый пост", "glyph": "₡", "color": "55d6c2", "repeatable": true, "size": 2,
+		"texture": preload("res://assets/map_objects/trading_post.png"),
 	},
 }
 

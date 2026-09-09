@@ -7,8 +7,9 @@ const LAYER_DIR := "res://assets/ui/main_menu_layers"
 const SPACE_SHADER := preload("res://shaders/menu_space.gdshader")
 const PLANET_SHADER := preload("res://shaders/menu_planet_surface.gdshader")
 const SUN_SHADER := preload("res://shaders/menu_sun.gdshader")
-## Орбитальное кольцо: полный оборот за три минуты.
-const RING_SECONDS_PER_TURN := 180.0
+const WARP_SHIPS_SCRIPT := preload("res://scripts/menu_warp_ships.gd")
+## Орбитальное кольцо: полный оборот за шесть минут, чтобы дуга не отвлекала от меню.
+const RING_SECONDS_PER_TURN := 360.0
 ## Спутник уползает вправо за край — доли ширины экрана в секунду.
 ## 0.00025 ≈ полпикселя в секунду на 1920, с экрана уйдёт за ~10–12 минут.
 const MOON_DRIFT_VIEW_PER_SEC := 0.00025
@@ -16,9 +17,9 @@ const MOON_DRIFT_VIEW_PER_SEC := 0.00025
 ## 0.00065 ≈ 1,25 пикселя в секунду на 1920: спокойный, заметный дрейф.
 const ASTEROID_DRIFT_X_VIEW_PER_SEC := -0.00065
 
-## За первые пять минут диск выходит из-за горизонта; дальше продолжает
+## За две с половиной минуты диск выходит из-за горизонта; дальше продолжает
 ## подниматься с той же скоростью, вплоть до ухода за верхний край экрана.
-const SUNRISE_DURATION := 300.0
+const SUNRISE_DURATION := 150.0
 const SUN_START_OFFSET := 0.022
 ## Запас над горизонтом учитывает мягкий край увеличенного солнечного диска.
 const SUN_OFFSET_AFTER_FIVE_MINUTES := -0.032
@@ -31,6 +32,7 @@ const SUN_DAY_DEPTH := 0.65
 var sunrise_elapsed := 0.0
 var loaded_layers: Dictionary = {}
 var ring_layer: TextureRect
+var warp_ships_layer: Node2D
 var moons_layer: TextureRect
 var planet_layer: TextureRect
 var asteroids_layer: TextureRect
@@ -72,6 +74,7 @@ func _build_layers_deferred() -> void:
 		if ResourceLoader.load_threaded_get_status(LAYER_DIR.path_join(file)) == ResourceLoader.THREAD_LOAD_LOADED:
 			loaded_layers[file] = ResourceLoader.load_threaded_get(LAYER_DIR.path_join(file))
 	ring_layer = _make_layer("ring.png")
+	_make_warp_ships_layer()
 	moons_layer = _make_layer("moons.png")
 	planet_layer = _make_planet_layer()
 	_make_sun_layer()
@@ -100,6 +103,12 @@ func _make_sun_layer() -> void:
 	sun_material.shader = SUN_SHADER
 	sun_rect.material = sun_material
 	add_child(sun_rect)
+
+
+func _make_warp_ships_layer() -> void:
+	warp_ships_layer = WARP_SHIPS_SCRIPT.new()
+	warp_ships_layer.z_as_relative = true
+	add_child(warp_ships_layer)
 
 
 func _attach_space_shader() -> void:
@@ -216,6 +225,8 @@ func _place_sun_on_horizon(view: Vector2, planet_center: Vector2, disc_radius: f
 		# С ростом солнца свет приходит на видимую сторону сферы, сдвигая границу ночи.
 		# Та же освещённость в шейдере управляет поверхностью, облаками и огнями.
 		planet_mat.set_shader_parameter("daylight_exposure", lerpf(0.45, 1.0, daylight))
+		planet_mat.set_shader_parameter("city_light_power", lerpf(1.45, 0.10, daylight))
+		planet_mat.set_shader_parameter("city_light_threshold", lerpf(0.46, 0.70, daylight))
 		var light_depth := lerpf(SUN_DAWN_DEPTH, SUN_DAY_DEPTH, daylight)
 		planet_mat.set_shader_parameter("light_dir", Vector3(qx, -qy, light_depth).normalized())
 		planet_mat.set_shader_parameter("sun_q", Vector2(qx, qy))

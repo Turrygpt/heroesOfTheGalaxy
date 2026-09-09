@@ -27,6 +27,11 @@ func _draw_object(strategy_map: Node2D, object: Dictionary) -> void:
 	var size := int(object.get("size", 1))
 	var center: Vector2 = strategy_map._object_footprint_center(object["cell"], size)
 	var def := MapObjectDefs.get_kind(object["kind"])
+	if object["kind"] == "resource_cache":
+		var resource_icon: Texture2D = strategy_map._resource_icon(String(object.get("resource_name", "Руда")))
+		draw_object_texture(center, resource_icon, 48.0)
+		_draw_object_name(center, String(object.get("resource_name", "Ресурс")), size, true, 0.5)
+		return
 	if def.has("texture"):
 		var visual_scale := float(def.get("visual_scale", 1.0))
 		draw_object_texture(center, def["texture"], size * CELL_SIZE * visual_scale)

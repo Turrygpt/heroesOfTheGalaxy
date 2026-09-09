@@ -23,10 +23,15 @@ const NEIGHBOUR_OFFSETS := [
 ## убирают ощущение нарисованных по линейке стен.
 const AXES := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(1, -1)]
 const RIFT_AXES := [Vector2i(1, 0), Vector2i(0, 1)]
-const MAX_WIDTH := {"asteroid_field": 2.1, "nebula": 2.6, "rift": 0.0}
-const PLACEMENT_ORDER := ["rift", "asteroid_field", "nebula", "debris_field", "planetoid"]
-const SHARES := {"rift": 0.06, "asteroid_field": 0.30, "nebula": 0.17,
-	"debris_field": 0.17, "planetoid": 0.30}
+const LOCAL_SCATTER_COUNT := 14
+const MAX_WIDTH := {"asteroid_field": 1.55, "nebula": 1.8, "rift": 0.0}
+## На стратегической карте нет обломков кораблей: силуэты кораблей оставлены
+## только патрулям и флотам, чтобы не путать декорацию с интерактивной целью.
+const PLACEMENT_ORDER := ["rift", "asteroid_field", "nebula", "planetoid"]
+## Рифты формируют длинные стены с редкими воротами, поэтому их доля выше
+## остальных препятствий и карта читается как сеть секторов и тоннелей.
+const SHARES := {"rift": 0.18, "asteroid_field": 0.34, "nebula": 0.18,
+	"planetoid": 0.30}
 
 static var _sheet_cache := {}
 
@@ -96,11 +101,45 @@ static func generate(
 				protected[cell] = true
 			obstacles.append(feature)
 			placed += 1
+	# Отдельная россыпь вокруг стартовой зоны нужна для первого экрана карты:
+	# основные поля могут случайно уйти далеко, оставив начало пустым.
+	var local_protected := protected.duplicate()
+	for _index in range(LOCAL_SCATTER_COUNT):
+		var kind_name := "planetoid" if rng.randf() < 0.62 else "asteroid_field"
+		var center := origin_cell + Vector2i(
+			rng.randi_range(-8, 8), rng.randi_range(-8, 8))
+		if center == origin_cell or center.x < 3 or center.y < 3 \
+			or center.x >= map_size.x - 3 or center.y >= map_size.y - 3:
+			continue
+		var feature := _make_feature(rng, map_size, kind_name, center)
+		var cells: Array = feature["cells"]
+		if cells.is_empty() or not _fits(cells, map_size, local_protected, occupied):
+			continue
+		if not _fits(feature["clearance"], map_size, {}, occupied):
+			continue
+		var local_blocked := blocked.duplicate()
+		if not is_passable(kind_name):
+			for cell in cells:
+				local_blocked[cell] = true
+			if not _all_reachable(local_blocked, map_size, origin_cell, must_reach_cells):
+				continue
+		for cell in cells:
+			occupied[cell] = true
+			if not is_passable(kind_name):
+				blocked[cell] = true
+		for cell in feature["clearance"]:
+			local_protected[cell] = true
+		obstacles.append(feature)
 	return obstacles
 
 
-static func _make_feature(rng: RandomNumberGenerator, map_size: Vector2i, kind_name: String) -> Dictionary:
+static func _make_feature(
+	rng: RandomNumberGenerator, map_size: Vector2i, kind_name: String,
+	preferred_center: Vector2i = Vector2i(-1, -1)
+) -> Dictionary:
 	var center := Vector2i(rng.randi_range(5, map_size.x - 6), rng.randi_range(5, map_size.y - 6))
+	if preferred_center.x >= 0:
+		center = preferred_center
 	# Разлом непроходим и шириной в клетку — диагональная ось дала бы цепочку
 	# клеток, смежных только по диагонали, а AStarGrid2D разрешает срезать
 	# угол, если оба ортогональных соседа свободны. Корабль проскальзывал бы
@@ -118,7 +157,11 @@ static func _make_feature(rng: RandomNumberGenerator, map_size: Vector2i, kind_n
 			length = rng.randi_range(22, 30)
 			center = Vector2i(rng.randi_range(18, map_size.x - 19), rng.randi_range(18, map_size.y - 19))
 		elif kind_name == "nebula":
-			length = rng.randi_range(6, 10)
+			length = rng.randi_range(4, 8)
+		else:
+			# Короткие астероидные цепочки создают частые локальные обходы,
+			# но не режут карту на огромные стены.
+			length = rng.randi_range(5, 11)
 		var bend := rng.randf_range(-3.5, 3.5)
 		var slope := rng.randf_range(-2.0, 2.0)
 		# Вторая гармоника ломает правильную дугу: пояс петляет, как настоящий.
@@ -187,7 +230,7 @@ static func _make_feature(rng: RandomNumberGenerator, map_size: Vector2i, kind_n
 	elif kind_name == "debris_field":
 		# Кладбище кораблей нарастает случайными отростками, а не кругом.
 		mask[center] = true
-		var target := rng.randi_range(8, 14)
+		var target := rng.randi_range(3, 8)
 		var grown: Array[Vector2i] = [center]
 		while mask.size() < target:
 			var from: Vector2i = grown[rng.randi_range(0, grown.size() - 1)]
@@ -197,10 +240,12 @@ static func _make_feature(rng: RandomNumberGenerator, map_size: Vector2i, kind_n
 			mask[grow_to] = true
 			grown.append(grow_to)
 	else:
-		for x in range(-1, 2):
-			for y in range(-1, 2):
-				if absi(x) + absi(y) <= 1:
-					mask[center + Vector2i(x, y)] = true
+		# Небольшие планетоиды чаще одиночные или состоят из трёх клеток,
+		# чтобы вокруг них постоянно возникали короткие варианты маршрута.
+		mask[center] = true
+		if rng.randf() < 0.35:
+			var arm: Vector2i = NEIGHBOUR_OFFSETS[rng.randi_range(0, 3)]
+			mask[center + arm] = true
 	if kind_name != "rift":
 		_close_diagonals(mask, rng)
 	for cell in clearance:
@@ -257,4 +302,12 @@ static func _all_reachable(blocked: Dictionary, map_size: Vector2i, origin_cell:
 	for cell in must_reach_cells:
 		if not visited.has(cell):
 			return false
+	# Не допускаем замкнутых карманов: даже клетка без ресурса должна иметь
+	# хотя бы минимальный коридор до общей сети, иначе часть карты становится
+	# декоративной и недостижимой.
+	for x in range(map_size.x):
+		for y in range(map_size.y):
+			var cell := Vector2i(x, y)
+			if not blocked.has(cell) and not visited.has(cell):
+				return false
 	return true

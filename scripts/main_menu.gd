@@ -81,6 +81,7 @@ func _ready() -> void:
 	primary.grab_focus()
 	var load_button := _button(column, "Загрузить игру", _load_game)
 	load_button.disabled = CampaignSave.read_save().is_empty()
+	_button(column, "Случайная карта", _random_game)
 	_button(column, "Настройки", GameSettings.open_menu)
 	_button(column, "Выход", get_tree().quit)
 
@@ -270,6 +271,13 @@ func _new_game() -> void:
 	_fade_out_and_change_scene("res://scenes/StrategicMain.tscn")
 
 
+func _random_game() -> void:
+	if transition_started:
+		return
+	requested_load = false
+	_fade_out_and_change_scene("res://scenes/StrategicMain.tscn", true)
+
+
 func _load_game() -> void:
 	if transition_started:
 		return
@@ -277,9 +285,10 @@ func _load_game() -> void:
 	_fade_out_and_change_scene("res://scenes/StrategicMain.tscn")
 
 
-func _fade_out_and_change_scene(scene_path: String) -> void:
+func _fade_out_and_change_scene(scene_path: String, random_map: bool = false) -> void:
 	transition_started = true
 	loading_scene = scene_path
+	CampaignSave.random_map_requested = random_map
 	status.text = "Подготовка галактики…"
 	for button in menu_buttons:
 		button.disabled = true
@@ -302,7 +311,7 @@ func _process(_delta: float) -> void:
 				status.text = CampaignSave.error_message
 				return
 		else:
-			CampaignSave.prepare_new_game()
+			CampaignSave.prepare_new_game(CampaignSave.random_map_requested)
 		_fade_music()
 		if packed == null or get_tree().change_scene_to_packed(packed) != OK:
 			_loading_failed()

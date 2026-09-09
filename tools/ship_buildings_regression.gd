@@ -15,6 +15,7 @@ class FakeStrategyMap:
 		"Топливо": 100,
 		"Радиоизотопы": 100,
 	}
+	var hud_updated := false
 
 	func player_fleet_at_home_planet() -> bool:
 		return fleet_home
@@ -35,6 +36,9 @@ class FakeStrategyMap:
 				player_one_credits -= amount
 			else:
 				player_one_resources[key] = int(player_one_resources.get(key, 0)) - amount
+
+	func _update_hud() -> void:
+		hud_updated = true
 
 
 func _initialize() -> void:
@@ -179,6 +183,7 @@ func _run() -> void:
 		_fail("Elite rank III-V hangars must replace ordinary production")
 		return
 	_check_unit_upgrade(screen)
+	_check_unit_recruit_spends_credits(screen)
 	_check_fort_growth()
 	_check_fleet_slots_split_merge()
 	print("SHIP_BUILDINGS_REGRESSION_OK")
@@ -231,6 +236,35 @@ func _check_unit_upgrade(screen: Node) -> void:
 	if fake_map.player_one_credits != 880 or int(fake_map.player_one_resources.get("Руда", 0)) != 97:
 		_fail("Garrison upgrade must pay the cost difference for the whole stack")
 		return
+	fake_map.queue_free()
+
+
+func _check_unit_recruit_spends_credits(screen: Node) -> void:
+	var fake_map := FakeStrategyMap.new()
+	root.add_child(fake_map)
+	screen.strategy_map = fake_map
+	var state := HumanPlanetState.default_state()
+	state["available_growth"] = {"interceptor": 4}
+	state["garrison_slots"] = [{}, {}, {}, {}, {}, {}, {}]
+	HumanPlanetState.save_state(state)
+	var spin := SpinBox.new()
+	spin.value = 3
+	screen._recruit_unit("interceptor", spin)
+	state = HumanPlanetState.load_state()
+	var expected_credits := 1000 - int(UnitDefs.get_unit("interceptor")["cost"]["credits"]) * 3
+	if fake_map.player_one_credits != expected_credits:
+		_fail("Найм истребителей должен списывать кредиты: ожидали %d, получили %d" % [expected_credits, fake_map.player_one_credits])
+		return
+	if int((state["available_growth"] as Dictionary).get("interceptor", 0)) != 1:
+		_fail("Найм должен уменьшать доступный пул истребителей")
+		return
+	if int((state["garrison"] as Dictionary).get("interceptor", 0)) != 3:
+		_fail("Нанятые истребители должны попадать в гарнизон")
+		return
+	if not fake_map.hud_updated:
+		_fail("Найм должен сразу обновлять HUD карты")
+		return
+	spin.queue_free()
 	fake_map.queue_free()
 
 

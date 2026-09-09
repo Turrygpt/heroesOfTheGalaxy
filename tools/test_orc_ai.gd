@@ -184,6 +184,9 @@ func _run() -> void:
 	_check(not map.orc_ai.hero_alive, "Победа над вождём снимает его с карты")
 	_check(map.orc_ai.respawn_countdown > 0, "Вождь возрождается не сразу")
 	_check_respawn_symmetry(map, roster)
+	map.movement_points = 6
+	map._resolve_orc_battle("hero", [], false, true)
+	_check(map.movement_points == 0, "Отступление съедает все оставшиеся ходы на сол")
 	map._resolve_orc_battle("hero", [], false, false)
 	_check(map.current_cell == map.PLAYER_ONE_START_CELL, "Проигравший игрок отброшен к своей планете")
 	map._resolve_orc_battle("planet", [], false, false)

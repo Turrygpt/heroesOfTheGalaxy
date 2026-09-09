@@ -19,6 +19,8 @@ const MAP_FIELDS := [
 ]
 var pending_map: Dictionary = {}
 var save_on_start := false
+## Флаг передаётся из меню только для старта новой случайной карты.
+var random_map_requested := false
 var error_message := ""
 
 
@@ -46,7 +48,7 @@ func save_campaign(map: Node, path: String = SAVE_PATH) -> bool:
 	for field in MAP_FIELDS:
 		snapshot[field] = map.get(field)
 	snapshot["random_state"] = map.map_random.state
-	snapshot["pirate_balance_version"] = 2
+	snapshot["pirate_balance_version"] = 4
 	snapshot["camera_position"] = map.camera.position
 	snapshot["camera_zoom"] = map.camera.zoom
 	# Экономика и позиция ИИ орков (флот вождя уезжает вместе с героями).
@@ -85,8 +87,9 @@ func prepare_load(path: String = SAVE_PATH) -> bool:
 	return true
 
 
-func prepare_new_game() -> void:
+func prepare_new_game(random_map: bool = false) -> void:
 	save_on_start = true
+	random_map_requested = random_map
 	pending_map.clear()
 	HeroRoster.reset_to_default()
 	HeroRoster.save_state()
