@@ -50,7 +50,10 @@ const BUILDING_CATALOG := [
 	{"kind": "destroyer_yard", "level": 2, "texture": preload("res://assets/planet_surface/human/destroyer_hangar_rank5_elite.png")},
 	{"kind": "tavern", "level": 1, "texture": preload("res://assets/planet_surface/human/tavern.png")},
 	{"kind": "marketplace", "level": 1, "texture": preload("res://assets/planet_surface/human/marketplace.png")},
-	{"kind": "mage_guild", "level": 1, "texture": preload("res://assets/planet_surface/human/mage_guild.png")},
+	{"kind": "mage_guild", "level": 1, "texture": preload("res://assets/planet_surface/human/university1.png")},
+	{"kind": "mage_guild", "level": 2, "texture": preload("res://assets/planet_surface/human/university2.png")},
+	{"kind": "mage_guild", "level": 3, "texture": preload("res://assets/planet_surface/human/university3.png")},
+	{"kind": "mage_guild", "level": 4, "texture": preload("res://assets/planet_surface/human/university4.png")},
 ]
 # Definitions drive both the construction menu and save/load - every buildable
 # kind (chained or single-tier) is listed here once, in the order it should
@@ -157,9 +160,19 @@ const BUILDING_DEFS := {
 		"requirements": [{"townhall": 1}],
 	},
 	"mage_guild": {
-		"name": "Галактический университет", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 1000, "Научные данные": 10}],
-		"requirements": [{"townhall": 2}],
+		"name": "Галактический университет", "max_level": 4, "level_names": ["I", "II", "III", "IV"],
+		"costs": [
+			{"credits": 1000, "Научные данные": 10},
+			{"credits": 1800, "Научные данные": 20, "Энергокристаллы": 5},
+			{"credits": 3500, "Научные данные": 35, "Энергокристаллы": 15, "Радиоизотопы": 5},
+			{"credits": 7000, "Научные данные": 60, "Энергокристаллы": 30, "Радиоизотопы": 15},
+		],
+		"requirements": [
+			{"townhall": 2},
+			{"townhall": 3},
+			{"townhall": 4, "mage_guild": 2},
+			{"townhall": 4, "fort": 3, "mage_guild": 3},
+		],
 	},
 }
 const SHIP_BUILDING_KINDS := [

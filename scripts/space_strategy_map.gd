@@ -236,7 +236,7 @@ var map_random := RandomNumberGenerator.new()
 var obstacle_sprites: Node2D
 var music_player: AudioStreamPlayer
 ## Стартовый запас новой кампании; при загрузке заменяется сохранённым.
-var player_one_credits := 1000
+var player_one_credits := 2000
 var player_two_credits := 0
 var human_planet_owner := 1
 var orc_planet_owner := 2
@@ -256,12 +256,12 @@ var random_map_mode := false
 var human_planetary_council_level := 1
 var orc_planetary_council_level := 1
 var player_one_resources := {
-	"Продукты": 5,
-	"Руда": 5,
-	"Научные данные": 2,
-	"Энергокристаллы": 2,
-	"Топливо": 2,
-	"Радиоизотопы": 2,
+	"Продукты": 10,
+	"Руда": 10,
+	"Научные данные": 5,
+	"Энергокристаллы": 5,
+	"Топливо": 5,
+	"Радиоизотопы": 5,
 }
 
 

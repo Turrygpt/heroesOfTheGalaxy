@@ -77,8 +77,8 @@ func _run() -> void:
 	host = scene.instantiate()
 	root.add_child(host)
 	map = host.get_node("SpaceStrategyMap")
-	_check(map.current_day == 1 and map.player_one_credits == 1000, "Новая карта начинается с первого дня и 1000 кредитов")
-	_check(map.player_one_resources == {"Продукты": 5, "Руда": 5, "Научные данные": 2, "Энергокристаллы": 2, "Топливо": 2, "Радиоизотопы": 2}, "Новая игра выдаёт стартовые ресурсы")
+	_check(map.current_day == 1 and map.player_one_credits == 2000, "Новая карта начинается с первого дня и 2000 кредитов")
+	_check(map.player_one_resources == {"Продукты": 10, "Руда": 10, "Научные данные": 5, "Энергокристаллы": 5, "Топливо": 5, "Радиоизотопы": 5}, "Новая игра выдаёт стартовые ресурсы")
 	_check(map.guardians[0]["alive"] and map.obelisks_collected == 0, "Новая игра сбрасывает стражей и объекты")
 	host.free()
 	roster.heroes = original_heroes
