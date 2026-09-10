@@ -863,7 +863,7 @@ icon = ExtResource("12_destroyer_hangar_elite")
 icon_max_width = 66
 expand_icon = true
 
-[node name="MageGuild" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+[node name="MageGuild1" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
 custom_minimum_size = Vector2(168, 96)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -874,6 +874,51 @@ theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 theme_override_styles/pressed = SubResource("Style_action_hover")
 text = "Галактический университет"
+icon = ExtResource("12_mage_guild")
+icon_max_width = 66
+expand_icon = true
+
+[node name="MageGuild2" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Галактический университет II"
+icon = ExtResource("12_mage_guild")
+icon_max_width = 66
+expand_icon = true
+
+[node name="MageGuild3" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Галактический университет III"
+icon = ExtResource("12_mage_guild")
+icon_max_width = 66
+expand_icon = true
+
+[node name="MageGuild4" type="Button" parent="Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons"]
+custom_minimum_size = Vector2(168, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("Style_action")
+theme_override_styles/hover = SubResource("Style_action_hover")
+theme_override_styles/pressed = SubResource("Style_action_hover")
+text = "Галактический университет IV"
 icon = ExtResource("12_mage_guild")
 icon_max_width = 66
 expand_icon = true

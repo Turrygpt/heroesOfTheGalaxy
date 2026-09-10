@@ -159,7 +159,7 @@ const SKILLS := {
 		"name": "Криптоанализ",
 		"category": "tech",
 		"desc": "Открывает протоколы до %s ранга включительно",
-		"tiers": [3, 4, 5],
+		"tiers": [2, 3, 4],
 		"weights": {"admiral": 4, "engineer": 9, "warlord": 2, "shaman": 9, "corsair": 3},
 	},
 	"energy_core": {
@@ -287,7 +287,7 @@ const ARTIFACTS := {
 }
 
 ## Боевые протоколы (книга героя живёт в scripts/hero_protocols.gd) разложены
-## по рангам 1–5. Ранг открывается Мудростью и навыком «Криптоанализ» — как
+## по рангам 1–4. Ранг открывается Мудростью и навыком «Криптоанализ» — как
 ## уровни заклинаний в HoMM.
 const PROTOCOL_RANKS := {
 	"ion_lance": 1,
@@ -300,10 +300,10 @@ const PROTOCOL_RANKS := {
 	"warp_jump": 2,
 	"emp_burst": 3,
 	"logic_bomb": 3,
-	"plasma_storm": 4,
+	"plasma_storm": 3,
 	"nanite_field": 4,
 	"battle_net": 4,
-	"orbital_strike": 5,
+	"orbital_strike": 4,
 }
 
 
