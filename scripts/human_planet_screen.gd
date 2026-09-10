@@ -1474,7 +1474,7 @@ func _update_garrison_screen() -> void:
 				var skill_def: Dictionary = HeroDefs.SKILLS[String(skill_id)]
 				skill_parts.append("%s %s" % [skill_def["name"], HeroDefs.SKILL_TIER_NAMES[tier]])
 				var skill_texture := load(SKILL_ICON_DIR.path_join("%s.png" % skill_id)) as Texture2D
-				_add_hero_skill_tile(garrison_hero_skill_icons, skill_texture, String(skill_def["name"]), tier)
+				_add_hero_skill_tile(garrison_hero_skill_icons, skill_texture, String(skill_def["name"]), tier, HeroDefs.skill_description(String(skill_id), tier))
 		garrison_hero_skills.text = "Умения героя" if not skill_parts.is_empty() else "Умения героя: —"
 		var artifact_parts: Array[String] = []
 		for artifact_id in hero.artifacts:
@@ -1482,12 +1482,12 @@ func _update_garrison_screen() -> void:
 				var artifact_def: Dictionary = HeroDefs.ARTIFACTS[String(artifact_id)]
 				artifact_parts.append(String(artifact_def["name"]))
 				_add_hero_artifact_tile(garrison_hero_artifact_icons, artifact_def, 72)
-		garrison_hero_artifacts.text = "Артефакты: " + (" · ".join(artifact_parts) if not artifact_parts.is_empty() else "—")
+		garrison_hero_artifacts.text = "\nАртефакты:" + ((" " + " · ".join(artifact_parts)) if not artifact_parts.is_empty() else "")
 	else:
 		garrison_hero_name.text = "НЕТ ГЕРОЯ"
 		garrison_hero_stats.text = "Статы: —"
 		garrison_hero_skills.text = "Умения: —"
-		garrison_hero_artifacts.text = "Артефакты: —"
+		garrison_hero_artifacts.text = "\nАртефакты:"
 	garrison_hero_status.text = "Управление флотом" if fleet_only_mode else ("Флот у планеты" if fleet_at_planet else "Флот в экспедиции")
 	garrison_hero_status.add_theme_color_override(
 		"font_color", Color(0.51, 0.79, 0.76, 1) if fleet_at_planet else Color(0.82, 0.52, 0.42, 1)
@@ -1533,14 +1533,14 @@ func _add_hero_artifact_tile(container: HFlowContainer, artifact: Dictionary, ic
 	tile.add_child(bonus)
 
 
-func _add_hero_skill_tile(container: HFlowContainer, texture: Texture2D, skill_name: String, tier: int) -> void:
+func _add_hero_skill_tile(container: HFlowContainer, texture: Texture2D, skill_name: String, tier: int, description: String) -> void:
 	if texture == null:
 		return
 	var tile := HBoxContainer.new()
 	tile.custom_minimum_size = Vector2(216, 56)
 	tile.add_theme_constant_override("separation", 8)
 	var tier_name: String = HeroDefs.SKILL_TIER_NAMES[clampi(tier, 1, HeroDefs.MAX_SKILL_TIER)]
-	tile.tooltip_text = "%s — %s" % [skill_name, tier_name]
+	tile.tooltip_text = "%s — %s\n%s" % [skill_name, tier_name, description]
 	container.add_child(tile)
 	var frame := PanelContainer.new()
 	frame.custom_minimum_size = Vector2(56, 56)
