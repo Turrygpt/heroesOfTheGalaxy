@@ -235,7 +235,7 @@ const SKILLS := {
 	"engineering": {
 		"name": "Инженерия",
 		"category": "strategy",
-		"desc": "Между боями флот чинится на %s%% прочности в сол",
+		"desc": "Прочность кораблей выше на %s%%",
 		"tiers": [10, 20, 30],
 		"weights": {"admiral": 5, "engineer": 9, "warlord": 4, "shaman": 4, "corsair": 4},
 	},

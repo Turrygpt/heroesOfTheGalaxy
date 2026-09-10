@@ -356,7 +356,9 @@ func damage_bonus_percent(distance: int = 99) -> int:
 
 
 func hp_bonus_percent() -> int:
-	return skill_value("armor_plating") + DEFS.artifact_bonus(artifacts, "hp_percent")
+	# Инженерия работает постоянно: флот получает прибавку к корпусу прямо
+	# в бою, поскольку между боями в армии хранятся только целые корабли.
+	return skill_value("armor_plating") + skill_value("engineering") + DEFS.artifact_bonus(artifacts, "hp_percent")
 
 
 func range_bonus() -> int:
