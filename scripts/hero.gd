@@ -142,6 +142,8 @@ func artifact_lines() -> Array:
 			"id": artifact_id,
 			"name": String(def.get("name", artifact_id)),
 			"description": String(def.get("description", "")),
+			"bonus": DEFS.artifact_bonus_text(def),
+			"texture": def.get("texture"),
 		})
 	lines.sort_custom(func(a, b): return a["name"] < b["name"])
 	return lines
@@ -302,6 +304,11 @@ func to_battle_hero(side: int) -> Dictionary:
 		"max_energy": max_energy(),
 		"energy": mini(energy, max_energy()),
 		"regen": energy_regen(),
+		"damage_bonus_percent": damage_bonus_percent(),
+		"hp_bonus_percent": hp_bonus_percent(),
+		"range_bonus": range_bonus(),
+		"luck_chance": luck_chance(),
+		"morale_chance": morale_chance(),
 		"book": protocol_book(),
 		"cast_round": 0,
 		"hero_id": id,

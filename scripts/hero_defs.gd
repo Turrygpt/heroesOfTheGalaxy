@@ -350,6 +350,25 @@ static func artifact_bonus(owned_artifacts: Dictionary, effect_type: String) -> 
 	return total
 
 
+static func artifact_bonus_text(artifact: Dictionary) -> String:
+	var effect: Dictionary = artifact.get("effect", {})
+	var value := int(effect.get("value", 0))
+	match String(effect.get("type", "")):
+		"damage_percent":
+			return "Урон +%d%%" % value
+		"hp_percent":
+			return "Корпус +%d%%" % value
+		"range_flat":
+			return "Дальность +%d" % value
+		"luck_percent":
+			return "Удача +%d%%" % value
+		"morale_percent":
+			return "Мораль +%d%%" % value
+		"energy_regen_percent":
+			return "Восстановление энергии +%d%%" % value
+	return "Бонус +%d" % value
+
+
 static func skill_value(skill_id: String, tier: int) -> int:
 	if tier <= 0:
 		return 0

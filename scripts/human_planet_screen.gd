@@ -1308,9 +1308,7 @@ func _update_garrison_screen() -> void:
 			if HeroDefs.ARTIFACTS.has(String(artifact_id)):
 				var artifact_def: Dictionary = HeroDefs.ARTIFACTS[String(artifact_id)]
 				artifact_parts.append(String(artifact_def["name"]))
-				_add_hero_info_icon(garrison_hero_artifact_icons, artifact_def.get("texture"), "%s — %s" % [
-					String(artifact_def["name"]), String(artifact_def["description"]),
-				], 40)
+				_add_hero_artifact_tile(garrison_hero_artifact_icons, artifact_def, 72)
 		garrison_hero_artifacts.text = "Артефакты: " + (" · ".join(artifact_parts) if not artifact_parts.is_empty() else "—")
 	else:
 		garrison_hero_name.text = "НЕТ ГЕРОЯ"
@@ -1334,6 +1332,32 @@ func _add_hero_info_icon(container: HFlowContainer, texture: Texture2D, tooltip:
 	icon.tooltip_text = tooltip
 	icon.mouse_filter = Control.MOUSE_FILTER_STOP
 	container.add_child(icon)
+
+
+func _add_hero_artifact_tile(container: HFlowContainer, artifact: Dictionary, icon_size := 72) -> void:
+	var tile := VBoxContainer.new()
+	tile.custom_minimum_size = Vector2(150, icon_size + 48)
+	tile.alignment = BoxContainer.ALIGNMENT_CENTER
+	tile.tooltip_text = "%s\n%s" % [
+		HeroDefs.artifact_bonus_text(artifact), String(artifact.get("description", "")),
+	]
+	container.add_child(tile)
+	var icon := TextureRect.new()
+	icon.texture = artifact.get("texture") as Texture2D
+	icon.custom_minimum_size = Vector2(icon_size, icon_size)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(icon)
+	var bonus := Label.new()
+	bonus.text = HeroDefs.artifact_bonus_text(artifact)
+	bonus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bonus.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	bonus.add_theme_font_size_override("font_size", 13)
+	bonus.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4, 1.0))
+	bonus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(bonus)
 
 
 func _add_hero_skill_tile(container: HFlowContainer, texture: Texture2D, skill_name: String, tier: int) -> void:
