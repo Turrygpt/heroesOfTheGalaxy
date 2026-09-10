@@ -599,6 +599,7 @@ func _run_battle_typed(player_fleet: Array[Dictionary], orc_fleet: Array[Diction
 	var battle = load("res://scenes/TacticalBattle.tscn").instantiate()
 	battle.player_units_override = player_fleet
 	battle.enemy_units_override = orc_fleet
+	battle.enemy_has_admiral = true
 	# quick_battle только ускоряет тики; ходить за сторону 1 разрешает
 	# именно auto_battle (см. tactical_battle.gd:_run_enemy_turn) — без него
 	# бой замирает на первом же ходе игрока.

@@ -511,7 +511,7 @@ theme_override_constants/margin_bottom = 18
 layout_mode = 2
 theme_override_constants/separation = 18
 
-[node name="Council" type="Button" parent="Root/BottomBar/Margin/Actions"]
+[node name="University" type="Button" parent="Root/BottomBar/Margin/Actions"]
 custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -519,7 +519,7 @@ mouse_default_cursor_shape = 2
 theme_override_font_sizes/font_size = 20
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
-text = "СОВЕТ ПЛАНЕТЫ"
+text = "УНИВЕРСИТЕТ"
 
 [node name="Construction" type="Button" parent="Root/BottomBar/Margin/Actions"]
 custom_minimum_size = Vector2(0, 72)
@@ -530,16 +530,6 @@ theme_override_font_sizes/font_size = 20
 theme_override_styles/normal = SubResource("Style_action")
 theme_override_styles/hover = SubResource("Style_action_hover")
 text = "СТРОИТЕЛЬСТВО"
-
-[node name="Editor" type="Button" parent="Root/BottomBar/Margin/Actions"]
-custom_minimum_size = Vector2(0, 72)
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 20
-theme_override_styles/normal = SubResource("Style_action")
-theme_override_styles/hover = SubResource("Style_action_hover")
-text = "РЕДАКТОР"
 
 [node name="Garrison" type="Button" parent="Root/BottomBar/Margin/Actions"]
 custom_minimum_size = Vector2(0, 72)

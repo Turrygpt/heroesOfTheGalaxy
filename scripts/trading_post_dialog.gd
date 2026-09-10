@@ -229,7 +229,7 @@ func _exchange() -> void:
 	var source := barter_source.get_item_text(barter_source.selected)
 	var target := barter_target.get_item_text(barter_target.selected)
 	var amount := int(barter_amount.value)
-	var error := strategy_map.trading_post_exchange_error(object_index, source, target, amount)
+	var error: String = strategy_map.trading_post_exchange_error(object_index, source, target, amount)
 	if error == "":
 		strategy_map.exchange_at_trading_post(object_index, source, target, amount)
 		status_label.text = "Обмен выполнен."
@@ -241,7 +241,7 @@ func _exchange() -> void:
 func _recruit(unit_id: String) -> void:
 	var controls: Dictionary = recruitment_controls[unit_id]
 	var amount := int((controls["amount"] as SpinBox).value)
-	var error := strategy_map.trading_post_recruit_error(object_index, unit_id, amount)
+	var error: String = strategy_map.trading_post_recruit_error(object_index, unit_id, amount)
 	if error == "":
 		strategy_map.recruit_at_trading_post(object_index, unit_id, amount)
 		status_label.text = "Корабли присоединились к флоту героя."

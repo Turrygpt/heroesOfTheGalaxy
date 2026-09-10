@@ -102,7 +102,7 @@ const KINDS := {
 		"texture": preload("res://assets/map_objects/emergency_buoy.png"),
 	},
 	"archive_station": {
-		"family": "info", "name": "Станция-архив", "glyph": "?", "color": "8da7ba", "repeatable": true, "size": 2,
+		"family": "info", "name": "Станция-архив", "glyph": "?", "color": "8da7ba", "repeatable": true, "size": 1,
 		"texture": preload("res://assets/map_objects/archive_station.png"),
 	},
 	"trading_post": {

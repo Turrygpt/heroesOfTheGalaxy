@@ -3,8 +3,10 @@ extends CanvasLayer
 signal end_turn_requested
 signal return_requested
 signal auto_requested
+signal auto_mode_requested
 
 var auto_button: Button
+var auto_mode_button: Button
 
 ## Подписи стороны 2 по фракциям: [флот, подразделение, командующий]. Портреты
 ## и полные подписи убраны с постоянного показа (см. update_state) — только
@@ -95,6 +97,13 @@ func _build_bottom_bar() -> void:
 	auto_button.pressed.connect(func(): auto_requested.emit())
 	row.add_child(auto_button)
 
+	auto_mode_button = _button("РЕЖИМ: СБАЛАНСИРОВАННЫЙ", GOLD)
+	auto_mode_button.custom_minimum_size.x = 260
+	auto_mode_button.tooltip_text = "Выбрать поведение флота в автобою"
+	preload("res://scripts/ui_style.gd").apply_button(auto_mode_button)
+	auto_mode_button.pressed.connect(func(): auto_mode_requested.emit())
+	row.add_child(auto_mode_button)
+
 	back_button = _button("←  СБЕЖАТЬ В ЗАМОК", MUTED)
 	back_button.custom_minimum_size.x = 220
 	preload("res://scripts/ui_style.gd").apply_button(back_button)
@@ -129,7 +138,7 @@ static func _enemy_faction_name(units: Array[Dictionary]) -> String:
 	return String(ENEMY_FACTION_NAMES[enemy_faction(units)])
 
 
-func update_state(units: Array[Dictionary], active_index: int, round_number: int, event_text: String, finished: bool, locked: bool, _hint: String) -> void:
+func update_state(units: Array[Dictionary], active_index: int, round_number: int, event_text: String, finished: bool, locked: bool, _hint: String, auto_mode_label: String = "СБАЛАНСИРОВАННЫЙ") -> void:
 	var active := units[active_index]
 	var enemy_name := _enemy_faction_name(units)
 	round_label.text = event_text if finished else "РАУНД %02d  /  %s" % [
@@ -138,3 +147,5 @@ func update_state(units: Array[Dictionary], active_index: int, round_number: int
 	end_button.visible = not finished
 	end_button.disabled = locked or active["side"] != 1
 	back_button.text = "←  НА КАРТУ" if finished else "←  СБЕЖАТЬ В ЗАМОК"
+	auto_mode_button.text = "РЕЖИМ: %s" % auto_mode_label
+	auto_mode_button.disabled = finished

@@ -26,6 +26,7 @@ func _ready() -> void:
 			{"unit_id": "ork_elite_gunship", "count": 6},
 			{"unit_id": "ork_elite_destroyer", "count": 2},
 		] as Array[Dictionary]
+		battle.enemy_has_admiral = true
 	add_child(battle)
 
 

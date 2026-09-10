@@ -65,6 +65,19 @@ const MOVE_SCORE_DISTANCE := 1.0
 ## всего: иначе обе стороны пятятся друг от друга и бой не заканчивается
 ## вовсе (ровно это и произошло на первом прогоне).
 const MOVE_SCORE_APPROACH := 50.0
+## Режимы поведения флота игрока в автобою.
+const AUTO_MODE_AGGRESSIVE := "aggressive"
+const AUTO_MODE_BALANCED := "balanced"
+const AUTO_MODE_DEFENSIVE := "defensive"
+const AUTO_MODE_LABELS := {
+	AUTO_MODE_AGGRESSIVE: "АГРЕССИВНЫЙ",
+	AUTO_MODE_BALANCED: "СБАЛАНСИРОВАННЫЙ",
+	AUTO_MODE_DEFENSIVE: "ЗАЩИТНЫЙ",
+}
+const AGGRESSIVE_DISTANCE_WEIGHT := 140.0
+const AGGRESSIVE_POINT_BLANK_BONUS := 400.0
+const DEFENSIVE_DISTANCE_WEIGHT := 24.0
+const DEFENSIVE_DANGER_WEIGHT := 60.0
 
 ## Фон боя — слоями от самого дальнего к ближнему. tactical_backdrop неподвижен
 ## (условно "бесконечно далеко"), остальные три едут за курсором мыши на свою
@@ -91,8 +104,8 @@ const PROTOCOL_BOOK_HUD := preload("res://scripts/protocol_book_hud.gd")
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 ## Боевые темы. Карта (space_strategy_map.gd:SPACE_MUSIC_DIR) в это время уже
 ## затихла через return_map.pause_music() — здесь плавно нарастаем поверх.
-## Папка со всеми треками — любое количество mp3, _start_music берёт случайный
-## (см. music/battle/README.md, тот же приём, что и main_menu.gd).
+## Папка со всеми треками — любое количество mp3. Треки перемешиваются при
+## старте боя и проигрываются по одному без повторов до конца очереди.
 const BATTLE_MUSIC_DIR := "res://music/battle"
 const BATTLE_MUSIC_VOLUME_DB := -8.0
 ## Общая длительность кроссфейда, тот же интервал, что у карты
@@ -159,16 +172,23 @@ var enemy_units_override: Array[Dictionary] = []
 ## Быстрый бой выполняет обычные ходы без ожидания анимаций.
 var auto_battle := false
 var quick_battle := false
+var auto_battle_mode := AUTO_MODE_BALANCED
 ## Запоминаем использование ИИ до конца боя, даже после возврата ручного управления.
 var auto_battle_used := false
 
 var hud: CanvasLayer
 var battle_camera: Camera2D
 var music_player: AudioStreamPlayer
+var music_playlist: Array[String] = []
+var music_playlist_index := 0
+var music_random := RandomNumberGenerator.new()
+var music_releasing := false
 var return_scene: Node
 var return_map: Node2D
 var return_process_mode: int
 var guardian_index := -1
+## Без адмирала у стороны 2 нет героя, энергии и боевых протоколов.
+var enemy_has_admiral := false
 ## Непустая строка — бой с фракцией орков, запущенный картой: "hero"
 ## (столкновение флотов), "planet" (орки штурмуют планету игрока),
 ## "orc_planet" (игрок штурмует базу орков). Итог разбирает
@@ -188,6 +208,7 @@ var enemy_attack_delay := -1.0
 var enemy_pending_target := -1
 var beams: Array = []
 var floaters: Array = []
+var last_attack_was_critical := false
 var last_event := "Бой начался"
 var turn_pending := false
 var experience_granted := false
@@ -231,17 +252,18 @@ var backdrop_object: Dictionary = {}
 
 func _ready() -> void:
 	auto_battle_used = auto_battle or quick_battle
+	if GameSettings.AUTO_BATTLE_MODES.has(auto_battle_mode):
+		auto_battle_mode = GameSettings.auto_battle_mode
 	heroes[1] = _make_hero(1)
-	if guardian_index == -1:
+	if guardian_index == -1 and enemy_has_admiral:
 		heroes[2] = _make_hero(2)
 	_build_units()
 	_generate_obstacles()
 	_rebuild_turn_order()
 	active_unit_index = turn_order[0]
 	# Стражи на карте (пираты/конвои) — рядовые капитаны без протоколов; каст
-	# доступен только настоящему герою-противнику (см. _make_hero, side == 2
-	# вне боя со стражем). guardian_index != -1 значит бой запущен из
-	# _open_guardian_battle (см. space_strategy_map.gd).
+	# доступен только настоящему герою-противнику (см. enemy_has_admiral).
+	# guardian_index != -1 значит бой запущен из _open_guardian_battle.
 	# The battle can be opened over the strategic map, whose Camera2D would keep
 	# offsetting this board. Own camera pins world space to screen space 1:1.
 	battle_camera = Camera2D.new()
@@ -255,6 +277,7 @@ func _ready() -> void:
 	hud.end_turn_requested.connect(_end_active_turn)
 	hud.return_requested.connect(_return_to_map)
 	hud.auto_requested.connect(_toggle_auto_battle)
+	hud.auto_mode_requested.connect(_cycle_auto_battle_mode)
 	get_viewport().size_changed.connect(queue_redraw)
 	_precompute_hex_centers()
 	_pick_backdrop_object()
@@ -278,22 +301,50 @@ func _start_music() -> void:
 	dir.list_dir_end()
 	if candidates.is_empty():
 		return
-	var rng := RandomNumberGenerator.new()
-	rng.randomize()
-	var chosen: String = candidates[rng.randi_range(0, candidates.size() - 1)]
-	var loaded := load(BATTLE_MUSIC_DIR.path_join(chosen)) as AudioStreamMP3
-	if loaded == null:
-		return
-	var stream: AudioStreamMP3 = loaded.duplicate()
-	stream.loop = true
+	music_random.randomize()
+	music_playlist = candidates
+	_shuffle_music_playlist()
+	music_playlist_index = 0
 	music_player = AudioStreamPlayer.new()
-	music_player.stream = stream
 	music_player.volume_db = MUSIC_FADED_VOLUME_DB
+	music_player.finished.connect(_play_next_music_track)
 	GameSettings.attach_music(music_player)
 	add_child(music_player)
-	music_player.play()
+	_play_next_music_track()
+	if not is_instance_valid(music_player) or music_player.stream == null:
+		return
 	var tween := create_tween()
 	tween.tween_property(music_player, "volume_db", BATTLE_MUSIC_VOLUME_DB, BATTLE_MUSIC_FADE_DURATION)
+
+
+## Перемешиваем плейлист вручную, чтобы использовать общий генератор случайных
+## чисел Godot и не получать одинаковый порядок при быстрых перезапусках боя.
+func _shuffle_music_playlist() -> void:
+	for index in range(music_playlist.size() - 1, 0, -1):
+		var other_index := music_random.randi_range(0, index)
+		var track := music_playlist[index]
+		music_playlist[index] = music_playlist[other_index]
+		music_playlist[other_index] = track
+
+
+## После окончания трека берём следующий. Когда очередь закончилась, снова
+## перемешиваем её, не зацикливая отдельный AudioStreamMP3.
+func _play_next_music_track() -> void:
+	if music_releasing or music_playlist.is_empty() or not is_instance_valid(music_player):
+		return
+	if music_playlist_index >= music_playlist.size():
+		_shuffle_music_playlist()
+		music_playlist_index = 0
+	var chosen := music_playlist[music_playlist_index]
+	music_playlist_index += 1
+	var loaded := load(BATTLE_MUSIC_DIR.path_join(chosen)) as AudioStreamMP3
+	if loaded == null:
+		_play_next_music_track()
+		return
+	var stream: AudioStreamMP3 = loaded.duplicate()
+	stream.loop = false
+	music_player.stream = stream
+	music_player.play()
 
 
 ## Затухание боевой темы при выходе из боя (возврат на карту или рестарт).
@@ -302,6 +353,7 @@ func _start_music() -> void:
 func _fade_out_and_release_music() -> void:
 	if not is_instance_valid(music_player):
 		return
+	music_releasing = true
 	remove_child(music_player)
 	get_tree().root.add_child(music_player)
 	var tween := music_player.create_tween()
@@ -359,9 +411,8 @@ func _finalize_unit(unit: Dictionary) -> Dictionary:
 	var range_bonus := int(battle_hero.get("range_bonus", 0))
 	if range_bonus > 0:
 		unit["range"] += range_bonus
-	var morale_chance := float(battle_hero.get("morale_chance", 0.0))
-	if morale_chance > 0.0:
-		unit["initiative"] += int(round(float(unit["initiative"]) * morale_chance))
+	unit["leadership_chance"] = float(battle_hero.get("leadership_chance", 0.0))
+	unit["leadership_used_round"] = 0
 	unit["max_hp"] = unit["count"] * unit["hull"]
 	unit["hp"] = unit["max_hp"]
 	unit["start_count"] = unit["count"]
@@ -488,11 +539,8 @@ func _process(delta: float) -> void:
 
 func _tick_battle(delta: float) -> void:
 	visual_time += minf(delta, 0.05)
-	var has_living_units := false
 	var animating := false
 	for unit in units:
-		if unit["hp"] > 0:
-			has_living_units = true
 		if unit["anim_t"] < 1.0:
 			unit["anim_t"] = minf(1.0, unit["anim_t"] + delta / MOVE_DURATION)
 			animating = true
@@ -547,13 +595,25 @@ func _tick_battle(delta: float) -> void:
 			var pending_target := enemy_pending_target
 			enemy_pending_target = -1
 			_finish_enemy_turn(pending_target)
-	if animating or has_living_units:
-		queue_redraw()
 	if animating:
+		queue_redraw()
 		_update_hud()
 	if turn_pending and not _visuals_busy():
 		turn_pending = false
-		_advance_turn()
+		if _try_leadership_extra_turn():
+			_begin_active_turn()
+		else:
+			_advance_turn()
+
+
+func _cycle_auto_battle_mode() -> void:
+	if battle_finished:
+		return
+	var modes: Array[String] = [AUTO_MODE_BALANCED, AUTO_MODE_AGGRESSIVE, AUTO_MODE_DEFENSIVE]
+	var mode_index := modes.find(auto_battle_mode)
+	auto_battle_mode = modes[(mode_index + 1) % modes.size()]
+	GameSettings.set_auto_battle_mode(auto_battle_mode)
+	_update_hud()
 
 
 ## -1..1 от центра экрана по каждой оси — само умножение на "strength" слоя
@@ -655,6 +715,7 @@ func _range_penalty(distance: int) -> float:
 
 
 func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int) -> int:
+	last_attack_was_critical = false
 	var count := _stack_count(attacker)
 	var damage_min := _stat(attacker, "damage_min")
 	var damage_max := _stat(attacker, "damage_max")
@@ -666,7 +727,8 @@ func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int)
 		base = count * (damage_min + damage_max) * 0.5
 	var total := base * _damage_multiplier(attacker, target) * _range_penalty(distance)
 	if randf() < float(attacker.get("luck_chance", 0.0)):
-		total *= 1.5
+		last_attack_was_critical = true
+		total *= 2.0
 	return maxi(1, int(round(total)))
 
 
@@ -737,6 +799,22 @@ func _maybe_finish_active_turn() -> void:
 		turn_pending = true
 
 
+## Лидерство даёт внеочередной ход текущей пачке. Один такой шанс на пачку
+## за раунд предотвращает бесконечные цепочки, но сохраняет эффект морали.
+func _try_leadership_extra_turn() -> bool:
+	var active := _active_unit()
+	if active["hp"] <= 0:
+		return false
+	if int(active.get("leadership_used_round", 0)) == round_number:
+		return false
+	var chance := float(active.get("leadership_chance", 0.0))
+	if chance <= 0.0 or randf() >= chance:
+		return false
+	active["leadership_used_round"] = round_number
+	last_event = "%s получает внеочередной ход благодаря Лидерству" % active["label"]
+	return true
+
+
 func _advance_turn() -> void:
 	if battle_finished:
 		return
@@ -760,8 +838,8 @@ func _advance_turn() -> void:
 		order_position += 1
 
 
-# Новый раунд: отработавшие протоколы спадают. Энергия восстанавливается
-# только в начале нового сола или полностью на родной планете.
+# Новый раунд: индивидуальные cooldown’ы протоколов заканчиваются. Энергия
+# восстанавливается только в начале нового сола или полностью на родной планете.
 func _begin_round() -> void:
 	for unit in units:
 		var kept: Array = []
@@ -780,7 +858,11 @@ func _run_enemy_turn() -> void:
 	if _active_unit()["side"] == 1 and _visuals_busy():
 		enemy_turn_delay = 0.1
 		return
-	if _active_unit()["side"] == 2 and _enemy_hero_cast():
+	var active_side := int(_active_unit()["side"])
+	if active_side == 1 and auto_battle and _auto_hero_cast(1):
+		enemy_turn_delay = 0.9
+		return
+	if active_side == 2 and _auto_hero_cast(2):
 		enemy_turn_delay = 0.9
 		return
 	var target_index := _best_enemy_target()
@@ -949,6 +1031,9 @@ func _move_cell_score(
 	var target_distance := _hex_distance(cell, target_cell)
 	var can_shoot := target_distance <= shot_range and _has_line_of_sight(cell, target_cell)
 	var encircled := _encirclement_penalty(cell, int(active["side"]))
+	var use_auto_mode := auto_battle and int(active["side"]) == 1
+	if use_auto_mode and auto_battle_mode == AUTO_MODE_DEFENSIVE:
+		return _defensive_move_cell_score(cell, active, target, shot_range, start_cell)
 	if not can_shoot:
 		# Стрелять неоткуда: сближаемся, окружение — лишь уточнение между
 		# одинаково близкими клетками.
@@ -956,12 +1041,52 @@ func _move_cell_score(
 	var expected_damage := float(_expected_stack_damage(active, target, target_distance))
 	var retaliation_risk := _retaliation_risk(cell, active, target)
 	var reposition_bonus := MOVE_SCORE_REPOSITION if cell != start_cell else 0.0
-	return MOVE_SCORE_CAN_SHOOT \
+	var score := MOVE_SCORE_CAN_SHOOT \
 		+ expected_damage * MOVE_SCORE_DAMAGE \
 		+ reposition_bonus \
 		- retaliation_risk \
 		- encircled \
 		- MOVE_SCORE_DISTANCE * float(target_distance)
+	if use_auto_mode and auto_battle_mode == AUTO_MODE_AGGRESSIVE:
+		score += AGGRESSIVE_DISTANCE_WEIGHT * float(_hex_distance(start_cell, target_cell) - target_distance)
+		if target_distance <= POINT_BLANK_DISTANCE:
+			score += AGGRESSIVE_POINT_BLANK_BONUS
+	return score
+
+
+## Защитный режим держит дистанцию, пока противник ещё не может достать до
+## текущей позиции своим манёвром и залпом.
+func _defensive_move_cell_score(
+	cell: Vector2i,
+	active: Dictionary,
+	target: Dictionary,
+	shot_range: int,
+	start_cell: Vector2i
+) -> float:
+	var target_cell: Vector2i = target["cell"]
+	var target_distance := _hex_distance(cell, target_cell)
+	var can_shoot := target_distance <= shot_range and _has_line_of_sight(cell, target_cell)
+	var current_distance := _hex_distance(start_cell, target_cell)
+	var inevitable_range := _stat(target, "move") + _stat(target, "range")
+	var inevitable := current_distance <= inevitable_range
+	# Защита удерживает свой эшелон, а не пытается бесконечно отступать:
+	# любое заметное изменение дистанции штрафуется одинаково.
+	var distance_change := float(target_distance - current_distance)
+	var score := -absf(distance_change) * DEFENSIVE_DISTANCE_WEIGHT
+	var board_center := Vector2i(GRID_COLUMNS / 2, GRID_ROWS / 2)
+	score -= float(_hex_distance(cell, board_center)) * 8.0
+	score -= _encirclement_penalty(cell, int(active["side"]))
+	if not inevitable:
+		if can_shoot:
+			score -= DEFENSIVE_DANGER_WEIGHT
+		return score
+	if can_shoot:
+		score += MOVE_SCORE_CAN_SHOOT
+		score += float(_expected_stack_damage(active, target, target_distance)) * MOVE_SCORE_DAMAGE
+		score -= _retaliation_risk(cell, active, target)
+	else:
+		score -= MOVE_SCORE_APPROACH * float(target_distance)
+	return score
 
 
 func _retaliation_risk(cell: Vector2i, active: Dictionary, target: Dictionary) -> float:
@@ -981,6 +1106,7 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 	var origin := _grid_origin()
 	var distance := _hex_distance(attacker["cell"], target["cell"])
 	var damage := _roll_stack_damage(attacker, target, distance)
+	var critical := last_attack_was_critical
 	var losses := _casualties_for(target, damage)
 	var delay := BEAM_DURATION if is_retaliation else 0.0
 	if not quick_battle:
@@ -995,12 +1121,19 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 		"color": Color(0.55, 0.9, 1.0) if attacker["side"] == 1 else Color(1.0, 0.62, 0.45),
 		"weapon_type": String(attacker.get("weapon_type", "cannon")),
 	})
+	var floater_text := ("КРИТ!  -%d" % damage) if critical else ("-%d" % damage)
+	if losses > 0:
+		floater_text += "   (−%d кор.)" % losses
 	floaters.append({
 		"position": _hex_center(target["cell"], origin) + Vector2(0.0, -50.0),
-		"text": "-%d" % damage if losses <= 0 else "-%d   (−%d кор.)" % [damage, losses],
+		"text": floater_text,
+		"critical": critical,
+		"shake_seed": float(attacker_index * 17 + target_index * 31),
 		"time": FLOATER_DURATION,
 		"delay": delay,
 	})
+	if critical:
+		_spawn_cast_fx(_hex_center(target["cell"], origin), GOLD_COLOR, 1)
 	target["hp"] = maxi(0, target["hp"] - damage)
 	attacker["shot"] = true
 	if is_retaliation:
@@ -1334,7 +1467,8 @@ func _can_cast(side: int, id: String) -> bool:
 	if battle_finished or not heroes.has(side):
 		return false
 	var hero: Dictionary = heroes[side]
-	if not (hero["book"] as Array).has(id) or int(hero["cast_round"]) == round_number:
+	var cooldowns: Dictionary = hero.get("protocol_cooldowns", {})
+	if not (hero["book"] as Array).has(id) or int(cooldowns.get(id, -1)) == round_number:
 		return false
 	return int(hero["energy"]) >= int(PROTOCOLS.get_protocol(id)["cost"])
 
@@ -1431,8 +1565,13 @@ func _cell_in_grid(cell: Vector2i) -> bool:
 func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) -> void:
 	var hero: Dictionary = heroes[side]
 	var protocol: Dictionary = PROTOCOLS.get_protocol(id)
+	if not _can_cast(side, id):
+		return
 	var power := int(hero["power"])
 	hero["energy"] = int(hero["energy"]) - int(protocol["cost"])
+	var cooldowns: Dictionary = hero.get("protocol_cooldowns", {})
+	cooldowns[id] = round_number
+	hero["protocol_cooldowns"] = cooldowns
 	hero["cast_round"] = round_number
 	var color: Color = PROTOCOLS.school_color(id)
 	var origin := _grid_origin()
@@ -1608,25 +1747,43 @@ func _strongest_enemy_stack(side: int) -> int:
 	return best
 
 
-# Пиратский капитан лечит раненую пачку, глушит угрозу или добивает слабую цель.
-func _enemy_hero_cast() -> bool:
-	if not heroes.has(2) or int(heroes[2]["cast_round"]) == round_number:
+## Автобой применяет протоколы до манёвра: спасает повреждённые пачки,
+## усиливает свой ударный стек и ослабляет главную угрозу противника.
+## Та же функция ведёт и сторону игрока в автобою, и вражеского командира.
+func _auto_hero_cast(side: int) -> bool:
+	if not heroes.has(side):
 		return false
-	var wounded := _weakest_own_stack(2)
-	if wounded >= 0 and _can_cast(2, "repair_swarm"):
+	var wounded := _weakest_own_stack(side)
+	if wounded >= 0 and _can_cast(side, "repair_swarm"):
 		var unit: Dictionary = units[wounded]
 		if float(unit["hp"]) / float(unit["max_hp"]) < 0.55:
-			_cast_protocol(2, "repair_swarm", wounded, unit["cell"])
+			_cast_protocol(side, "repair_swarm", wounded, unit["cell"])
 			return true
-	var threat := _strongest_enemy_stack(1)
+	var damaged_count := 0
+	for unit in units:
+		if unit["side"] == side and unit["hp"] > 0 and unit["hp"] < unit["max_hp"]:
+			damaged_count += 1
+	if damaged_count >= 2 and _can_cast(side, "nanite_field"):
+		_cast_protocol(side, "nanite_field", -1, INVALID_CELL)
+		return true
+	var own_strongest := _strongest_enemy_stack(3 - side)
+	if own_strongest >= 0 and _can_cast(side, "shield_matrix") and _unit_shield(units[own_strongest]) <= 0:
+		_cast_protocol(side, "shield_matrix", own_strongest, units[own_strongest]["cell"])
+		return true
+	if own_strongest >= 0:
+		for buff in ["targeting_uplink", "overdrive"]:
+			if _can_cast(side, buff) and not _has_effect(units[own_strongest], buff):
+				_cast_protocol(side, buff, own_strongest, units[own_strongest]["cell"])
+				return true
+	var threat := _strongest_enemy_stack(side)
 	if threat < 0:
 		return false
-	if _can_cast(2, "emp_burst") and not _is_stunned(units[threat]):
-		_cast_protocol(2, "emp_burst", threat, units[threat]["cell"])
+	if _can_cast(side, "emp_burst") and not _is_stunned(units[threat]):
+		_cast_protocol(side, "emp_burst", threat, units[threat]["cell"])
 		return true
-	for fallback in ["logic_bomb", "targeting_jam", "ion_lance"]:
-		if _can_cast(2, fallback) and not _has_effect(units[threat], fallback):
-			_cast_protocol(2, fallback, threat, units[threat]["cell"])
+	for fallback in ["logic_bomb", "targeting_jam", "engine_lock", "orbital_strike", "ion_lance"]:
+		if _can_cast(side, fallback) and not _has_effect(units[threat], fallback):
+			_cast_protocol(side, fallback, threat, units[threat]["cell"])
 			return true
 	return false
 
@@ -1813,9 +1970,15 @@ func _draw_cast_effects() -> void:
 func _draw_floater(floater: Dictionary) -> void:
 	var progress: float = 1.0 - floater["time"] / FLOATER_DURATION
 	var anchor: Vector2 = floater["position"] - Vector2(70.0, 26.0 * progress)
+	var critical := bool(floater.get("critical", false))
+	if critical:
+		var seed := float(floater.get("shake_seed", 0.0))
+		anchor += Vector2(sin(visual_time * 42.0 + seed), cos(visual_time * 37.0 + seed)) * 5.0
 	var alpha: float = minf(1.0, floater["time"] / 0.45)
-	draw_string(ThemeDB.fallback_font, anchor + Vector2(0.0, 1.5), floater["text"], HORIZONTAL_ALIGNMENT_CENTER, 140.0, 16, Color(0.03, 0.01, 0.02, alpha))
-	draw_string(ThemeDB.fallback_font, anchor, floater["text"], HORIZONTAL_ALIGNMENT_CENTER, 140.0, 16, Color(1.0, 0.86, 0.55, alpha))
+	var font_size := 21 if critical else 16
+	var color := Color(1.0, 0.32, 0.18, alpha) if critical else Color(1.0, 0.86, 0.55, alpha)
+	draw_string(ThemeDB.fallback_font, anchor + Vector2(0.0, 2.0), floater["text"], HORIZONTAL_ALIGNMENT_CENTER, 140.0, font_size, Color(0.03, 0.01, 0.02, alpha))
+	draw_string(ThemeDB.fallback_font, anchor, floater["text"], HORIZONTAL_ALIGNMENT_CENTER, 140.0, font_size, color)
 
 
 func _draw_battlefield_frame(origin: Vector2) -> void:
@@ -2120,7 +2283,7 @@ func _update_hud() -> void:
 	if is_instance_valid(hud):
 		hud.auto_button.text = "РУЧНОЙ БОЙ" if auto_battle else "АВТОБИТВА"
 		hud.auto_button.disabled = battle_finished
-		hud.update_state(units, active_unit_index, round_number, last_event, battle_finished, _actions_locked(), _hover_hint())
+		hud.update_state(units, active_unit_index, round_number, last_event, battle_finished, _actions_locked(), _hover_hint(), String(AUTO_MODE_LABELS[auto_battle_mode]))
 
 
 func _visuals_busy() -> bool:
