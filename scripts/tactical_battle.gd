@@ -402,6 +402,9 @@ func _override_blueprint(entry: Dictionary, side: int, order_index: int) -> Dict
 # hp — суммарная прочность пачки: целые корпуса плюс повреждённый головной.
 func _finalize_unit(unit: Dictionary) -> Dictionary:
 	var battle_hero: Dictionary = heroes.get(int(unit.get("side", 0)), {})
+	var faction := String(unit.get("faction", "human"))
+	var base_morale := float(BASE_MORALE_BY_FACTION.get(faction, 1.0))
+	var base_crit := float(BASE_CRIT_CHANCE_BY_FACTION.get(faction, 0.10))
 	var hp_bonus := int(battle_hero.get("hp_bonus_percent", 0))
 	if hp_bonus > 0:
 		unit["hull"] = maxi(1, int(round(float(unit["hull"]) * (1.0 + float(hp_bonus) / 100.0))))
@@ -412,9 +415,9 @@ func _finalize_unit(unit: Dictionary) -> Dictionary:
 	if range_bonus > 0:
 		unit["range"] += range_bonus
 	# 1.0 (100%) — обычный ход. Бонус лидерства героя поднимает мораль выше 100%.
-	unit["morale_chance"] = 1.0 + float(battle_hero.get("leadership_chance", 0.0))
+	unit["morale_chance"] = base_morale + float(battle_hero.get("leadership_chance", 0.0))
 	unit["leadership_chance"] = unit["morale_chance"]
-	unit["luck_chance"] = float(battle_hero.get("luck_chance", 0.0))
+	unit["luck_chance"] = base_crit + float(battle_hero.get("luck_chance", 0.0))
 	unit["leadership_used_round"] = 0
 	unit["max_hp"] = unit["count"] * unit["hull"]
 	unit["hp"] = unit["max_hp"]
@@ -2244,6 +2247,18 @@ func _grid_size() -> Vector2:
 ## tactical_battle_hud.gd: BAR_HEIGHT + BAR_MARGIN*2) — здесь та же величина
 ## продублирована, чтобы не тянуть зависимость на CanvasLayer ради одного числа.
 const GRID_SIDE_MARGIN := 20.0
+const BASE_CRIT_CHANCE_BY_FACTION := {
+	"human": 0.10,
+	"orc": 0.05,
+	"pirate": 0.15,
+	"trader": 0.0,
+}
+const BASE_MORALE_BY_FACTION := {
+	"human": 1.0,
+	"orc": 0.90,
+	"pirate": 0.80,
+	"trader": 1.10,
+}
 const GRID_TOP_MARGIN := 20.0
 const GRID_BOTTOM_RESERVED := 96.0
 
