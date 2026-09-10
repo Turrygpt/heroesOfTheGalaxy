@@ -1833,6 +1833,11 @@ func _player_hero() -> Hero:
 
 
 func _start_guardian_battle(index: int) -> void:
+	var hero := _player_hero()
+	var diplomacy_chance := float(hero.skill_value("diplomacy")) / 100.0 if hero != null else 0.0
+	if diplomacy_chance > 0.0 and randf() < diplomacy_chance:
+		_diplomacy_recruit_guardian(index)
+		return
 	var player_fleet: Array[Dictionary] = _player_battle_fleet(false)
 	var enemy_fleet: Array[Dictionary] = []
 	for entry in (guardians[index]["fleet"] as Array):
@@ -1849,6 +1854,33 @@ func _start_guardian_battle(index: int) -> void:
 			return
 		_open_guardian_battle(player_fleet, enemy_fleet, index, choice == 1)
 	)
+
+
+## Дипломатия заменяет бой добровольным присоединением нейтрального флота.
+func _diplomacy_recruit_guardian(index: int) -> void:
+	if index < 0 or index >= guardians.size():
+		return
+	var guardian: Dictionary = guardians[index]
+	var hero := _player_hero()
+	if hero == null:
+		return
+	for entry in guardian.get("fleet", []):
+		hero.add_to_army(String(entry.get("unit_id", "")), int(entry.get("count", 0)))
+	guardian["alive"] = false
+	current_cell = guardian["cell"]
+	next_cell = current_cell
+	var captured := _capture_production_at(current_cell) if int(guardian.get("site_index", -1)) >= 0 else ""
+	var carried := _grant_guardian_artifacts(guardian, hero)
+	_save_hero_roster()
+	guardian_overlay.queue_redraw()
+	navigation_message = "Дипломатия сработала — нейтральный флот присоединился."
+	if captured != "":
+		navigation_message += " " + captured
+	if carried != "":
+		navigation_message += " " + carried
+	_show_object_reward_dialog("Мирное присоединение", navigation_message)
+	_update_hud()
+	queue_redraw()
 
 
 ## Вызывается сценой боя (см. tactical_battle.gd::_return_to_map) после того,
