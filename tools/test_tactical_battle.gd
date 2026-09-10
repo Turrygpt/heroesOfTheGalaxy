@@ -102,7 +102,7 @@ func _run() -> void:
 	# Реальный флот теперь хранится слотами: одинаковые корабли в разных слотах
 	# должны входить в бой отдельными пачками и занимать разные стартовые гексы.
 	battle = scene.instantiate()
-	battle.player_units_override = [
+	var split_player_slots: Array[Dictionary] = [
 		{"unit_id": "interceptor", "count": 4},
 		{"unit_id": "interceptor", "count": 7},
 		{"unit_id": "interceptor", "count": 2},
@@ -111,7 +111,9 @@ func _run() -> void:
 		{"unit_id": "corvette", "count": 1},
 		{"unit_id": "corvette", "count": 2},
 	]
-	battle.enemy_units_override = [{"unit_id": "raider", "count": 1}]
+	var single_raider_slot: Array[Dictionary] = [{"unit_id": "raider", "count": 1}]
+	battle.player_units_override = split_player_slots
+	battle.enemy_units_override = single_raider_slot
 	root.add_child(battle)
 	battle.set_process(false)
 	var player_cells := {}

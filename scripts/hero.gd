@@ -7,6 +7,7 @@ extends RefCounted
 ## одного из двух предложенных навыков.
 
 const DEFS := preload("res://scripts/hero_defs.gd")
+const STARTING_PROTOCOL_COUNT := 2
 
 var id := "hero"
 var hero_name := "Безымянный"
@@ -34,6 +35,17 @@ static func create(new_id: String, new_name: String, new_class_id: String) -> He
 	hero.stats = (DEFS.CLASSES[new_class_id]["base_stats"] as Dictionary).duplicate()
 	for skill_id in DEFS.CLASS_STARTING_SKILLS.get(new_class_id, []):
 		hero.skills[skill_id] = 1
+	var starting_protocols: Array[String] = []
+	for raw_protocol_id in DEFS.PROTOCOL_RANKS:
+		var protocol_id := String(raw_protocol_id)
+		if int(DEFS.PROTOCOL_RANKS[raw_protocol_id]) == 1:
+			starting_protocols.append(protocol_id)
+	var protocol_random := RandomNumberGenerator.new()
+	protocol_random.randomize()
+	while starting_protocols.size() > 0 and hero.learned_protocols.size() < STARTING_PROTOCOL_COUNT:
+		var pick_index := protocol_random.randi_range(0, starting_protocols.size() - 1)
+		hero.learned_protocols.append(starting_protocols[pick_index])
+		starting_protocols.remove_at(pick_index)
 	hero.energy = hero.max_energy()
 	return hero
 
@@ -327,8 +339,9 @@ func to_battle_hero(side: int) -> Dictionary:
 		"hp_bonus_percent": hp_bonus_percent(),
 		"range_bonus": range_bonus(),
 		"luck_chance": luck_chance(),
-		"morale_chance": morale_chance(),
+		"leadership_chance": morale_chance(),
 		"book": protocol_book(),
+		"protocol_cooldowns": {},
 		"cast_round": 0,
 		"hero_id": id,
 	}

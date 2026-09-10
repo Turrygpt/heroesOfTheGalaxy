@@ -8,6 +8,7 @@ extends CanvasLayer
 const SAVE_PATH := "user://settings.json"
 const MUSIC_BUS := "Music"
 const SFX_BUS := "SFX"
+const AUTO_BATTLE_MODES := ["aggressive", "balanced", "defensive"]
 
 const GOLD := preload("res://scripts/ui_style.gd").GOLD
 const BLUE := preload("res://scripts/ui_style.gd").CYAN
@@ -19,6 +20,7 @@ const PANEL_WIDTH := 520.0
 var master_volume := 100
 var music_volume := 100
 var sfx_volume := 100
+var auto_battle_mode := "balanced"
 
 var _root: Control
 var _master_slider: HSlider
@@ -100,11 +102,19 @@ func set_sfx_volume(percent: int) -> void:
 	_apply_bus(SFX_BUS, sfx_volume)
 
 
+func set_auto_battle_mode(mode: String) -> void:
+	if not AUTO_BATTLE_MODES.has(mode):
+		return
+	auto_battle_mode = mode
+	save_state()
+
+
 func save_state() -> void:
 	var payload := {
 		"master_volume": master_volume,
 		"music_volume": music_volume,
 		"sfx_volume": sfx_volume,
+		"auto_battle_mode": auto_battle_mode,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -131,6 +141,8 @@ func load_state() -> bool:
 		music_volume = clampi(int(data["music_volume"]), 0, 100)
 	if data.has("sfx_volume"):
 		sfx_volume = clampi(int(data["sfx_volume"]), 0, 100)
+	if data.has("auto_battle_mode") and AUTO_BATTLE_MODES.has(String(data["auto_battle_mode"])):
+		auto_battle_mode = String(data["auto_battle_mode"])
 	return true
 
 

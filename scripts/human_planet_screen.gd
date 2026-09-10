@@ -7,6 +7,10 @@ signal close_requested
 ## и ресурсы игрока. Без неё найм просто недоступен.
 var strategy_map: Node2D
 var music_player: AudioStreamPlayer
+var music_playlist: Array[String] = []
+var music_playlist_index := 0
+var music_random := RandomNumberGenerator.new()
+var music_releasing := false
 var open_garrison_on_ready := false
 var fleet_only_mode := false
 var space_modal_mode := false
@@ -16,8 +20,9 @@ var garrison_preview_state: Dictionary = {}
 
 ## Тема экрана планеты. Карта (space_strategy_map.gd:SPACE_MUSIC_DIR) на это время
 ## затихает через strategy_map.pause_music() (см. _open_human_planet), а при
-## закрытии экрана этот трек затухает симметрично (см. fade_out_music).
-const PLANET_MUSIC := preload("res://music/Human Castle.mp3")
+## закрытии экрана плейлист затухает симметрично (см. fade_out_music).
+## Все mp3 в этой папке автоматически попадают в перемешанную очередь.
+const PLANET_MUSIC_DIR := "res://music"
 const PLANET_MUSIC_VOLUME_DB := -8.0
 ## Общая длительность кроссфейда — тот же интервал, что у карты и боя
 ## (space_strategy_map.gd:MUSIC_FADE_DURATION, tactical_battle.gd:BATTLE_MUSIC_FADE_DURATION).
@@ -252,6 +257,7 @@ var barter_button: Button
 @onready var production_panel: PanelContainer = $Root/GarrisonScreen/Margin/VBox/Content/ProductionPanel
 @onready var garrison_panel: PanelContainer = $Root/GarrisonScreen/Margin/VBox/Content/Armies/GarrisonPanel
 @onready var production_list: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/Content/ProductionPanel/Margin/VBox/ProductionScroll/ProductionList
+@onready var production_vbox: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/Content/ProductionPanel/Margin/VBox
 @onready var garrison_drop_host: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/Content/Armies/GarrisonPanel/Margin/VBox/GarrisonDropHost
 @onready var hero_drop_host: VBoxContainer = $Root/GarrisonScreen/Margin/VBox/Content/Armies/HeroPanel/Margin/HBox/HeroArmy/HeroDropHost
 @onready var garrison_hero_portrait: TextureRect = $Root/GarrisonScreen/Margin/VBox/Content/Armies/HeroPanel/Margin/HBox/HeroInfo/Portrait
@@ -294,6 +300,11 @@ var exchange_screen: PanelContainer = null
 var exchange_list: VBoxContainer = null
 var exchange_credits_label: Label = null
 var university_screen: CanvasLayer = null
+var modal_recruit_row: HBoxContainer
+var modal_recruit_spin: SpinBox
+var modal_recruit_button: Button
+var modal_unit_id := ""
+var buy_all_button: Button
 
 
 func _ready() -> void:
@@ -336,6 +347,8 @@ func _ready() -> void:
 	university_button.pressed.connect(_open_university_screen)
 	construction_close.pressed.connect(_close_construction_menu)
 	modal_close.pressed.connect(_close_building_modal)
+	_setup_modal_recruitment()
+	_setup_buy_all_button()
 	building_modal.gui_input.connect(_on_modal_background_input)
 	garrison_button.pressed.connect(_open_garrison_screen)
 	garrison_close.pressed.connect(_close_garrison_screen)
@@ -358,16 +371,61 @@ func _ready() -> void:
 
 
 func _start_music() -> void:
-	var stream: AudioStreamMP3 = PLANET_MUSIC.duplicate()
-	stream.loop = true
+	var dir := DirAccess.open(PLANET_MUSIC_DIR)
+	if dir == null:
+		return
+	var candidates: Array[String] = []
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "mp3":
+			candidates.append(file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	if candidates.is_empty():
+		return
+	music_random.randomize()
+	music_playlist = candidates
+	_shuffle_music_playlist()
+	music_playlist_index = 0
 	music_player = AudioStreamPlayer.new()
-	music_player.stream = stream
 	music_player.volume_db = MUSIC_FADED_VOLUME_DB
+	music_player.finished.connect(_play_next_music_track)
 	GameSettings.attach_music(music_player)
 	add_child(music_player)
-	music_player.play()
+	_play_next_music_track()
+	if music_player.stream == null:
+		return
 	var tween := create_tween()
 	tween.tween_property(music_player, "volume_db", PLANET_MUSIC_VOLUME_DB, MUSIC_FADE_DURATION)
+
+
+## Перемешиваем все песни экрана планеты, чтобы очередь не повторялась до конца.
+func _shuffle_music_playlist() -> void:
+	for index in range(music_playlist.size() - 1, 0, -1):
+		var other_index := music_random.randi_range(0, index)
+		var track := music_playlist[index]
+		music_playlist[index] = music_playlist[other_index]
+		music_playlist[other_index] = track
+
+
+## После последней песни создаём новый случайный порядок и продолжаем играть.
+func _play_next_music_track() -> void:
+	if music_releasing or music_playlist.is_empty() or not is_instance_valid(music_player):
+		return
+	if music_playlist_index >= music_playlist.size():
+		_shuffle_music_playlist()
+		music_playlist_index = 0
+	var chosen := music_playlist[music_playlist_index]
+	music_playlist_index += 1
+	var loaded := load(PLANET_MUSIC_DIR.path_join(chosen)) as AudioStreamMP3
+	if loaded == null:
+		_play_next_music_track()
+		return
+	var stream: AudioStreamMP3 = loaded.duplicate()
+	stream.loop = false
+	music_player.stream = stream
+	music_player.play()
 
 
 ## Вызывается извне (space_strategy_map.gd:_close_human_planet) перед
@@ -376,6 +434,7 @@ func _start_music() -> void:
 func fade_out_music() -> void:
 	if not is_instance_valid(music_player):
 		return
+	music_releasing = true
 	remove_child(music_player)
 	get_tree().root.add_child(music_player)
 	var tween := music_player.create_tween()
@@ -869,13 +928,75 @@ func _open_building_modal(building: Sprite2D) -> void:
 		modal_ship_icon.hide()
 	elif unit_id != "":
 		var unit := UnitDefs.get_unit(unit_id)
-		modal_description.text = "Ангар построен и действует на планете.\nПроизводит «%s» (наём — в экране «Гарнизон»)." % String(unit["label"])
+		modal_description.text = _building_hint(kind, level, unit_id)
 		modal_ship_icon.texture = unit["texture"]
 		modal_ship_icon.show()
 	else:
-		modal_description.text = "Здание построено и действует на планете.\nПоложение и размер можно изменить в редакторе."
+		modal_description.text = _building_hint(kind, level, "")
 		modal_ship_icon.hide()
+	_set_modal_recruitment(unit_id)
 	building_modal.show()
+
+
+func _setup_modal_recruitment() -> void:
+	modal_recruit_row = HBoxContainer.new()
+	modal_recruit_row.add_theme_constant_override("separation", 8)
+	modal_recruit_row.visible = false
+	var body := modal_close.get_parent() as VBoxContainer
+	body.add_child(modal_recruit_row)
+	body.move_child(modal_recruit_row, modal_close.get_index())
+	modal_recruit_spin = SpinBox.new()
+	modal_recruit_spin.min_value = 1
+	modal_recruit_spin.step = 1
+	modal_recruit_spin.custom_minimum_size.x = 90
+	modal_recruit_row.add_child(modal_recruit_spin)
+	modal_recruit_button = Button.new()
+	modal_recruit_button.text = "НАНЯТЬ В ГАРНИЗОН"
+	modal_recruit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	modal_recruit_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_style_action_button(modal_recruit_button)
+	modal_recruit_button.pressed.connect(_recruit_from_modal)
+	modal_recruit_row.add_child(modal_recruit_button)
+
+
+func _set_modal_recruitment(unit_id: String) -> void:
+	modal_unit_id = unit_id
+	if unit_id.is_empty():
+		modal_recruit_row.visible = false
+		return
+	modal_recruit_row.visible = true
+	var state := HumanPlanetState.load_state()
+	var available := int((state.get("available_growth", {}) as Dictionary).get(unit_id, 0))
+	var affordable := _max_affordable_recruits(unit_id, available)
+	var maximum := maxi(1, mini(available, affordable))
+	modal_recruit_spin.max_value = maximum
+	modal_recruit_spin.value = 1
+	modal_recruit_button.disabled = available <= 0 or affordable <= 0
+	modal_recruit_button.tooltip_text = "Доступно: %d · %s" % [available, UnitDefs.cost_text(unit_id)] if available > 0 else "Нет кораблей в недельном приросте."
+
+
+func _recruit_from_modal() -> void:
+	if modal_unit_id.is_empty():
+		return
+	_recruit_unit(modal_unit_id, modal_recruit_spin)
+	_set_modal_recruitment(modal_unit_id)
+
+
+func _building_hint(kind: String, level: int, unit_id: String) -> String:
+	var hints := {
+		"townhall": "Административный центр планеты. Увеличивает ежедневный доход и открывает новые уровни развития.",
+		"fort": "Оборонительный комплекс. Повышает недельный прирост кораблей и защищает планету от нападения.",
+		"tavern": "Офицерский клуб. Здесь герой может пополнять армию и управлять флотом.",
+		"marketplace": "Биржа. Позволяет покупать и продавать ресурсы по текущему курсу.",
+	}
+	if kind == "mage_guild":
+		return _university_description(level)
+	if unit_id != "":
+		var unit := UnitDefs.get_unit(unit_id)
+		var state := HumanPlanetState.load_state()
+		var available := int((state.get("available_growth", {}) as Dictionary).get(unit_id, 0))
+		return "Производит «%s». Недельный прирост: %d. В гарнизоне доступно: %d.\nНанимайте корабли этой верфи прямо здесь." % [String(unit["label"]), HumanPlanetState.scaled_weekly_growth(unit_id, built_levels), available]
+	return String(hints.get(kind, "Здание обеспечивает развитие и работу планеты."))
 
 
 func _close_building_modal() -> void:
@@ -906,6 +1027,9 @@ func _open_university_screen() -> void:
 		_close_building_editor()
 	if is_instance_valid(university_screen):
 		return
+	# Предложения и список изученных протоколов могли измениться после
+	# последнего открытия экрана, поэтому перед показом перечитываем состояние.
+	_sync_university_protocols()
 	university_screen = UNIVERSITY_DIALOG.new()
 	university_screen.closed.connect(_on_university_screen_closed)
 	add_child(university_screen)
@@ -1315,6 +1439,7 @@ func _update_garrison_screen() -> void:
 		production_list.add_child(_build_production_row(unit_id, weekly, available))
 	if production_ids.is_empty():
 		production_list.add_child(_placeholder_label("Постройте первый ангар, чтобы запустить еженедельное производство."))
+	_update_buy_all_button(production_ids, state)
 
 	var hero := _player_hero()
 	var hero_slots: Array = hero.army_slots if hero != null else []
@@ -1513,7 +1638,7 @@ func _build_production_row(unit_id: String, weekly: int, available: int) -> Cont
 	price.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	price.tooltip_text = UnitDefs.cost_text(unit_id)
 	buy_row.add_child(price)
-	if available > 0:
+	if available >= 0:
 		var affordable := _max_affordable_recruits(unit_id, available)
 		var spin := SpinBox.new()
 		spin.min_value = 1
@@ -1534,7 +1659,69 @@ func _build_production_row(unit_id: String, weekly: int, available: int) -> Cont
 			buy_button.tooltip_text = "Не хватает ресурсов для найма."
 		buy_button.pressed.connect(_recruit_unit.bind(unit_id, spin))
 		buy_row.add_child(buy_button)
+		var max_button := Button.new()
+		max_button.custom_minimum_size = Vector2(58, 32)
+		max_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		max_button.add_theme_font_size_override("font_size", 12)
+		max_button.text = "MAX"
+		_style_action_button(max_button)
+		max_button.disabled = not can_store or affordable <= 0
+		max_button.tooltip_text = "Нанять максимум доступных кораблей за имеющиеся ресурсы."
+		max_button.pressed.connect(_recruit_max_unit.bind(unit_id))
+		buy_row.add_child(max_button)
 	return row
+
+
+func _setup_buy_all_button() -> void:
+	buy_all_button = Button.new()
+	buy_all_button.text = "КУПИТЬ ВСЁ"
+	buy_all_button.custom_minimum_size.y = 38
+	buy_all_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	buy_all_button.add_theme_font_size_override("font_size", 15)
+	_style_action_button(buy_all_button)
+	buy_all_button.pressed.connect(_buy_all_available)
+	production_vbox.add_child(buy_all_button)
+
+
+func _update_buy_all_button(production_ids: Array[String], state: Dictionary) -> void:
+	if not is_instance_valid(buy_all_button):
+		return
+	var can_buy := false
+	var growth: Dictionary = state.get("available_growth", {})
+	for unit_id in production_ids:
+		var available := int(growth.get(unit_id, 0))
+		if available > 0 and _max_affordable_recruits(unit_id, available) > 0:
+			can_buy = true
+			break
+	buy_all_button.disabled = strategy_map == null or not can_buy
+
+
+func _recruit_max_unit(unit_id: String) -> void:
+	if strategy_map == null:
+		return
+	var state := HumanPlanetState.load_state()
+	var available := int((state.get("available_growth", {}) as Dictionary).get(unit_id, 0))
+	var maximum := _max_affordable_recruits(unit_id, available)
+	if maximum <= 0:
+		return
+	var spin := SpinBox.new()
+	spin.value = maximum
+	_recruit_unit(unit_id, spin)
+	spin.queue_free()
+
+
+func _buy_all_available() -> void:
+	if strategy_map == null:
+		return
+	var state := HumanPlanetState.load_state()
+	var production_ids := _active_production_ids(state)
+	for unit_id in production_ids:
+		var available := int((state.get("available_growth", {}) as Dictionary).get(unit_id, 0))
+		var maximum := _max_affordable_recruits(unit_id, available)
+		if maximum <= 0:
+			continue
+		_recruit_max_unit(unit_id)
+	_update_garrison_screen()
 
 
 func _build_fleet_zone(zone_id: String, slots: Array, enabled: bool, levels: Dictionary) -> Control:
@@ -1756,7 +1943,15 @@ func _recruit_unit(unit_id: String, spin: SpinBox) -> void:
 	var slots := HumanPlanetState.clean_slots(state.get("garrison_slots", []), GARRISON_SLOT_COUNT)
 	if not _slots_can_accept(slots, unit_id):
 		return
+	var credits_before := int(strategy_map.player_one_credits)
+	var credits_cost := int(cost.get("credits", 0))
 	strategy_map.pay_cost(cost)
+	# Найм — единая транзакция карты. Проверка защищает от рассинхронизации
+	# между экраном планеты и картой: кредиты должны уменьшиться ровно на цену
+	# пачки, независимо от реализации остальных ресурсов.
+	var expected_credits := credits_before - credits_cost
+	if int(strategy_map.player_one_credits) != expected_credits:
+		strategy_map.player_one_credits = expected_credits
 	growth[unit_id] = available - count
 	state["available_growth"] = growth
 	_add_to_slots(slots, unit_id, count)
@@ -1870,7 +2065,10 @@ func _build_construction_card(kind: String) -> Control:
 	var max_level := int(def["max_level"])
 	var level_names: Array = def["level_names"]
 	var level := int(built_levels.get(kind, 0))
-	var icon_level := clampi(level if level > 0 else 1, 1, max_level)
+	# Карточка показывает следующее доступное здание: после постройки I уровня
+	# игрок сразу видит вариант II. На максимальном уровне остаётся последний
+	# спрайт, чтобы карточка продолжала отображать уже построенное здание.
+	var icon_level := clampi(level + 1, 1, max_level)
 	var action := _construction_action_state(kind)
 
 	var card := PanelContainer.new()
@@ -1918,16 +2116,6 @@ func _build_construction_card(kind: String) -> Control:
 	stripe.color = Color(action["color"])
 	stack.add_child(stripe)
 
-	if level > 0 and kind != "townhall":
-		var demolish_button := Button.new()
-		demolish_button.text = "×"
-		demolish_button.custom_minimum_size = Vector2(24, 22)
-		demolish_button.position = Vector2(CONSTRUCTION_CARD_SIZE.x - 31.0, 6.0)
-		demolish_button.tooltip_text = String(action["demolish_tooltip"])
-		demolish_button.disabled = not (action["demolish_blockers"] as Array[String]).is_empty()
-		demolish_button.pressed.connect(_demolish_kind.bind(kind))
-		card.add_child(demolish_button)
-
 	if not bool(action["disabled"]):
 		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		card.gui_input.connect(func(event: InputEvent) -> void:
@@ -1948,18 +2136,15 @@ func _construction_action_state(kind: String) -> Dictionary:
 	var next_level := mini(level + 1, max_level)
 	var missing_requirements := _missing_building_requirements(kind, next_level)
 	var cost: Dictionary = (def["costs"] as Array)[mini(level, max_level - 1)]
-	var blockers := _demolish_blockers(kind)
 	var state := {
 		"disabled": true,
 		"color": Color(0.56, 0.12, 0.12, 1),
 		"label": "",
 		"tooltip": "",
-		"demolish_blockers": blockers,
-		"demolish_tooltip": "Нельзя снести: требуется для %s." % _format_building_list(blockers) if not blockers.is_empty() else "Снести здание. Место в редакторе сохранится.",
 	}
 	if not has_slot:
 		state["label"] = "нет места"
-		state["tooltip"] = "Место строительства не задано в редакторе (F7)."
+		state["tooltip"] = "Место строительства не задано в редакторе (F8)."
 	elif level >= max_level:
 		state["label"] = "построено %s" % level_names[level - 1]
 		state["tooltip"] = "Максимальный уровень."
@@ -2051,7 +2236,7 @@ func _build_construction_row(kind: String) -> Control:
 	actions_box.add_child(action_button)
 
 	if not has_slot:
-		status_label.text = "Место строительства не задано (F7)"
+		status_label.text = "Место строительства не задано (F8)"
 		action_button.text = "НЕТ МЕСТА"
 		action_button.disabled = true
 	elif construction_used and level < max_level:
@@ -2078,35 +2263,6 @@ func _build_construction_row(kind: String) -> Control:
 		status_label.text = "Уровень %s — максимальный" % level_names[level - 1]
 		action_button.text = "МАКСИМАЛЬНЫЙ УРОВЕНЬ"
 		action_button.disabled = true
-
-	# The planetary council is the castle core and cannot be demolished.
-	if level > 0 and kind != "townhall":
-		var demolish_button := Button.new()
-		demolish_button.custom_minimum_size = Vector2(0, 36)
-		demolish_button.text = "СНЕСТИ"
-		var blockers := _demolish_blockers(kind)
-		demolish_button.tooltip_text = "Нельзя снести: требуется для %s." % _format_building_list(blockers) if not blockers.is_empty() else "Удалить здание целиком. Место в редакторе сохранится."
-		demolish_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		demolish_button.add_theme_font_size_override("font_size", 14)
-		var demolish_style := StyleBoxFlat.new()
-		demolish_style.bg_color = Color(0.24, 0.055, 0.065, 0.95)
-		demolish_style.border_width_left = 1
-		demolish_style.border_width_top = 1
-		demolish_style.border_width_right = 1
-		demolish_style.border_width_bottom = 1
-		demolish_style.border_color = Color(0.92, 0.3, 0.32, 0.9)
-		demolish_style.corner_radius_top_left = 7
-		demolish_style.corner_radius_top_right = 7
-		demolish_style.corner_radius_bottom_right = 7
-		demolish_style.corner_radius_bottom_left = 7
-		var demolish_hover := demolish_style.duplicate() as StyleBoxFlat
-		demolish_hover.bg_color = Color(0.48, 0.08, 0.09, 0.98)
-		demolish_hover.border_color = Color(1.0, 0.48, 0.44, 1.0)
-		demolish_button.add_theme_stylebox_override("normal", demolish_style)
-		demolish_button.add_theme_stylebox_override("hover", demolish_hover)
-		demolish_button.disabled = not blockers.is_empty()
-		demolish_button.pressed.connect(_demolish_kind.bind(kind))
-		actions_box.add_child(demolish_button)
 
 	return row
 
@@ -2196,13 +2352,6 @@ func _format_building_requirements(requirements: Dictionary) -> String:
 	return ", ".join(parts)
 
 
-func _format_building_list(kinds: Array[String]) -> String:
-	var parts: Array[String] = []
-	for kind in kinds:
-		parts.append(_building_display_name(kind))
-	return ", ".join(parts)
-
-
 func _building_display_name(kind: String) -> String:
 	var def: Dictionary = BUILDING_DEFS.get(kind, {})
 	return String(def.get("name", kind)).split(" · ")[0]
@@ -2222,21 +2371,6 @@ func _roman_level(level: int) -> String:
 			return str(level)
 
 
-func _demolish_blockers(kind: String) -> Array[String]:
-	var blockers: Array[String] = []
-	var current_level := int(built_levels.get(kind, 0))
-	for dependent_kind in BUILDING_DEFS.keys():
-		if dependent_kind == kind or int(built_levels.get(dependent_kind, 0)) <= 0:
-			continue
-		var dependent_level := int(built_levels.get(dependent_kind, 0))
-		for level in range(1, dependent_level + 1):
-			var requirements := _building_requirements_for(String(dependent_kind), level)
-			if int(requirements.get(kind, 0)) > current_level - 1:
-				blockers.append(String(dependent_kind))
-				break
-	return blockers
-
-
 ## HoMM-стиль: свежепостроенное (или только что улучшенное) жилище сразу
 ## отдаёт половину своего недельного прироста, а не заставляет ждать
 ## понедельника ради первого корабля.
@@ -2248,20 +2382,6 @@ func _grant_construction_bonus(state: Dictionary, kind: String, level: int) -> v
 	var bonus := maxi(1, HumanPlanetState.scaled_weekly_growth(unit_id, built_levels) / 2)
 	growth[unit_id] = int(growth.get(unit_id, 0)) + bonus
 	state["available_growth"] = growth
-
-
-func _demolish_kind(kind: String) -> void:
-	if kind == "townhall":
-		return
-	if int(built_levels.get(kind, 0)) <= 0:
-		return
-	if not _demolish_blockers(kind).is_empty():
-		return
-	built_levels[kind] = 0
-	_save_planet_state()
-	_rebuild_building_visuals()
-	_update_construction_menu()
-	_update_planet_info()
 
 
 ## Панель "СОВЕТ ПЛАНЕТЫ" (Root/PlanetInfo) — статичный текст в самой сцене
@@ -2297,15 +2417,6 @@ func _commit_strategy_economy_change() -> void:
 		strategy_map._update_hud()
 	if strategy_map.get("map_random") != null and strategy_map.get("camera") != null and strategy_map.get("orc_ai") != null:
 		CampaignSave.save_campaign(strategy_map)
-
-
-## built_levels живёт в общем user://human_planet_state.json (см.
-## HumanPlanetState) вместе с гарнизоном и недельным пулом найма - писать сюда
-## напрямую своим форматом означало бы стирать их при каждой постройке.
-func _save_planet_state() -> void:
-	var state := HumanPlanetState.load_state()
-	state["built_levels"] = built_levels
-	HumanPlanetState.save_state(state)
 
 
 func _load_planet_state() -> void:

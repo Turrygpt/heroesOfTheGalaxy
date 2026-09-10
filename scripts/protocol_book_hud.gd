@@ -116,7 +116,7 @@ func _energy_badge() -> Control:
 
 func _build_pages(list: VBoxContainer) -> void:
 	var book: Array = hero.get("book", [])
-	var cast_round: int = int(hero.get("cast_round", -1))
+	var cooldowns: Dictionary = hero.get("protocol_cooldowns", {})
 	for school in SCHOOL_ORDER:
 		var ids: Array = []
 		for protocol_id in book:
@@ -126,7 +126,7 @@ func _build_pages(list: VBoxContainer) -> void:
 			continue
 		list.add_child(_school_heading(school))
 		for protocol_id in ids:
-			list.add_child(_row(protocol_id, cast_round))
+			list.add_child(_row(protocol_id, cooldowns))
 	if book.is_empty():
 		list.add_child(_line_label("Герой ещё не изучил ни одного протокола.", 14, MUTED))
 
@@ -140,13 +140,13 @@ func _school_heading(school: String) -> Control:
 	return column
 
 
-func _row(protocol_id: String, cast_round: int) -> Control:
+func _row(protocol_id: String, cooldowns: Dictionary) -> Control:
 	var protocol: Dictionary = PROTOCOLS.get_protocol(protocol_id)
 	var power := int(hero.get("power", 0))
 	var cost := int(protocol["cost"])
 	var energy := int(hero.get("energy", 0))
-	var already_cast := cast_round == round_number
-	var affordable := energy >= cost and not already_cast
+	var on_cooldown := int(cooldowns.get(protocol_id, -1)) == round_number
+	var affordable := energy >= cost and not on_cooldown
 	var school: String = protocol["school"]
 	var school_color: Color = PROTOCOLS.school_color(protocol_id)
 	var ink := INK if affordable else MUTED
@@ -184,7 +184,7 @@ func _row(protocol_id: String, cast_round: int) -> Control:
 	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_pill.add_child(cost_label)
 	action.add_child(cost_pill)
-	var button := _button("УЖЕ СЕГОДНЯ" if already_cast else "ПРИМЕНИТЬ", school_color, 132)
+	var button := _button("ПЕРЕЗАРЯДКА" if on_cooldown else "ПРИМЕНИТЬ", school_color, 132)
 	button.disabled = not affordable
 	preload("res://scripts/ui_style.gd").apply_button(button)
 	button.pressed.connect(_choose.bind(protocol_id))

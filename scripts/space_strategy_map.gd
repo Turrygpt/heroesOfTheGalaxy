@@ -21,12 +21,19 @@ const HUMAN_PLANET_CENTER := Vector2i(6, 6)
 const ORC_PLANET_CENTER := Vector2i(57, 57)
 const PLAYER_ONE_START_CELL := HUMAN_PLANET_CENTER + Vector2i(2, 0)
 const PLANET_FOOTPRINT_RADIUS := 1
-const PRODUCTION_MIN_PLANET_DISTANCE := 6
+## Ни одна клетка здания не должна попадать в десятиклеточную зону вокруг
+## любого замка, включая остальные клетки его футпринта 2×2.
+const PRODUCTION_MIN_PLANET_DISTANCE := 10
 const PRODUCTION_MAX_PLANET_DISTANCE := 24
 const PRODUCTION_MIN_SPACING := 4
 const RARE_PRODUCTION_MIN_PLANET_DISTANCE := 15
 const PRODUCTION_SECTOR_GRID := 4
 const HARD_OBJECT_MIN_PLANET_DISTANCE := 22
+## Артефактные ящики должны требовать дальнего похода от любой планеты.
+const ARTIFACT_CACHE_MIN_PLANET_DISTANCE := 20
+## Любые приключенческие объекты (маяки, станции, тайники и т.п.) не ставятся
+## в десятиклеточной зоне вокруг любого замка.
+const MAP_OBJECT_MIN_PLANET_DISTANCE := 10
 const HARD_OBJECT_EDGE_DISTANCE := 5
 ## Рядом с каждой планетой всегда есть базовые продукты и руда; остальные
 ## месторождения становятся целями для дальних вылазок.
@@ -54,6 +61,7 @@ const PLAYER_TWO_COLOR := Color("ef5350")
 ## сразу и headless-CLI, и редактор.
 const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
 const OrcAI := preload("res://scripts/orc_ai.gd")
+const HERO_PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 const HERO_ENGINE_EXHAUST_OVERLAY := preload("res://scripts/hero_engine_exhaust_overlay.gd")
 const HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/human.png")
 ## Флагман вождя орков — настоящий арт (холст 702x1301, не квадратный, в
@@ -441,13 +449,19 @@ func _process(delta: float) -> void:
 		if ship_position.is_equal_approx(destination):
 			ship_position = destination
 			current_cell = next_cell
-			var captured := _capture_production_at(current_cell)
-			if captured != "":
-				navigation_message = captured
-				_show_object_reward_dialog("Производство захвачено", captured)
+			# Бой имеет приоритет над захватом: если на клетке враг, сначала
+			# разбираемся с ним (см. _resolve_orc_victory/_resolve_guardian_battle),
+			# и только победа отдаёт месторождение — иначе игрок захватывал
+			# шахту прямо под вражеским флотом, так и не увидев боя.
+			var had_encounter := _check_arrival_encounters(current_cell)
+			if not had_encounter:
+				var captured := _capture_production_at(current_cell)
+				if captured != "":
+					navigation_message = captured
+					_show_object_reward_dialog("Производство захвачено", captured)
 			planned_path.pop_front()
 			movement_points -= _cell_move_cost(current_cell)
-			if _check_arrival_encounters(current_cell):
+			if had_encounter:
 				planned_path.clear()
 				planned_destination = Vector2i(-1, -1)
 				is_moving = false
@@ -458,10 +472,13 @@ func _process(delta: float) -> void:
 				is_moving = false
 			else:
 				_begin_move_to(planned_path[0])
+			# HUD/список армии героя тяжело перестраивать (ItemList.clear() +
+			# заново набитые слоты) и ничего из этого не меняется, пока корабль
+			# просто скользит между клетками - обновляем только по факту
+			# прибытия, а не каждый кадр анимации (иначе полёт подлагивает).
+			_update_hud()
 		camera.position = ship_position.round()
-		_update_hud()
 		route_overlay.queue_redraw()
-		queue_redraw()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -627,38 +644,71 @@ func _draw() -> void:
 	for row in range(MAP_SIZE.y + 1):
 		var y := row * CELL_SIZE
 		draw_line(Vector2(0.0, y), Vector2(map_pixel_size.x, y), GRID_COLOR, 2.0)
-
-	# Рисуется до спрайтов флагманов (те — дочерние Sprite2D поверх, обычный
-	# порядок отрисовки узлов), поэтому выглядит подсветкой/постаментом под
-	# кораблём, а не кольцом сверху. Статично, без пульсации — queue_redraw()
-	# на этом узле и так не идёт каждый кадр (см. _process), только по
-	# реальным изменениям состояния, лишняя анимация тут не к месту.
-	_draw_hero_marker(ship_position, PLAYER_ONE_COLOR)
-	if orc_ship_sprite != null and orc_ship_sprite.visible:
-		_draw_hero_marker(orc_ship_sprite.position, PLAYER_TWO_COLOR)
+	_draw_production_owner_markers()
 
 
-## Кольцо-подсветка под флагманом героя — свой и вражеский иначе не выделялись
-## среди объектов карты (у тех радиус иконки ~40-48px, см. map_object_overlay.gd:
-## FOOTPRINT_ICON_MARGIN). Два кольца шире объектной иконки с запасом, чтобы
-## флагман читался с первого взгляда даже в толпе значков.
-func _draw_hero_marker(center: Vector2, color: Color) -> void:
-	draw_circle(center, 64.0, Color(color, 0.12))
-	draw_arc(center, 62.0, 0.0, TAU, 44, Color(color, 0.35), 1.5, true)
-	draw_arc(center, 52.0, 0.0, TAU, 44, color, 2.5, true)
-	draw_arc(center, 52.0, 0.0, TAU, 44, Color(0.02, 0.05, 0.08, 0.5), 1.0, true)
+## Цветное кольцо показывает владельца захваченного месторождения прямо под
+## зданием: синий — игрок, красный — орки. Нейтральные здания не выделяются.
+func _draw_production_owner_markers() -> void:
+	for index in range(production_sites.size()):
+		if index >= production_owners.size():
+			continue
+		var owner := int(production_owners[index])
+		var color: Color
+		match owner:
+			1:
+				color = PLAYER_ONE_COLOR
+			2:
+				color = PLAYER_TWO_COLOR
+			_:
+				continue
+		var center := _footprint_center(production_sites[index]["cell"])
+		var radius := CELL_SIZE * 0.92
+		draw_circle(center, radius, Color(color, 0.10))
+		draw_arc(center, radius, 0.0, TAU, 48, Color(color, 0.9), 3.0, true)
+		draw_arc(center, radius + 5.0, 0.0, TAU, 48, Color(color, 0.35), 1.5, true)
 
 
 ## Маршрут огибает астероидные поля и прочие препятствия, а туманности
 ## обходит стороной, пока крюк дешевле, чем пролёт сквозь них.
 func _build_path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
-	if from_cell == to_cell or _cell_is_blocked(to_cell):
+	if from_cell == to_cell or not _cell_is_inside_map(from_cell) \
+		or not _cell_is_inside_map(to_cell) or _cell_is_blocked(to_cell):
 		return result
+	var patrol_aggro_cells := _block_patrol_aggro_for_route(from_cell, to_cell)
 	var id_path := navigation_grid.get_id_path(from_cell, to_cell)
+	for cell in patrol_aggro_cells:
+		navigation_grid.set_point_solid(cell, false)
 	for index in range(1, id_path.size()):
-		result.append(id_path[index])
+		var cell: Vector2i = id_path[index]
+		if not _cell_is_inside_map(cell):
+			return []
+		result.append(cell)
 	return result
+
+
+func _block_patrol_aggro_for_route(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
+	## Автопилот обходит зону агро патрулей, а не только клетку самого флота.
+	## Старт и цель не блокируем: из зоны можно выйти, а подход к патрулю или
+	## охраняемому объекту должен завершиться столкновением.
+	var blocked: Array[Vector2i] = []
+	for guardian in guardians:
+		if not bool(guardian.get("alive", false)) or not bool(guardian.get("patrol", false)):
+			continue
+		var center: Vector2i = guardian["cell"]
+		var radius := int(guardian.get("aggro_radius", 1))
+		for x in range(center.x - radius, center.x + radius + 1):
+			for y in range(center.y - radius, center.y + radius + 1):
+				var cell := Vector2i(x, y)
+				if cell == from_cell or cell == to_cell \
+					or not _cell_is_inside_map(cell) or _cell_is_blocked(cell):
+					continue
+				if blocked.has(cell):
+					continue
+				navigation_grid.set_point_solid(cell, true)
+				blocked.append(cell)
+	return blocked
 
 
 func _cell_is_blocked(cell: Vector2i) -> bool:
@@ -779,6 +829,7 @@ func _update_hero_card() -> void:
 		hero_name_label.text = "Нет героя"
 		stats_label.text = ""
 		skills_label.text = "УМЕНИЯ"
+		skills_label.tooltip_text = "Навыки героя влияют на характеристики флота, протоколы и награды."
 		skills_list.clear()
 		army_list.clear()
 		artifacts_list.clear()
@@ -796,6 +847,7 @@ func _update_hero_card() -> void:
 	]
 
 	skills_label.text = "УМЕНИЯ  %d/%d" % [hero.skills.size(), HeroDefs.MAX_SKILL_SLOTS]
+	skills_label.tooltip_text = "Навыки героя: наведите курсор на навык, чтобы увидеть его описание."
 	skills_list.clear()
 	var defs := HeroDefs.new()
 	for skill_id in hero.skills:
@@ -803,7 +855,8 @@ func _update_hero_card() -> void:
 		var skill_data: Dictionary = defs.SKILLS.get(skill_id, {})
 		var skill_name: String = skill_data.get("name", skill_id)
 		var tier_name: String = defs.SKILL_TIER_NAMES[skill_tier]
-		skills_list.add_item("%s (%s)" % [skill_name, tier_name])
+		var skill_index := skills_list.add_item("%s (%s)" % [skill_name, tier_name])
+		skills_list.set_item_tooltip(skill_index, String(skill_data.get("description", "Описание навыка отсутствует.")))
 
 	army_list.clear()
 	var unit_defs := UnitDefs.new()
@@ -1250,6 +1303,7 @@ func _start_orc_battle(kind: String) -> void:
 	battle.player_units_override = player_fleet
 	battle.enemy_units_override = enemy_fleet
 	battle.orc_battle_kind = kind
+	battle.enemy_has_admiral = true
 	_swap_to_battle(battle)
 
 
@@ -1296,6 +1350,7 @@ func _start_player_attack_on_orcs(kind: String) -> void:
 	dialog.chosen.connect(func(choice: int) -> void:
 		process_mode = previous_mode
 		if choice < 0:
+			_decline_battle_before_start()
 			return
 		var battle = load("res://scenes/TacticalBattle.tscn").instantiate()
 		battle.auto_battle = choice == 1
@@ -1303,6 +1358,7 @@ func _start_player_attack_on_orcs(kind: String) -> void:
 		battle.player_units_override = player_fleet
 		battle.enemy_units_override = enemy_fleet
 		battle.orc_battle_kind = kind
+		battle.enemy_has_admiral = true
 		_swap_to_battle(battle)
 	)
 
@@ -1365,10 +1421,14 @@ func _resolve_orc_victory(kind: String) -> void:
 		_:
 			orc_ai.kill_hero(self)
 			navigation_message = "Вождь орков разбит — его орда рассеяна."
+			var captured := _capture_production_at(current_cell)
+			if captured != "":
+				navigation_message += " " + captured
 			_show_object_reward_dialog("Победа — итоги сражения", navigation_message)
 
 
 func _resolve_orc_defeat(kind: String) -> void:
+	_transfer_player_artifacts_to_orc()
 	if kind == "planet":
 		human_planet_owner = 2
 		campaign_outcome = "defeat"
@@ -1404,6 +1464,14 @@ func _consume_movement_after_retreat() -> void:
 	movement_points = 0
 
 
+func _decline_battle_before_start() -> void:
+	## Отказ от боя на окне прогноза тоже считается отступлением: герой остаётся
+	## на месте, но теряет все оставшиеся ходы текущего дня.
+	_consume_movement_after_retreat()
+	navigation_message = "Отступление: оставшиеся ходы на сегодня потрачены."
+	_update_hud()
+
+
 ## Бой на ходу орков этот ход прерывал — его надо доиграть; бой, начатый
 ## игроком, доигрывать нечего.
 func _after_orc_battle(kind: String) -> void:
@@ -1427,9 +1495,13 @@ func _surviving_player_army(battle_units: Array) -> Dictionary:
 
 
 func _surviving_player_slots(battle_units: Array) -> Array[Dictionary]:
+	return _surviving_side_slots(battle_units, 1)
+
+
+func _surviving_side_slots(battle_units: Array, side: int) -> Array[Dictionary]:
 	var surviving: Array[Dictionary] = []
 	for unit in battle_units:
-		if int((unit as Dictionary).get("side", 0)) != 1:
+		if int((unit as Dictionary).get("side", 0)) != side:
 			continue
 		var hull := int((unit as Dictionary).get("hull", 1))
 		var hp := int((unit as Dictionary).get("hp", 0))
@@ -1440,14 +1512,59 @@ func _surviving_player_slots(battle_units: Array) -> Array[Dictionary]:
 	return surviving
 
 
-# --- Стражи: пираты/торговцы на переходах и у месторождений -----------------
+func _transfer_player_artifacts_to_orc() -> void:
+	var hero := _player_hero()
+	var warlord := orc_hero()
+	if hero == null or warlord == null or hero.artifacts.is_empty():
+		return
+	for artifact_id in hero.artifacts:
+		warlord.artifacts[String(artifact_id)] = true
+	hero.artifacts.clear()
+
+
+func _transfer_player_artifacts_to_guardian(guardian: Dictionary) -> void:
+	var hero := _player_hero()
+	if hero == null or hero.artifacts.is_empty():
+		return
+	var artifact_ids: Array[String] = []
+	for artifact_id in hero.artifacts:
+		artifact_ids.append(String(artifact_id))
+	guardian["artifacts"] = artifact_ids
+	hero.artifacts.clear()
+
+
+func _artifact_reward_items(guardian: Dictionary) -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	for artifact_id in guardian.get("artifacts", []):
+		var artifact: Dictionary = HeroDefs.ARTIFACTS.get(String(artifact_id), {})
+		if artifact.has("texture"):
+			items.append({"icon": artifact["texture"], "amount": 1})
+	return items
+
+
+func _grant_guardian_artifacts(guardian: Dictionary, hero: Hero) -> String:
+	if hero == null:
+		return ""
+	var names: Array[String] = []
+	for artifact_id in guardian.get("artifacts", []):
+		var id := String(artifact_id)
+		if hero.add_artifact(id):
+			names.append(String(HeroDefs.ARTIFACTS[id].get("name", id)))
+	guardian["artifacts"] = []
+	if names.is_empty():
+		return ""
+	return "Захвачены артефакты победившего флота: «%s»." % "», «".join(names)
+
+
+# --- Стражи: пираты/торговцы у ресурсов и объектов ---------------------------
 
 func _generate_guardians() -> void:
 	guardians.clear()
 	guardian_at.clear()
+	# Каждый флот, созданный при генерации карты, должен иметь конкретную
+	# задачу: охранять месторождение. Свободные патрули и охрана проходов
+	# убраны, чтобы на карте не появлялись нейтральные флоты без объекта.
 	_guard_production_sites()
-	_guard_passages()
-	_generate_patrols()
 	guardian_overlay.queue_redraw()
 
 
@@ -1728,6 +1845,7 @@ func _start_guardian_battle(index: int) -> void:
 	dialog.chosen.connect(func(choice: int) -> void:
 		process_mode = previous_mode
 		if choice < 0:
+			_decline_battle_before_start()
 			return
 		_open_guardian_battle(player_fleet, enemy_fleet, index, choice == 1)
 	)
@@ -1740,6 +1858,7 @@ func _resolve_guardian_battle(index: int, battle_units: Array, player_won: bool,
 	if index < 0 or index >= guardians.size():
 		return
 	var hero := _player_hero()
+	var guardian: Dictionary = guardians[index]
 	if retreated:
 		_retreat_player_home("Герой сбежал в замок. Из флота уцелел 1 истребитель.")
 		_update_hud()
@@ -1748,10 +1867,12 @@ func _resolve_guardian_battle(index: int, battle_units: Array, player_won: bool,
 	if hero != null:
 		hero.set_army_from_slots(_surviving_player_slots(battle_units))
 	if not player_won:
-		navigation_message = "Флот отступил. Пополните силы и попробуйте снова."
-		_show_object_reward_dialog("Итоги сражения", navigation_message)
+		guardian["fleet"] = _surviving_side_slots(battle_units, 2)
+		_transfer_player_artifacts_to_guardian(guardian)
+		_retreat_player_home("Флот разбит. Герой возрождён на планете с одним кораблём I ранга.")
+		_update_hud()
+		queue_redraw()
 		return
-	var guardian: Dictionary = guardians[index]
 	guardian["alive"] = false
 	guardian_overlay.queue_redraw()
 	current_cell = guardian["cell"]
@@ -1768,6 +1889,10 @@ func _resolve_guardian_battle(index: int, battle_units: Array, player_won: bool,
 		if captured != "":
 			navigation_message += " " + captured
 	var reward_items: Array[Dictionary] = []
+	reward_items.append_array(_artifact_reward_items(guardian))
+	var carried_artifacts := _grant_guardian_artifacts(guardian, hero)
+	if carried_artifacts != "":
+		navigation_message += " " + carried_artifacts
 	if guardian.has("reward"):
 		var reward: Dictionary = guardian["reward"]
 		reward_items = _reward_items_for_reward(reward)
@@ -1795,7 +1920,7 @@ func _generate_map_objects() -> void:
 		var size := MapObjectDefs.size(kind)
 		for _index in range(count):
 			var cell := _find_free_hard_object_cell(size) if family == "guardian_reward" \
-				else _find_free_object_cell(4, size)
+				else _find_free_object_cell(4, size, ARTIFACT_CACHE_MIN_PLANET_DISTANCE if kind == "artifact_cache" else 0)
 			if cell.x < 0:
 				continue
 			if family == "guardian_reward":
@@ -1864,6 +1989,10 @@ func _generate_corner_objects() -> void:
 		for kind in MapObjectDefs.CORNER_LAYOUT:
 			var size := MapObjectDefs.size(kind)
 			var cell := _find_free_object_cell_in_box(corner[0], corner[1], size)
+			if kind == "artifact_cache" and cell.x >= 0 \
+				and _nearest_planet_distance(cell) < ARTIFACT_CACHE_MIN_PLANET_DISTANCE:
+				# Ближний к планете угол не должен содержать артефактный тайник.
+				continue
 			if MapObjectDefs.family(kind) == "guardian_reward" \
 				and _nearest_planet_distance(cell) < HARD_OBJECT_MIN_PLANET_DISTANCE:
 				# Ближний к планете угол не должен содержать охраняемый трофей.
@@ -2000,6 +2129,8 @@ func _add_map_object(cell: Vector2i, kind: String, size: int) -> void:
 				object["target_index"] = _random_alive_guardian_index()
 		"beacon":
 			object["activated"] = false
+		"university":
+			object["university_used_by"] = []
 		"info":
 			pass
 	var index := map_objects.size()
@@ -2379,13 +2510,16 @@ func _resource_icon(resource_name: String) -> Texture2D:
 ## footprint×footprint футпринта): ни одна клетка не занята препятствием,
 ## стражем, другим объектом, производством, планетой и не слишком близко к
 ## стартовой клетке.
-func _find_free_object_cell(min_distance_from_start: int = 4, footprint: int = 1) -> Vector2i:
+func _find_free_object_cell(min_distance_from_start: int = 4, footprint: int = 1, min_distance_from_planet: int = 0) -> Vector2i:
 	for _attempt in range(300):
 		var cell := Vector2i(
 			map_random.randi_range(2, MAP_SIZE.x - 2 - footprint),
 			map_random.randi_range(2, MAP_SIZE.y - 2 - footprint),
 		)
 		if not _footprint_is_free_for_object(cell, footprint, min_distance_from_start):
+			continue
+		if min_distance_from_planet > 0 \
+			and not _object_footprint_is_far_from_planets(cell, footprint, min_distance_from_planet):
 			continue
 		return cell
 	return Vector2i(-1, -1)
@@ -2400,6 +2534,8 @@ func _footprint_is_free_for_object(anchor: Vector2i, footprint: int, min_distanc
 
 func _cell_is_free_for_object(cell: Vector2i, min_distance_from_start: int) -> bool:
 	if obstacle_at.has(cell) or guardian_at.has(cell) or map_object_at.has(cell):
+		return false
+	if _nearest_planet_distance(cell) < MAP_OBJECT_MIN_PLANET_DISTANCE:
 		return false
 	for site in production_sites:
 		if _cell_in_footprint(cell, site["cell"]):
@@ -2472,19 +2608,22 @@ func _trigger_obelisk(index: int) -> void:
 		navigation_message = description
 		_show_object_reward_dialog(String(def.get("name", "Маяк")), description, def.get("texture"))
 		return
-	var description := "Последний маяк найден — древнее хранилище открывается! "
-	description += _grant_object_reward({"type": "credits", "amount": 3000})
-	var resource_name := _random_resource_name()
-	add_resource(resource_name, 50)
-	description += "\n+50 %s." % resource_name
-	var reward_items: Array[Dictionary] = [
-		{"icon": CREDITS_ICON, "amount": 3000},
-		_resource_reward_item(resource_name, 50),
-	]
+	var description := "Последний маяк найден — древнее хранилище открывается!"
+	var reward_items: Array[Dictionary] = []
 	var hero := _player_hero()
 	if hero != null:
+		var ship_id := "pirate_dreadnought"
+		hero.add_to_army(ship_id, 1)
+		_save_hero_roster()
+		description += "\nПолучен пиратский линкор VII уровня."
+		reward_items.append({"icon": UnitDefs.get_unit(ship_id).get("texture"), "amount": 1})
+	for resource_name in player_one_resources:
+		add_resource(String(resource_name), 10)
+		description += "\n+10 всех ресурсов."
+		reward_items.append(_resource_reward_item(String(resource_name), 10))
+	if hero != null:
 		var before := hero.experience
-		BattleRewards.award(self, hero, 400)
+		BattleRewards.award(self, hero, 3000)
 		description += "\nОпыт героя: +%d." % (hero.experience - before)
 		reward_items.append({"icon": EXPERIENCE_ICON, "amount": hero.experience - before})
 	navigation_message = description
@@ -2506,36 +2645,52 @@ func _trigger_stat_boost(index: int) -> void:
 
 const UNIVERSITY_BASE_COST := 400
 const UNIVERSITY_COST_PER_LEVEL := 150
-const SKILL_ACADEMY_DIALOG := preload("res://scripts/skill_academy_dialog.gd")
+const PROTOCOL_LEARNING_DIALOG := preload("res://scripts/protocol_learning_dialog.gd")
 
 
 func _trigger_university(index: int) -> void:
 	var hero := _player_hero()
 	if hero == null:
 		return
+	var object: Dictionary = map_objects[index]
+	var used_by: Array = object.get("university_used_by", [])
+	if used_by.has(hero.id):
+		navigation_message = "Станция ретрансляции знаний уже неактивна для этого героя."
+		_update_hud()
+		return
 	var cost := UNIVERSITY_BASE_COST + UNIVERSITY_COST_PER_LEVEL * hero.level
 	if not can_afford({"credits": cost}):
-		var def := MapObjectDefs.get_kind(map_objects[index]["kind"])
+		var def := MapObjectDefs.get_kind(object["kind"])
 		var description := "Не хватает кредитов (нужно %d)." % cost
 		navigation_message = "Станция ретрансляции знаний: " + description
 		_show_object_reward_dialog(String(def.get("name", "Станция")), description, def.get("texture"))
 		return
-	var dialog: CanvasLayer = SKILL_ACADEMY_DIALOG.new()
+	var dialog: CanvasLayer = PROTOCOL_LEARNING_DIALOG.new()
 	add_child(dialog)
 	dialog.setup(hero, cost)
-	dialog.purchased.connect(_on_skill_purchased.bind(hero, cost))
+	dialog.learned.connect(_on_protocol_learned.bind(hero, cost, index))
 
 
-func _on_skill_purchased(skill_id: String, hero: Hero, cost: int) -> void:
+func _on_protocol_learned(protocol_id: String, hero: Hero, cost: int, index: int) -> void:
 	if not can_afford({"credits": cost}):
 		navigation_message = "Обучение отменено: не хватает кредитов."
 		_update_hud()
 		return
 	pay_cost({"credits": cost})
-	hero.learn_skill(skill_id)
-	navigation_message = "Герой изучил новый навык на станции ретрансляции знаний."
-	var skill: Dictionary = HeroDefs.SKILLS[skill_id]
-	_show_object_reward_dialog("Обучение завершено", "%s — %s.\nКредиты: −%d." % [skill["name"], HeroDefs.SKILL_TIER_NAMES[int(hero.skills[skill_id])], cost])
+	var learned := hero.learn_protocols([protocol_id])
+	if learned.is_empty():
+		navigation_message = "Протокол не добавлен: недостаточно допуска или он уже изучен."
+		_update_hud()
+		return
+	var used_by: Array = map_objects[index].get("university_used_by", [])
+	if not used_by.has(hero.id):
+		used_by.append(hero.id)
+	map_objects[index]["university_used_by"] = used_by
+	_save_hero_roster()
+	CampaignSave.save_campaign(self)
+	navigation_message = "Герой изучил новый боевой протокол на станции ретрансляции знаний."
+	var protocol: Dictionary = HERO_PROTOCOLS.get_protocol(protocol_id)
+	_show_object_reward_dialog("Обучение завершено", "%s\nКредиты: −%d." % [protocol["name"], cost])
 	_update_hud()
 
 
@@ -2752,15 +2907,23 @@ func _trigger_distress_signal(index: int) -> void:
 		object_def.get("texture"),
 		func(choice_id: String) -> void:
 			map_objects[index]["consumed"] = true
-			if choice_id == "accept":
-				if _hero_can_accept_unit(hero, unit_id):
-					hero.add_to_army(unit_id, count)
-					_save_hero_roster()
-					navigation_message = "К флоту присоединились: %s ×%d." % [unit_label, count]
-				else:
-					navigation_message = "Во флоте нет свободного слота для новых кораблей."
+			var joined := choice_id == "accept" and _hero_can_accept_unit(hero, unit_id)
+			if joined:
+				hero.add_to_army(unit_id, count)
+				_save_hero_roster()
+				navigation_message = "К флоту присоединились: %s ×%d." % [unit_label, count]
 			else:
-				navigation_message = "Сигнал бедствия отклонён."
+				var resource_name := _random_resource_name()
+				var amount := _distance_loot_amount(map_objects[index]["cell"], 4, 8, 10, 16)
+				add_resource(resource_name, amount)
+				var reason := "Во флоте нет свободного слота" if choice_id == "accept" else "Сигнал отклонён"
+				navigation_message = "%s. Получено: %d %s." % [reason, amount, resource_name]
+				_show_object_reward_dialog(
+					"Сигнал бедствия",
+					navigation_message,
+					object_def.get("texture"),
+					[_resource_reward_item(resource_name, amount)]
+				)
 			_update_hud()
 	)
 
@@ -2775,13 +2938,7 @@ func _trigger_info(index: int) -> void:
 		_open_trading_post()
 		return
 	if kind == "archive_station":
-		var hero := _player_hero()
-		if hero != null:
-			var restored := hero.refill_energy()
-			_save_hero_roster()
-			var energy_description := "Реактор восстановил энергию: +%d." % restored
-			navigation_message = energy_description
-			_show_object_reward_dialog(String(def.get("name", "Станция-архив")), energy_description, def.get("texture"))
+		_trigger_archive_station(index)
 		return
 	if not bool(def.get("repeatable", false)):
 		map_objects[index]["consumed"] = true
@@ -2789,6 +2946,18 @@ func _trigger_info(index: int) -> void:
 	var description: String = pool[map_random.randi_range(0, pool.size() - 1)]
 	navigation_message = description
 	_show_object_reward_dialog(String(def.get("name", "Объект")), description, def.get("texture"))
+
+
+func _trigger_archive_station(index: int) -> void:
+	var hero := _player_hero()
+	if hero == null:
+		return
+	var def := MapObjectDefs.get_kind(String(map_objects[index]["kind"]))
+	var restored := hero.refill_energy()
+	_save_hero_roster()
+	var description := "Реактор восстановил энергию героя: +%d." % restored
+	navigation_message = description
+	_show_object_reward_dialog(String(def.get("name", "Станция-архив")), description, def.get("texture"))
 
 
 ## Радиус раскрывает здание целиком и небольшой участок вокруг него.
@@ -3038,6 +3207,13 @@ func _build_navigation_grid() -> void:
 	navigation_grid.default_compute_heuristic = AStarGrid2D.HEURISTIC_CHEBYSHEV
 	navigation_grid.default_estimate_heuristic = AStarGrid2D.HEURISTIC_CHEBYSHEV
 	navigation_grid.update()
+	# Пограничные клетки не участвуют в полёте: иначе A* может обогнуть
+	# непроходимый пояс по самому краю карты.
+	for x in range(MAP_SIZE.x):
+		for y in range(MAP_SIZE.y):
+			var cell := Vector2i(x, y)
+			if not _cell_is_inside_map(cell):
+				navigation_grid.set_point_solid(cell, true)
 	for cell in blocked_cells:
 		navigation_grid.set_point_solid(cell, true)
 	for cell in slow_cells:
@@ -3107,8 +3283,7 @@ func _find_production_in_sector(sector: Vector2i, occupied_cells: Array[Vector2i
 		var candidate := Vector2i(
 			map_random.randi_range(min_cell.x, max_cell.x),
 			map_random.randi_range(min_cell.y, max_cell.y))
-		if _chebyshev_distance(candidate, HUMAN_PLANET_CENTER) < RARE_PRODUCTION_MIN_PLANET_DISTANCE \
-			or _chebyshev_distance(candidate, ORC_PLANET_CENTER) < RARE_PRODUCTION_MIN_PLANET_DISTANCE:
+		if not _production_footprint_is_far_from_planets(candidate, RARE_PRODUCTION_MIN_PLANET_DISTANCE):
 			continue
 		if _footprint_overlaps_planet(candidate, HUMAN_PLANET_CENTER) \
 			or _footprint_overlaps_planet(candidate, ORC_PLANET_CENTER):
@@ -3133,8 +3308,7 @@ func _find_local_production_position(
 		if not _cell_is_inside_map(candidate) \
 			or not _cell_is_inside_map(candidate + PRODUCTION_FOOTPRINT - Vector2i.ONE):
 			continue
-		if _footprint_overlaps_planet(candidate, HUMAN_PLANET_CENTER) \
-			or _footprint_overlaps_planet(candidate, ORC_PLANET_CENTER):
+		if not _production_footprint_is_far_from_planets(candidate, PRODUCTION_MIN_PLANET_DISTANCE):
 			continue
 		if _production_position_is_free(candidate, occupied_cells):
 			return candidate
@@ -3153,6 +3327,21 @@ func _production_position_is_free(candidate: Vector2i, occupied_cells: Array[Vec
 	for occupied in occupied_cells:
 		var offset := candidate - occupied
 		if maxi(absi(offset.x), absi(offset.y)) < PRODUCTION_MIN_SPACING:
+			return false
+	return true
+
+
+func _object_footprint_is_far_from_planets(anchor: Vector2i, size: int, minimum_distance: int) -> bool:
+	for cell in _footprint_cells(anchor, size):
+		if _nearest_planet_distance(cell) < minimum_distance:
+			return false
+	return true
+
+
+func _production_footprint_is_far_from_planets(anchor: Vector2i, minimum_distance: int) -> bool:
+	for cell in _footprint_cells(anchor, PRODUCTION_FOOTPRINT.x):
+		if _chebyshev_distance(cell, HUMAN_PLANET_CENTER) < minimum_distance \
+			or _chebyshev_distance(cell, ORC_PLANET_CENTER) < minimum_distance:
 			return false
 	return true
 

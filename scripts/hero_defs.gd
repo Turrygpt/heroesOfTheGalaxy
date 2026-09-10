@@ -144,7 +144,7 @@ const SKILLS := {
 	"leadership": {
 		"name": "Лидерство",
 		"category": "combat",
-		"desc": "Мораль: %s%% шанс на внеочередной ход корабля",
+		"desc": "%s%% шанс на внеочередной ход корабля",
 		"tiers": [5, 10, 15],
 		"weights": {"admiral": 8, "engineer": 3, "warlord": 7, "shaman": 3, "corsair": 5},
 	},

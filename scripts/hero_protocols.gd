@@ -206,6 +206,7 @@ static func make_hero(side: int) -> Dictionary:
 	var hero: Dictionary = HEROES[side].duplicate(true)
 	hero["side"] = side
 	hero["energy"] = hero["max_energy"]
+	hero["protocol_cooldowns"] = {}
 	hero["cast_round"] = 0
 	return hero
 

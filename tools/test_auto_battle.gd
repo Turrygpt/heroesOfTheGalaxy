@@ -32,8 +32,21 @@ func _run() -> void:
 	battle.set_process(false)
 	# Награды проверяет основной набор тестов; здесь не изменяем героя пользователя.
 	battle.experience_granted = true
+	_check(not battle.heroes.has(2), "Флот без адмирала не получает героя-противника")
+	_check(not battle._auto_hero_cast(2), "Флот без адмирала не применяет протоколы")
 	battle._toggle_auto_battle()
 	_check(battle.auto_battle and battle._actions_locked(), "Автобитва блокирует ручные приказы")
+	battle.heroes[1]["book"] = ["shield_matrix"]
+	battle.heroes[1]["energy"] = 10
+	var energy_before := int(battle.heroes[1]["energy"])
+	_check(battle._auto_hero_cast(1), "Автобой игрока применяет доступный протокол")
+	_check(int(battle.heroes[1]["energy"]) < energy_before, "Протокол автобоя расходует энергию героя")
+	battle._cycle_auto_battle_mode()
+	_check(battle.auto_battle_mode == battle.AUTO_MODE_AGGRESSIVE, "Переключается агрессивный режим автобоя")
+	battle._cycle_auto_battle_mode()
+	_check(battle.auto_battle_mode == battle.AUTO_MODE_DEFENSIVE, "Переключается защитный режим автобоя")
+	battle._cycle_auto_battle_mode()
+	_check(battle.auto_battle_mode == battle.AUTO_MODE_BALANCED, "Режим автобоя возвращается к сбалансированному")
 	battle._toggle_auto_battle()
 	_check(not battle.auto_battle and battle.enemy_turn_delay < 0.0, "Ручное управление отменяет ожидающий ход ИИ")
 	var active: Dictionary = battle._active_unit()

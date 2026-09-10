@@ -25,12 +25,14 @@ func _run() -> void:
 	var old_master: int = settings.master_volume
 	var old_music: int = settings.music_volume
 	var old_sfx: int = settings.sfx_volume
+	var old_auto_mode: String = settings.auto_battle_mode
 	_test_buses(settings)
 	_test_volume_and_mute(settings)
 	_test_persistence(settings)
 	settings.set_master_volume(old_master)
 	settings.set_music_volume(old_music)
 	settings.set_sfx_volume(old_sfx)
+	settings.set_auto_battle_mode(old_auto_mode)
 	settings.save_state()
 	if failures == 0:
 		print("PASS: шины Music/SFX, громкость, mute на нуле, сохранение настроек")
@@ -64,6 +66,7 @@ func _test_volume_and_mute(settings: Node) -> void:
 
 
 func _test_persistence(settings: Node) -> void:
+	settings.set_auto_battle_mode("defensive")
 	settings.set_master_volume(40)
 	settings.set_music_volume(70)
 	settings.set_sfx_volume(10)
@@ -75,3 +78,4 @@ func _test_persistence(settings: Node) -> void:
 	_check(settings.master_volume == 40, "После загрузки общая громкость должна быть 40")
 	_check(settings.music_volume == 70, "После загрузки музыка должна быть 70")
 	_check(settings.sfx_volume == 10, "После загрузки эффекты должны быть 10")
+	_check(settings.auto_battle_mode == "defensive", "Режим автобоя должен сохраняться")
