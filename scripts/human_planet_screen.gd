@@ -1561,6 +1561,8 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_inde
 	card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	card.mouse_default_cursor_shape = Control.CURSOR_DRAG if enabled else Control.CURSOR_FORBIDDEN
 	card.tooltip_text = "%s · %d кораблей\nПеретащите на пустой слот, такой же стек или другой стек." % [String(unit["label"]), count]
+	var hero: Hero = _player_hero() if source_id == "hero" else null
+	card.combat_tooltip_bbcode = _fleet_card_combat_tooltip(unit, count, hero)
 	card.add_theme_stylebox_override("panel", preload("res://scripts/ui_style.gd").button_style("normal"))
 	card.transfer_requested.connect(_on_fleet_stack_dropped)
 	var box := VBoxContainer.new()
@@ -1610,6 +1612,44 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_inde
 		split_button.pressed.connect(_split_stack.bind(source_id, slot_index))
 		box.add_child(split_button)
 	return card
+
+
+## Базовые параметры в подсказке всегда белые. Голубая часть — только тот
+## эффект навыков и артефактов героя, который применяет TacticalBattle.
+func _fleet_card_combat_tooltip(unit: Dictionary, count: int, hero: Hero = null) -> String:
+	const BASE_COLOR := "#edf0f2"
+	const BONUS_COLOR := "#82c9ff"
+	var hull := int(unit.get("hull", 0))
+	var damage_min := int(unit.get("damage_min", 0))
+	var damage_max := int(unit.get("damage_max", 0))
+	var attack := int(unit.get("attack", 0))
+	var defense := int(unit.get("defense", 0))
+	var move := int(unit.get("move", 0))
+	var attack_range := int(unit.get("range", 0))
+	var initiative := int(unit.get("initiative", 0))
+	var lines: Array[String] = [
+		"[color=%s][b]%s · %d кораблей[/b][/color]" % [BASE_COLOR, String(unit.get("label", "Корабль")), count],
+		"[color=%s]Корпус: %d[/color]" % [BASE_COLOR, hull],
+		"[color=%s]Атака: %d · Защита: %d[/color]" % [BASE_COLOR, attack, defense],
+		"[color=%s]Урон: %d–%d[/color]" % [BASE_COLOR, damage_min, damage_max],
+		"[color=%s]Манёвр: %d · Дальность: %d · Инициатива: %d[/color]" % [BASE_COLOR, move, attack_range, initiative],
+	]
+	if hero != null:
+		var hp_bonus := hero.hp_bonus_percent()
+		if hp_bonus > 0:
+			var boosted_hull := maxi(1, int(round(float(hull) * (1.0 + float(hp_bonus) / 100.0))))
+			lines.append("[color=%s]+%d%% к корпусу: %d → %d[/color]" % [BONUS_COLOR, hp_bonus, hull, boosted_hull])
+		var damage_bonus := hero.damage_bonus_percent()
+		if damage_bonus > 0:
+			lines.append("[color=%s]+%d%% к урону[/color]" % [BONUS_COLOR, damage_bonus])
+		var range_bonus := hero.range_bonus()
+		if range_bonus > 0:
+			lines.append("[color=%s]+%d к дальности: %d → %d[/color]" % [BONUS_COLOR, range_bonus, attack_range, attack_range + range_bonus])
+		var morale_bonus := int(round(float(initiative) * hero.morale_chance()))
+		if morale_bonus > 0:
+			lines.append("[color=%s]+%d к инициативе (лидерство)[/color]" % [BONUS_COLOR, morale_bonus])
+	lines.append("[color=%s][i]Перетащите стек на пустой слот, такой же или другой стек.[/i][/color]" % [BASE_COLOR])
+	return "\n".join(lines)
 
 
 func _build_empty_fleet_slot(zone_id: String, slot_index: int, enabled: bool) -> Control:

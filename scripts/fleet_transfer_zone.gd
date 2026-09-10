@@ -5,6 +5,8 @@ extends PanelContainer
 
 signal transfer_requested(unit_id: String, source_id: String, source_slot: int, target_id: String, target_slot: int)
 
+const UI_STYLE := preload("res://scripts/ui_style.gd")
+
 var unit_id := ""
 var source_id := ""
 var target_id := ""
@@ -12,6 +14,29 @@ var source_slot := -1
 var target_slot := -1
 var drag_enabled := true
 var stack_count := 0
+## Форматированная карточка характеристик для mouseover. Её задаёт экран
+## гарнизона только для флота героя, где к базовым статам применяются бонусы.
+var combat_tooltip_bbcode := ""
+
+
+func _make_custom_tooltip(_for_text: String) -> Control:
+	if combat_tooltip_bbcode.is_empty():
+		return null
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(340, 0)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel", UI_STYLE.surface(UI_STYLE.CYAN, UI_STYLE.SURFACE, 14, 10))
+	var content := RichTextLabel.new()
+	content.bbcode_enabled = true
+	content.text = combat_tooltip_bbcode
+	content.fit_content = true
+	content.scroll_active = false
+	content.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_theme_font_override("normal_font", UI_STYLE.font())
+	content.add_theme_font_size_override("normal_font_size", 14)
+	panel.add_child(content)
+	return panel
 
 
 func _get_drag_data(_position: Vector2) -> Variant:
