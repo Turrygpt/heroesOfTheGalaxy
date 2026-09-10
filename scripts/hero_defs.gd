@@ -159,7 +159,7 @@ const SKILLS := {
 		"name": "Криптоанализ",
 		"category": "tech",
 		"desc": "Открывает протоколы до %s ранга включительно",
-		"tiers": [3, 4, 5],
+		"tiers": [2, 3, 4],
 		"weights": {"admiral": 4, "engineer": 9, "warlord": 2, "shaman": 9, "corsair": 3},
 	},
 	"energy_core": {
@@ -287,7 +287,7 @@ const ARTIFACTS := {
 }
 
 ## Боевые протоколы (книга героя живёт в scripts/hero_protocols.gd) разложены
-## по рангам 1–5. Ранг открывается Мудростью и навыком «Криптоанализ» — как
+## по рангам 1–4. Ранг открывается Мудростью и навыком «Криптоанализ» — как
 ## уровни заклинаний в HoMM.
 const PROTOCOL_RANKS := {
 	"ion_lance": 1,
@@ -300,10 +300,10 @@ const PROTOCOL_RANKS := {
 	"warp_jump": 2,
 	"emp_burst": 3,
 	"logic_bomb": 3,
-	"plasma_storm": 4,
+	"plasma_storm": 3,
 	"nanite_field": 4,
 	"battle_net": 4,
-	"orbital_strike": 5,
+	"orbital_strike": 4,
 }
 
 
@@ -348,6 +348,25 @@ static func artifact_bonus(owned_artifacts: Dictionary, effect_type: String) -> 
 		if String(effect.get("type", "")) == effect_type:
 			total += int(effect.get("value", 0))
 	return total
+
+
+static func artifact_bonus_text(artifact: Dictionary) -> String:
+	var effect: Dictionary = artifact.get("effect", {})
+	var value := int(effect.get("value", 0))
+	match String(effect.get("type", "")):
+		"damage_percent":
+			return "Урон +%d%%" % value
+		"hp_percent":
+			return "Корпус +%d%%" % value
+		"range_flat":
+			return "Дальность +%d" % value
+		"luck_percent":
+			return "Удача +%d%%" % value
+		"morale_percent":
+			return "Мораль +%d%%" % value
+		"energy_regen_percent":
+			return "Восстановление энергии +%d%%" % value
+	return "Бонус +%d" % value
 
 
 static func skill_value(skill_id: String, tier: int) -> int:

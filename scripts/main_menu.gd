@@ -318,7 +318,9 @@ func _process(_delta: float) -> void:
 	elif state == ResourceLoader.THREAD_LOAD_FAILED or state == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
 		_loading_failed()
 	elif not progress.is_empty():
-		status.text = "Подготовка галактики… %d%%" % int(float(progress[0]) * 100.0)
+		var loaded_percent := int(float(progress[0]) * 100.0)
+		var displayed_percent := 100 if loaded_percent >= 20 else loaded_percent
+		status.text = "Подготовка галактики… %d%%" % displayed_percent
 
 
 func _loading_failed() -> void:

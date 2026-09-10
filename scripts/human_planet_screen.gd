@@ -24,6 +24,8 @@ const PLANET_MUSIC_VOLUME_DB := -8.0
 const MUSIC_FADE_DURATION := 0.6
 const MUSIC_FADED_VOLUME_DB := -40.0
 const FLEET_TRANSFER_ZONE := preload("res://scripts/fleet_transfer_zone.gd")
+const UNIVERSITY_DEFS := preload("res://scripts/university_defs.gd")
+const HERO_PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 const HERO_PORTRAIT := preload("res://assets/heroes/ChatGPT Image 3 сент. 2026 г., 11_09_13.png")
 const SKILL_ICON_DIR := "res://assets/hero_skills"
 const GARRISON_SLOT_COUNT := 7
@@ -163,15 +165,15 @@ const BUILDING_DEFS := {
 		"name": "Галактический университет", "max_level": 4, "level_names": ["I", "II", "III", "IV"],
 		"costs": [
 			{"credits": 1000, "Научные данные": 10},
-			{"credits": 1800, "Научные данные": 20, "Энергокристаллы": 5},
-			{"credits": 3500, "Научные данные": 35, "Энергокристаллы": 15, "Радиоизотопы": 5},
-			{"credits": 7000, "Научные данные": 60, "Энергокристаллы": 30, "Радиоизотопы": 15},
+			{"credits": 2200, "Научные данные": 20, "Энергокристаллы": 5},
+			{"credits": 4500, "Научные данные": 35, "Энергокристаллы": 12, "Радиоизотопы": 5},
+			{"credits": 8500, "Научные данные": 55, "Энергокристаллы": 25, "Радиоизотопы": 15},
 		],
 		"requirements": [
 			{"townhall": 2},
-			{"townhall": 3},
-			{"townhall": 4, "mage_guild": 2},
-			{"townhall": 4, "fort": 3, "mage_guild": 3},
+			{"townhall": 2, "fort": 1},
+			{"townhall": 3, "fort": 2},
+			{"townhall": 4, "fort": 3},
 		],
 	},
 }
@@ -314,7 +316,10 @@ func _ready() -> void:
 		buttons_root.get_node("DestroyerYard2"),
 		buttons_root.get_node("Tavern"),
 		buttons_root.get_node("Marketplace"),
-		buttons_root.get_node("MageGuild"),
+		buttons_root.get_node("MageGuild1"),
+		buttons_root.get_node("MageGuild2"),
+		buttons_root.get_node("MageGuild3"),
+		buttons_root.get_node("MageGuild4"),
 	]
 	for index in range(building_buttons.size()):
 		buttons_root.move_child(building_buttons[index], index)
@@ -334,6 +339,7 @@ func _ready() -> void:
 	garrison_close.pressed.connect(_close_garrison_screen)
 	_load_building_slots()
 	_load_planet_state()
+	_sync_university_protocols()
 	_rebuild_building_visuals()
 	_update_planet_info()
 	_update_resource_bar()
@@ -386,7 +392,7 @@ func _setup_catalog_button_visuals() -> void:
 		"Элитная площадка тяжёлых истребителей", "Ангар корветов", "Элитный ангар корветов",
 		"Ангар фрегатов", "Элитный ангар фрегатов", "Ангар эсминцев",
 		"Элитный ангар эсминцев", "Офицерский клуб",
-		"Биржа", "Галактический университет",
+		"Биржа", "Университет I", "Университет II", "Университет III", "Университет IV",
 	]
 	for index in range(building_buttons.size()):
 		var button := building_buttons[index]
@@ -856,7 +862,10 @@ func _open_building_modal(building: Sprite2D) -> void:
 	modal_title.text = String(definition["name"])
 	modal_level.text = "УРОВЕНЬ %s" % level_names[clampi(level - 1, 0, level_names.size() - 1)]
 	var unit_id := UnitDefs.recruitable_for_dwelling(kind, level)
-	if unit_id != "":
+	if kind == "mage_guild":
+		modal_description.text = _university_description(level)
+		modal_ship_icon.hide()
+	elif unit_id != "":
 		var unit := UnitDefs.get_unit(unit_id)
 		modal_description.text = "Ангар построен и действует на планете.\nПроизводит «%s» (наём — в экране «Гарнизон»)." % String(unit["label"])
 		modal_ship_icon.texture = unit["texture"]
@@ -1321,9 +1330,7 @@ func _update_garrison_screen() -> void:
 			if HeroDefs.ARTIFACTS.has(String(artifact_id)):
 				var artifact_def: Dictionary = HeroDefs.ARTIFACTS[String(artifact_id)]
 				artifact_parts.append(String(artifact_def["name"]))
-				_add_hero_info_icon(garrison_hero_artifact_icons, artifact_def.get("texture"), "%s — %s" % [
-					String(artifact_def["name"]), String(artifact_def["description"]),
-				], 40)
+				_add_hero_artifact_tile(garrison_hero_artifact_icons, artifact_def, 72)
 		garrison_hero_artifacts.text = "Артефакты: " + (" · ".join(artifact_parts) if not artifact_parts.is_empty() else "—")
 	else:
 		garrison_hero_name.text = "НЕТ ГЕРОЯ"
@@ -1347,6 +1354,32 @@ func _add_hero_info_icon(container: HFlowContainer, texture: Texture2D, tooltip:
 	icon.tooltip_text = tooltip
 	icon.mouse_filter = Control.MOUSE_FILTER_STOP
 	container.add_child(icon)
+
+
+func _add_hero_artifact_tile(container: HFlowContainer, artifact: Dictionary, icon_size := 72) -> void:
+	var tile := VBoxContainer.new()
+	tile.custom_minimum_size = Vector2(150, icon_size + 48)
+	tile.alignment = BoxContainer.ALIGNMENT_CENTER
+	tile.tooltip_text = "%s\n%s" % [
+		HeroDefs.artifact_bonus_text(artifact), String(artifact.get("description", "")),
+	]
+	container.add_child(tile)
+	var icon := TextureRect.new()
+	icon.texture = artifact.get("texture") as Texture2D
+	icon.custom_minimum_size = Vector2(icon_size, icon_size)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(icon)
+	var bonus := Label.new()
+	bonus.text = HeroDefs.artifact_bonus_text(artifact)
+	bonus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bonus.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	bonus.add_theme_font_size_override("font_size", 13)
+	bonus.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4, 1.0))
+	bonus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(bonus)
 
 
 func _add_hero_skill_tile(container: HFlowContainer, texture: Texture2D, skill_name: String, tier: int) -> void:
@@ -2076,9 +2109,13 @@ func _construct_kind(kind: String) -> void:
 	built_levels[kind] = new_level
 	var state := HumanPlanetState.load_state()
 	state["built_levels"] = built_levels
+	if kind == "mage_guild":
+		UNIVERSITY_DEFS.ensure_offers(state, new_level)
 	state["last_construction_day"] = _current_construction_day()
 	_grant_construction_bonus(state, kind, new_level)
 	HumanPlanetState.save_state(state)
+	if kind == "mage_guild":
+		_teach_university_protocols(state)
 	_commit_strategy_economy_change()
 	_rebuild_building_visuals()
 	_update_construction_menu()
@@ -2260,6 +2297,41 @@ func _load_planet_state() -> void:
 		# считает его построенным, экран планеты не должен показывать иначе.
 		var minimum_level := 1 if kind == "townhall" else 0
 		built_levels[kind] = clampi(int(saved_levels.get(kind, minimum_level)), minimum_level, max_level)
+
+
+func _sync_university_protocols() -> void:
+	var level := int(built_levels.get("mage_guild", 0))
+	if level <= 0:
+		return
+	var state := HumanPlanetState.load_state()
+	if UNIVERSITY_DEFS.ensure_offers(state, level):
+		HumanPlanetState.save_state(state)
+	_teach_university_protocols(state)
+
+
+func _teach_university_protocols(state: Dictionary) -> void:
+	var hero := _player_hero()
+	if hero == null:
+		return
+	var available := UNIVERSITY_DEFS.protocols_through_level(state, int(built_levels.get("mage_guild", 0)))
+	if not hero.learn_protocols(available).is_empty():
+		_save_hero_roster()
+
+
+func _university_description(level: int) -> String:
+	var state := HumanPlanetState.load_state()
+	var lines: Array[String] = [UNIVERSITY_DEFS.LEVEL_NAMES[level], ""]
+	for tier in range(1, level + 1):
+		var names: Array[String] = []
+		for protocol_id in UNIVERSITY_DEFS.level_protocols(state, tier):
+			var protocol: Dictionary = HERO_PROTOCOLS.get_protocol(protocol_id)
+			names.append(String(protocol.get("name", protocol_id)))
+		lines.append("Контур %s: %s" % [_roman_level(tier), ", ".join(names)])
+	var hero := _player_hero()
+	if hero != null:
+		lines.append("")
+		lines.append("Загружено герою: %d из %d · доступный ранг %d" % [hero.protocol_book().size(), UNIVERSITY_DEFS.protocols_through_level(state, level).size(), hero.max_ability_rank()])
+	return "\n".join(lines)
 
 
 func _find_slot_index(kind: String, level: int = -1) -> int:

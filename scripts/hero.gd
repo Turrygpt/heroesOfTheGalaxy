@@ -16,6 +16,7 @@ var experience := 0
 var stats := {"attack": 0, "defense": 0, "power": 0, "wisdom": 0}
 var skills := {}  # skill_id -> ранг 1..3
 var artifacts := {}  # artifact_id (см. HeroDefs.ARTIFACTS) -> true, без тиров
+var learned_protocols: Array[String] = []  # протоколы, загруженные в университетах
 var energy := 0
 var army := {}  # unit_id (см. unit_defs.gd) -> количество кораблей
 var army_slots: Array[Dictionary] = []  # до 7 стеков: {"unit_id": String, "count": int}
@@ -142,6 +143,8 @@ func artifact_lines() -> Array:
 			"id": artifact_id,
 			"name": String(def.get("name", artifact_id)),
 			"description": String(def.get("description", "")),
+			"bonus": DEFS.artifact_bonus_text(def),
+			"texture": def.get("texture"),
 		})
 	lines.sort_custom(func(a, b): return a["name"] < b["name"])
 	return lines
@@ -258,17 +261,35 @@ func max_energy() -> int:
 ## Ранг доступных протоколов: база от Мудрости, потолок поднимает Криптоанализ.
 func max_ability_rank() -> int:
 	var from_wisdom := 1 + int(stat("wisdom") / 3)
-	return clampi(maxi(mini(from_wisdom, 3), skill_value("cryptanalysis")), 1, 5)
+	return clampi(maxi(mini(from_wisdom, 3), skill_value("cryptanalysis")), 1, 4)
 
 
-## Книга протоколов: доступны все протоколы, чей ранг не выше открытого.
+## Книга протоколов: герой должен и загрузить протокол в университете, и иметь
+## достаточную Мудрость/Криптоанализ для его исполнения.
 func protocol_book() -> Array:
 	var rank := max_ability_rank()
 	var book: Array = []
-	for protocol_id in DEFS.PROTOCOLS.PROTOCOLS:
+	for protocol_id in learned_protocols:
+		if not DEFS.PROTOCOLS.PROTOCOLS.has(protocol_id):
+			continue
 		if DEFS.protocol_rank(protocol_id) <= rank:
 			book.append(protocol_id)
 	return book
+
+
+## Загружает доступные по рангу протоколы. Более сложные остаются в базе
+## университета и будут изучены автоматически при следующем посещении.
+func learn_protocols(protocol_ids: Array) -> Array[String]:
+	var learned_now: Array[String] = []
+	for raw_id in protocol_ids:
+		var protocol_id := String(raw_id)
+		if not DEFS.PROTOCOLS.PROTOCOLS.has(protocol_id) or learned_protocols.has(protocol_id):
+			continue
+		if DEFS.protocol_rank(protocol_id) > max_ability_rank():
+			continue
+		learned_protocols.append(protocol_id)
+		learned_now.append(protocol_id)
+	return learned_now
 
 
 func energy_regen() -> int:
@@ -302,6 +323,11 @@ func to_battle_hero(side: int) -> Dictionary:
 		"max_energy": max_energy(),
 		"energy": mini(energy, max_energy()),
 		"regen": energy_regen(),
+		"damage_bonus_percent": damage_bonus_percent(),
+		"hp_bonus_percent": hp_bonus_percent(),
+		"range_bonus": range_bonus(),
+		"luck_chance": luck_chance(),
+		"morale_chance": morale_chance(),
 		"book": protocol_book(),
 		"cast_round": 0,
 		"hero_id": id,
@@ -510,6 +536,7 @@ func to_dict() -> Dictionary:
 		"stats": stats.duplicate(),
 		"skills": skills.duplicate(),
 		"artifacts": artifacts.duplicate(),
+		"learned_protocols": learned_protocols.duplicate(),
 		"energy": energy,
 		"pending_level_ups": pending_level_ups,
 		"army": army.duplicate(),
@@ -539,6 +566,16 @@ static func from_dict(data: Dictionary) -> Hero:
 	for artifact_id in (data.get("artifacts", {}) as Dictionary):
 		if DEFS.ARTIFACTS.has(artifact_id):
 			hero.artifacts[artifact_id] = true
+	if data.has("learned_protocols") and data["learned_protocols"] is Array:
+		for protocol_id in data["learned_protocols"]:
+			var id := String(protocol_id)
+			if DEFS.PROTOCOLS.PROTOCOLS.has(id) and not hero.learned_protocols.has(id):
+				hero.learned_protocols.append(id)
+	else:
+		# Миграция старых сейвов: раньше герой автоматически знал весь доступный каталог.
+		for protocol_id in DEFS.PROTOCOLS.PROTOCOLS:
+			if DEFS.protocol_rank(protocol_id) <= hero.max_ability_rank():
+				hero.learned_protocols.append(String(protocol_id))
 	hero.energy = int(data.get("energy", hero.max_energy()))
 	hero.pending_level_ups = int(data.get("pending_level_ups", 0))
 	var slots = data.get("army_slots", [])

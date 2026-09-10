@@ -6,6 +6,7 @@ extends SceneTree
 
 const DEFS := preload("res://scripts/hero_defs.gd")
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
+const UNIVERSITY := preload("res://scripts/university_defs.gd")
 const REWARDS := preload("res://scripts/battle_rewards.gd")
 
 var failures := 0
@@ -170,13 +171,21 @@ func _test_damage_multiplier() -> void:
 func _test_protocol_book() -> void:
 	var hero := Hero.create("test_engineer", "Инженер", "engineer")
 	_check(hero.skill_tier("cryptanalysis") == 1, "Инженер начинает с базовым криптоанализом")
-	_check(hero.max_ability_rank() == 3, "Базовый криптоанализ открывает третий ранг")
+	_check(hero.max_ability_rank() == 2, "Базовый криптоанализ открывает второй ранг")
+	var state := {"university_protocols": {}}
+	_check(UNIVERSITY.ensure_offers(state, 4, 12345), "Университет создаёт набор при первой постройке")
+	_check(not UNIVERSITY.ensure_offers(state, 4, 99999), "Набор университета не перебрасывается")
+	_check(UNIVERSITY.level_protocols(state, 1).size() == 3, "Уровень I содержит три протокола")
+	_check(UNIVERSITY.level_protocols(state, 2).size() == 3, "Уровень II содержит три протокола")
+	_check(UNIVERSITY.level_protocols(state, 3).size() == 2, "Уровень III содержит два протокола")
+	_check(UNIVERSITY.level_protocols(state, 4).size() == 2, "Уровень IV содержит два протокола")
+	hero.learn_protocols(UNIVERSITY.protocols_through_level(state, 4))
 	var book_before: Array = hero.protocol_book()
 	hero.skills["cryptanalysis"] = 3
+	hero.learn_protocols(UNIVERSITY.protocols_through_level(state, 4))
 	var book_after: Array = hero.protocol_book()
 	_check(book_after.size() > book_before.size(), "Экспертный криптоанализ расширяет книгу протоколов")
-	_check(book_after.has("orbital_strike"), "Пятый ранг открывает «Орбитальный удар»")
-	_check(not book_before.has("orbital_strike"), "На третьем ранге тяжёлого залпа ещё нет")
+	_check(book_after.has("orbital_strike") or not UNIVERSITY.protocols_through_level(state, 4).has("orbital_strike"), "Четвёртый ранг открывает выпавший «Орбитальный удар»")
 	for protocol_id in book_after:
 		_check(PROTOCOLS.PROTOCOLS.has(protocol_id), "Книга ссылается только на существующие протоколы")
 

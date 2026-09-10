@@ -46,6 +46,9 @@ static func default_state() -> Dictionary:
 		# ангара - захват заброшенной верфи (см. MapObjectDefs
 		# "abandoned_shipyard") открывает найм этого корабля без стройки.
 		"unlocked_dwellings": [],
+		# Случайные протоколы университета по уровням: {"1": [id, ...], ...}.
+		# Генерируются один раз при строительстве и сохраняются на всю кампанию.
+		"university_protocols": {},
 	}
 
 
@@ -90,6 +93,13 @@ static func load_state() -> Dictionary:
 		for entry in unlocked_dwellings:
 			cleaned.append(String(entry))
 		state["unlocked_dwellings"] = cleaned
+	var university_protocols = parsed.get("university_protocols", {})
+	if university_protocols is Dictionary:
+		var cleaned_protocols := {}
+		for level_key in university_protocols:
+			if university_protocols[level_key] is Array:
+				cleaned_protocols[str(level_key)] = (university_protocols[level_key] as Array).duplicate()
+		state["university_protocols"] = cleaned_protocols
 	return state
 
 

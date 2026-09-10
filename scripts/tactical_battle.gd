@@ -231,17 +231,17 @@ var backdrop_object: Dictionary = {}
 
 func _ready() -> void:
 	auto_battle_used = auto_battle or quick_battle
+	heroes[1] = _make_hero(1)
+	if guardian_index == -1:
+		heroes[2] = _make_hero(2)
 	_build_units()
 	_generate_obstacles()
 	_rebuild_turn_order()
 	active_unit_index = turn_order[0]
-	heroes[1] = _make_hero(1)
 	# Стражи на карте (пираты/конвои) — рядовые капитаны без протоколов; каст
 	# доступен только настоящему герою-противнику (см. _make_hero, side == 2
 	# вне боя со стражем). guardian_index != -1 значит бой запущен из
 	# _open_guardian_battle (см. space_strategy_map.gd).
-	if guardian_index == -1:
-		heroes[2] = _make_hero(2)
 	# The battle can be opened over the strategic map, whose Camera2D would keep
 	# offsetting this board. Own camera pins world space to screen space 1:1.
 	battle_camera = Camera2D.new()
@@ -349,6 +349,19 @@ func _override_blueprint(entry: Dictionary, side: int, order_index: int) -> Dict
 
 # hp — суммарная прочность пачки: целые корпуса плюс повреждённый головной.
 func _finalize_unit(unit: Dictionary) -> Dictionary:
+	var battle_hero: Dictionary = heroes.get(int(unit.get("side", 0)), {})
+	var hp_bonus := int(battle_hero.get("hp_bonus_percent", 0))
+	if hp_bonus > 0:
+		unit["hull"] = maxi(1, int(round(float(unit["hull"]) * (1.0 + float(hp_bonus) / 100.0))))
+	var damage_bonus := int(battle_hero.get("damage_bonus_percent", 0))
+	if damage_bonus > 0:
+		unit["damage_factor"] = 1.0 + float(damage_bonus) / 100.0
+	var range_bonus := int(battle_hero.get("range_bonus", 0))
+	if range_bonus > 0:
+		unit["range"] += range_bonus
+	var morale_chance := float(battle_hero.get("morale_chance", 0.0))
+	if morale_chance > 0.0:
+		unit["initiative"] += int(round(float(unit["initiative"]) * morale_chance))
 	unit["max_hp"] = unit["count"] * unit["hull"]
 	unit["hp"] = unit["max_hp"]
 	unit["start_count"] = unit["count"]
@@ -652,12 +665,15 @@ func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int)
 	else:
 		base = count * (damage_min + damage_max) * 0.5
 	var total := base * _damage_multiplier(attacker, target) * _range_penalty(distance)
+	if randf() < float(attacker.get("luck_chance", 0.0)):
+		total *= 1.5
 	return maxi(1, int(round(total)))
 
 
 func _expected_stack_damage(attacker: Dictionary, target: Dictionary, distance: int) -> int:
 	var average: float = _stack_count(attacker) * (_stat(attacker, "damage_min") + _stat(attacker, "damage_max")) * 0.5
-	return maxi(1, int(round(average * _damage_multiplier(attacker, target) * _range_penalty(distance))))
+	var luck_factor := 1.0 + float(attacker.get("luck_chance", 0.0)) * 0.5
+	return maxi(1, int(round(average * _damage_multiplier(attacker, target) * _range_penalty(distance) * luck_factor)))
 
 
 func _casualties_for(target: Dictionary, damage: int) -> int:

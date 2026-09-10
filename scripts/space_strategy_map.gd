@@ -819,8 +819,9 @@ func _update_hero_card() -> void:
 
 	artifacts_list.clear()
 	for artifact in hero.artifact_lines():
-		var item_index := artifacts_list.add_item(String(artifact["name"]))
-		artifacts_list.set_item_tooltip(item_index, String(artifact["description"]))
+		var item_index := artifacts_list.add_item("%s · %s" % [String(artifact["name"]), String(artifact["bonus"])])
+		artifacts_list.set_item_icon(item_index, artifact.get("texture") as Texture2D)
+		artifacts_list.set_item_tooltip(item_index, "%s\n%s" % [String(artifact["bonus"]), String(artifact["description"])])
 
 
 func _resolve_landing_cell(clicked_cell: Vector2i) -> Vector2i:
@@ -1084,8 +1085,7 @@ func pay_cost(cost: Dictionary) -> void:
 			player_one_resources[key] = int(player_one_resources.get(key, 0)) - amount
 
 
-## Обратная сторона pay_cost - зачисление с биржи (см. _sell_resource/
-## _buy_resource в human_planet_screen.gd).
+## Зачисляет кредиты за награды и события стратегической карты.
 func add_credits(amount: int) -> void:
 	player_one_credits += amount
 
