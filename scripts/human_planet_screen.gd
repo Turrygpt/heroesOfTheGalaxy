@@ -26,6 +26,7 @@ const MUSIC_FADED_VOLUME_DB := -40.0
 const FLEET_TRANSFER_ZONE := preload("res://scripts/fleet_transfer_zone.gd")
 const UNIVERSITY_DEFS := preload("res://scripts/university_defs.gd")
 const HERO_PROTOCOLS := preload("res://scripts/hero_protocols.gd")
+const UNIVERSITY_DIALOG := preload("res://scripts/university_protocols_dialog.gd")
 const HERO_PORTRAIT := preload("res://assets/heroes/ChatGPT Image 3 сент. 2026 г., 11_09_13.png")
 const SKILL_ICON_DIR := "res://assets/hero_skills"
 const GARRISON_SLOT_COUNT := 7
@@ -235,7 +236,7 @@ var barter_button: Button
 @onready var moon: TextureRect = $Root/Moon
 @onready var terrain_foreground: TextureRect = $Root/TerrainForeground
 @onready var construction_button: Button = $Root/BottomBar/Margin/Actions/Construction
-@onready var editor_button: Button = $Root/BottomBar/Margin/Actions/Editor
+@onready var university_button: Button = $Root/BottomBar/Margin/Actions/University
 @onready var construction_menu: PanelContainer = $Root/ConstructionMenu
 @onready var construction_options_list: VBoxContainer = $Root/ConstructionMenu/Margin/VBox/OptionsScroll/OptionsList
 @onready var construction_close: Button = $Root/ConstructionMenu/Margin/VBox/CloseButton
@@ -292,6 +293,7 @@ var hovered_building: Sprite2D
 var exchange_screen: PanelContainer = null
 var exchange_list: VBoxContainer = null
 var exchange_credits_label: Label = null
+var university_screen: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -331,7 +333,7 @@ func _ready() -> void:
 	delete_mode_button.toggled.connect(_set_delete_mode)
 	close_editor_button.pressed.connect(_close_building_editor)
 	construction_button.pressed.connect(_open_construction_menu)
-	editor_button.pressed.connect(_toggle_building_editor)
+	university_button.pressed.connect(_open_university_screen)
 	construction_close.pressed.connect(_close_construction_menu)
 	modal_close.pressed.connect(_close_building_modal)
 	building_modal.gui_input.connect(_on_modal_background_input)
@@ -446,7 +448,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		# Иначе Esc открывает меню настроек (GameSettings).
-	if event is InputEventKey and event.keycode == KEY_F7 and event.pressed and not event.echo:
+	if event is InputEventKey and event.keycode == KEY_F8 and event.pressed and not event.echo:
 		_toggle_building_editor()
 		get_viewport().set_input_as_handled()
 		return
@@ -893,6 +895,25 @@ func _open_construction_menu() -> void:
 		_close_building_editor()
 	construction_menu.show()
 	_update_construction_menu()
+
+
+func _open_university_screen() -> void:
+	_close_building_modal()
+	construction_menu.hide()
+	garrison_screen.hide()
+	_close_exchange_screen()
+	if editor_panel.visible:
+		_close_building_editor()
+	if is_instance_valid(university_screen):
+		return
+	university_screen = UNIVERSITY_DIALOG.new()
+	university_screen.closed.connect(_on_university_screen_closed)
+	add_child(university_screen)
+	university_screen.setup(_player_hero(), HumanPlanetState.load_state(), int(built_levels.get("mage_guild", 0)))
+
+
+func _on_university_screen_closed() -> void:
+	university_screen = null
 
 
 func _close_construction_menu() -> void:
