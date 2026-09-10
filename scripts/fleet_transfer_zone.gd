@@ -23,13 +23,18 @@ func _make_custom_tooltip(_for_text: String) -> Control:
 	if combat_tooltip_bbcode.is_empty():
 		return null
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(340, 0)
+	panel.custom_minimum_size = Vector2(360, 0)
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_theme_stylebox_override("panel", UI_STYLE.surface(UI_STYLE.CYAN, UI_STYLE.SURFACE, 14, 10))
 	var content := RichTextLabel.new()
 	content.bbcode_enabled = true
 	content.text = combat_tooltip_bbcode
-	content.fit_content = true
+	# Явная высота не даёт системной tooltip-модалке растянуться до высоты окна.
+	content.custom_minimum_size = Vector2(332, 206)
+	content.size = Vector2(332, 206)
+	content.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	content.fit_content = false
 	content.scroll_active = false
 	content.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
