@@ -37,6 +37,7 @@ const SKILL_ICON_DIR := "res://assets/hero_skills"
 const GARRISON_SLOT_COUNT := 7
 const HERO_ARMY_SLOT_COUNT := 7
 const FLEET_CARD_SIZE := Vector2(112, 132)
+const TIER_ROMAN := ["", "I", "II", "III", "IV", "V", "VI", "VII"]
 
 const BUILDING_CATALOG := [
 	{"kind": "townhall", "level": 1, "texture": preload("res://assets/planet_surface/human/townhall1.png")},
@@ -1768,7 +1769,9 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_inde
 	card.custom_minimum_size = FLEET_CARD_SIZE
 	card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	card.mouse_default_cursor_shape = Control.CURSOR_DRAG if enabled else Control.CURSOR_FORBIDDEN
-	card.tooltip_text = "%s · %d кораблей\nПеретащите на пустой слот, такой же стек или другой стек." % [String(unit["label"]), count]
+	var tier := clampi(int(unit.get("tier", 1)), 1, TIER_ROMAN.size() - 1)
+	var display_name := "%s · %s ранг" % [String(unit["label"]), TIER_ROMAN[tier]]
+	card.tooltip_text = "%s · %d кораблей\nПеретащите на пустой слот, такой же стек или другой стек." % [display_name, count]
 	var hero: Hero = _player_hero() if source_id == "hero" else null
 	card.combat_tooltip_bbcode = _fleet_card_combat_tooltip(unit, count, hero)
 	card.add_theme_stylebox_override("panel", preload("res://scripts/ui_style.gd").button_style("normal"))
@@ -1781,7 +1784,7 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_inde
 	var name_label := Label.new()
 	name_label.add_theme_font_size_override("font_size", 11)
 	name_label.add_theme_color_override("font_color", Color(0.88, 0.97, 1, 1))
-	name_label.text = String(unit["label"])
+	name_label.text = display_name
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1836,7 +1839,7 @@ func _fleet_card_combat_tooltip(unit: Dictionary, count: int, hero: Hero = null)
 	var attack_range := int(unit.get("range", 0))
 	var initiative := int(unit.get("initiative", 0))
 	var lines: Array[String] = [
-		"[color=%s][b]%s · %d кораблей[/b][/color]" % [BASE_COLOR, String(unit.get("label", "Корабль")), count],
+		"[color=%s][b]%s · %s ранг · %d кораблей[/b][/color]" % [BASE_COLOR, String(unit.get("label", "Корабль")), TIER_ROMAN[clampi(int(unit.get("tier", 1)), 1, TIER_ROMAN.size() - 1)], count],
 		"[color=%s]Корпус: %d[/color]" % [BASE_COLOR, hull],
 		"[color=%s]Атака: %d · Защита: %d[/color]" % [BASE_COLOR, attack, defense],
 		"[color=%s]Урон: %d–%d[/color]" % [BASE_COLOR, damage_min, damage_max],
