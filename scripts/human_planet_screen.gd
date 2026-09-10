@@ -754,6 +754,7 @@ func _make_building_nameplate(text: String) -> PanelContainer:
 	plate.add_theme_stylebox_override("panel", style)
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1543,6 +1544,7 @@ func _add_hero_skill_tile(container: HFlowContainer, texture: Texture2D, skill_n
 	tile.tooltip_text = "%s — %s\n%s" % [skill_name, tier_name, description]
 	container.add_child(tile)
 	var frame := PanelContainer.new()
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.custom_minimum_size = Vector2(56, 56)
 	var frame_style := StyleBoxFlat.new()
 	frame_style.bg_color = Color("111419")
@@ -1842,12 +1844,15 @@ func _fleet_card_combat_tooltip(unit: Dictionary, count: int, hero: Hero = null)
 	var move := int(unit.get("move", 0))
 	var attack_range := int(unit.get("range", 0))
 	var initiative := int(unit.get("initiative", 0))
+	var morale_percent := 100 + int(round(hero.morale_chance() * 100.0)) if hero != null else 100
+	var crit_percent := 10 + int(round(hero.luck_chance() * 100.0)) if hero != null else 10
 	var lines: Array[String] = [
 		"[color=%s][b]%s · %s ранг · %d кораблей[/b][/color]" % [BASE_COLOR, String(unit.get("label", "Корабль")), TIER_ROMAN[clampi(int(unit.get("tier", 1)), 1, TIER_ROMAN.size() - 1)], count],
 		"[color=%s]Корпус: %d[/color]" % [BASE_COLOR, hull],
 		"[color=%s]Атака: %d · Защита: %d[/color]" % [BASE_COLOR, attack, defense],
 		"[color=%s]Урон: %d–%d[/color]" % [BASE_COLOR, damage_min, damage_max],
 		"[color=%s]Манёвр: %d · Дальность: %d · Инициатива: %d[/color]" % [BASE_COLOR, move, attack_range, initiative],
+		"[color=%s]Мораль: %d%% · Удача (крит): %d%%[/color]" % [BASE_COLOR, morale_percent, crit_percent],
 	]
 	if hero != null:
 		var hp_bonus := hero.hp_bonus_percent()
@@ -1863,6 +1868,10 @@ func _fleet_card_combat_tooltip(unit: Dictionary, count: int, hero: Hero = null)
 		var morale_bonus := int(round(float(initiative) * hero.morale_chance()))
 		if morale_bonus > 0:
 			lines.append("[color=%s]+%d к инициативе (лидерство)[/color]" % [BONUS_COLOR, morale_bonus])
+		if hero.morale_chance() != 0.0:
+			lines.append("[color=%s]%+d%% к морали (лидерство)[/color]" % [BONUS_COLOR, int(round(hero.morale_chance() * 100.0))])
+		if hero.luck_chance() != 0.0:
+			lines.append("[color=%s]%+d%% к криту (удача)[/color]" % [BONUS_COLOR, int(round(hero.luck_chance() * 100.0))])
 	lines.append("[color=%s][i]Перетащите стек на пустой слот, такой же или другой стек.[/i][/color]" % [BASE_COLOR])
 	return "\n".join(lines)
 
