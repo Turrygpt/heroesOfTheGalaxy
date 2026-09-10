@@ -346,6 +346,7 @@ func _ready() -> void:
 	close_editor_button.pressed.connect(_close_building_editor)
 	construction_button.pressed.connect(_open_construction_menu)
 	university_button.pressed.connect(_open_university_screen)
+	university_button.text = "ПРОТОКОЛЫ"
 	construction_close.pressed.connect(_close_construction_menu)
 	modal_close.pressed.connect(_close_building_modal)
 	_setup_modal_recruitment()
@@ -355,6 +356,7 @@ func _ready() -> void:
 	garrison_close.pressed.connect(_close_garrison_screen)
 	_load_building_slots()
 	_load_planet_state()
+	_update_university_button()
 	_sync_university_protocols()
 	_rebuild_building_visuals()
 	_update_planet_info()
@@ -1020,6 +1022,8 @@ func _open_construction_menu() -> void:
 
 
 func _open_university_screen() -> void:
+	if university_button.disabled:
+		return
 	_close_building_modal()
 	construction_menu.hide()
 	garrison_screen.hide()
@@ -2339,6 +2343,7 @@ func _construct_kind(kind: String) -> void:
 	_commit_strategy_economy_change()
 	_rebuild_building_visuals()
 	_update_construction_menu()
+	_update_university_button()
 	_update_planet_info()
 	_update_resource_bar()
 
@@ -2472,6 +2477,13 @@ func _load_planet_state() -> void:
 		# считает его построенным, экран планеты не должен показывать иначе.
 		var minimum_level := 1 if kind == "townhall" else 0
 		built_levels[kind] = clampi(int(saved_levels.get(kind, minimum_level)), minimum_level, max_level)
+
+
+## Протоколы доступны только после постройки хотя бы первого уровня университета.
+func _update_university_button() -> void:
+	var level := int(built_levels.get("mage_guild", 0))
+	university_button.disabled = level <= 0
+	university_button.tooltip_text = "Постройте университет, чтобы изучать протоколы." if level <= 0 else "Открыть протоколы героя."
 
 
 func _sync_university_protocols() -> void:
