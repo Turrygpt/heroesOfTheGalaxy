@@ -412,6 +412,8 @@ func _finalize_unit(unit: Dictionary) -> Dictionary:
 	if range_bonus > 0:
 		unit["range"] += range_bonus
 	unit["leadership_chance"] = float(battle_hero.get("leadership_chance", 0.0))
+	unit["morale_chance"] = unit["leadership_chance"]
+	unit["luck_chance"] = float(battle_hero.get("luck_chance", 0.0))
 	unit["leadership_used_round"] = 0
 	unit["max_hp"] = unit["count"] * unit["hull"]
 	unit["hp"] = unit["max_hp"]
@@ -734,7 +736,7 @@ func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int)
 
 func _expected_stack_damage(attacker: Dictionary, target: Dictionary, distance: int) -> int:
 	var average: float = _stack_count(attacker) * (_stat(attacker, "damage_min") + _stat(attacker, "damage_max")) * 0.5
-	var luck_factor := 1.0 + float(attacker.get("luck_chance", 0.0)) * 0.5
+	var luck_factor := 1.0 + float(attacker.get("luck_chance", 0.0))
 	return maxi(1, int(round(average * _damage_multiplier(attacker, target) * _range_penalty(distance) * luck_factor)))
 
 
@@ -2164,6 +2166,8 @@ func _draw_unit_tooltip(unit: Dictionary) -> void:
 		"Атака %d  ·  Защита %d" % [_stat(unit, "attack"), _stat(unit, "defense")],
 		"Урон залпа: %d–%d" % [_stat(unit, "damage_min"), _stat(unit, "damage_max")],
 		"Манёвр %d  ·  Дальность %d  ·  Инициатива %d" % [_stat(unit, "move"), _stat(unit, "range"), _stat(unit, "initiative")],
+		"Мораль: %d%% (шанс двойного хода)" % int(round(float(unit.get("morale_chance", 0.0)) * 100.0)),
+		"Удача: %d%% (шанс критического урона ×2)" % int(round(float(unit.get("luck_chance", 0.0)) * 100.0)),
 	]
 	var effects_text := _effects_text(unit)
 	if effects_text != "":
@@ -2182,6 +2186,7 @@ func _draw_unit_tooltip(unit: Dictionary) -> void:
 	draw_rect(box, Color(0.015, 0.04, 0.07, 0.96), true)
 	draw_rect(box, GOLD_COLOR, false, 1.5)
 	for index in range(lines.size()):
+		var line_color := GOLD_COLOR if index == 0 else (Color(0.45, 0.80, 1.0) if index in [6, 7] else Color(0.94, 0.97, 1.0))
 		draw_string(
 			font,
 			box_position + Vector2(padding.x, padding.y + (index + 1) * line_height - 5.0),
@@ -2189,7 +2194,7 @@ func _draw_unit_tooltip(unit: Dictionary) -> void:
 			HORIZONTAL_ALIGNMENT_LEFT,
 			content_width,
 			font_size,
-			GOLD_COLOR if index == 0 else Color(0.94, 0.97, 1.0)
+			line_color
 		)
 
 
