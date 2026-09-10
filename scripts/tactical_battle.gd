@@ -1482,7 +1482,8 @@ func _has_line_of_sight(from: Vector2i, to: Vector2i) -> bool:
 # (scripts/protocol_book_hud.gd), а энергия видна через _hover_hint().
 
 func _can_cast(side: int, id: String) -> bool:
-	if battle_finished or not heroes.has(side):
+	# Нейтральные пираты и торговцы с guardian_index не имеют командира.
+	if battle_finished or not heroes.has(side) or (side == 2 and guardian_index >= 0):
 		return false
 	var hero: Dictionary = heroes[side]
 	var cooldowns: Dictionary = hero.get("protocol_cooldowns", {})
