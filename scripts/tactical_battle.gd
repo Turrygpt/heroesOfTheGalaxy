@@ -411,8 +411,9 @@ func _finalize_unit(unit: Dictionary) -> Dictionary:
 	var range_bonus := int(battle_hero.get("range_bonus", 0))
 	if range_bonus > 0:
 		unit["range"] += range_bonus
-	unit["leadership_chance"] = float(battle_hero.get("leadership_chance", 0.0))
-	unit["morale_chance"] = unit["leadership_chance"]
+	# 1.0 (100%) — обычный ход. Бонус лидерства героя поднимает мораль выше 100%.
+	unit["morale_chance"] = 1.0 + float(battle_hero.get("leadership_chance", 0.0))
+	unit["leadership_chance"] = unit["morale_chance"]
 	unit["luck_chance"] = float(battle_hero.get("luck_chance", 0.0))
 	unit["leadership_used_round"] = 0
 	unit["max_hp"] = unit["count"] * unit["hull"]
@@ -770,6 +771,14 @@ func _begin_active_turn() -> void:
 	var unit := _active_unit()
 	unit["moved"] = false
 	unit["shot"] = false
+	if _morale_turn_is_skipped(unit):
+		last_event = "%s теряет ход из-за низкой морали" % unit["label"]
+		unit["moved"] = true
+		unit["shot"] = true
+		turn_pending = true
+		_update_hud()
+		queue_redraw()
+		return
 	if _is_stunned(unit):
 		unit["moved"] = true
 		unit["shot"] = true
@@ -801,19 +810,23 @@ func _maybe_finish_active_turn() -> void:
 		turn_pending = true
 
 
-## Лидерство даёт внеочередной ход текущей пачке. Один такой шанс на пачку
-## за раунд предотвращает бесконечные цепочки, но сохраняет эффект морали.
+## Проверка морали выполняется в начале каждого хода отряда.
+## Ниже 100% отряд может пропустить ход, выше 100% — получить дополнительный.
+func _morale_turn_is_skipped(unit: Dictionary) -> bool:
+	var morale := clampf(float(unit.get("morale_chance", 1.0)), 0.0, 2.0)
+	if morale >= 1.0:
+		return false
+	return randf() >= morale
+
+
 func _try_leadership_extra_turn() -> bool:
 	var active := _active_unit()
 	if active["hp"] <= 0:
 		return false
-	if int(active.get("leadership_used_round", 0)) == round_number:
-		return false
-	var chance := float(active.get("leadership_chance", 0.0))
+	var chance := clampf(float(active.get("morale_chance", 1.0)) - 1.0, 0.0, 1.0)
 	if chance <= 0.0 or randf() >= chance:
 		return false
-	active["leadership_used_round"] = round_number
-	last_event = "%s получает внеочередной ход благодаря Лидерству" % active["label"]
+	last_event = "%s получает дополнительный ход благодаря высокой морали" % active["label"]
 	return true
 
 
@@ -2166,7 +2179,7 @@ func _draw_unit_tooltip(unit: Dictionary) -> void:
 		"Атака %d  ·  Защита %d" % [_stat(unit, "attack"), _stat(unit, "defense")],
 		"Урон залпа: %d–%d" % [_stat(unit, "damage_min"), _stat(unit, "damage_max")],
 		"Манёвр %d  ·  Дальность %d  ·  Инициатива %d" % [_stat(unit, "move"), _stat(unit, "range"), _stat(unit, "initiative")],
-		"Мораль: %d%% (шанс двойного хода)" % int(round(float(unit.get("morale_chance", 0.0)) * 100.0)),
+		"Мораль: %d%% (100%% — норма, выше — шанс двойного хода, ниже — пропуск)" % int(round(float(unit.get("morale_chance", 1.0)) * 100.0)),
 		"Удача: %d%% (шанс критического урона ×2)" % int(round(float(unit.get("luck_chance", 0.0)) * 100.0)),
 	]
 	var effects_text := _effects_text(unit)
