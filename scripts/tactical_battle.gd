@@ -1162,9 +1162,9 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 	})
 	# Компактная подпись не обрезается шириной боевого поля и не оставляет
 	# лишние скобки/тире после числа критического урона.
-	var floater_text := ("КРИТ! −%d" % damage) if critical else ("−%d" % damage)
+	var floater_text := ("КРИТ! %d" % damage) if critical else ("%d" % damage)
 	if losses > 0:
-		floater_text += " · −%d кор." % losses
+		floater_text += " · %d кор." % losses
 	floaters.append({
 		"position": _hex_center(target["cell"], origin) + Vector2(0.0, -50.0),
 		"text": floater_text,
@@ -1630,6 +1630,7 @@ func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) ->
 		units[jumper]["moved"] = false
 		_spawn_cast_fx(_hex_center(cell, origin), color, 0)
 		report += " — %s уходит в прыжок" % units[jumper]["label"]
+		floaters.append({"position": _hex_center(cell, origin) + Vector2(0.0, -50.0), "text": protocol["name"], "critical": false, "protocol": true, "time": FLOATER_DURATION, "delay": 0.0})
 		last_event = report
 		_update_hud()
 		queue_redraw()
@@ -1670,6 +1671,8 @@ func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) ->
 			for index in targets:
 				_add_effect(units[index], id, power)
 			report += " → %s" % units[targets[0]]["label"] if targets.size() == 1 else " — весь флот"
+	for index in targets:
+		floaters.append({"position": _hex_center(units[index]["cell"], origin) + Vector2(0.0, -50.0), "text": protocol["name"], "critical": false, "protocol": true, "time": FLOATER_DURATION, "delay": 0.0})
 	last_event = report
 	_check_battle_end()
 	_update_hud()
