@@ -523,8 +523,10 @@ func _toggle_auto_battle() -> void:
 	if is_instance_valid(book_popup):
 		book_popup.queue_free()
 		book_popup = null
-	if _active_unit()["side"] == 1:
-		enemy_turn_delay = 0.1 if auto_battle and not turn_pending and enemy_attack_delay < 0.0 else -1.0
+	# Автобой может быть включён и в момент хода врага, и между анимациями.
+	# В обоих случаях запускаем обработчик текущего отряда, иначе бой визуально
+	# замирал до следующего ручного действия.
+	enemy_turn_delay = 0.1 if auto_battle and not turn_pending and enemy_attack_delay < 0.0 else -1.0
 	_update_hud()
 
 
