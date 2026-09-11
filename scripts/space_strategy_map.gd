@@ -2925,7 +2925,10 @@ func _trigger_distress_signal(index: int) -> void:
 	var faction := "pirate" if map_random.randi_range(0, 1) == 0 else "trader"
 	var tier := map_random.randi_range(DISTRESS_JOIN_TIER_MIN, DISTRESS_JOIN_TIER_MAX)
 	var count := map_random.randi_range(DISTRESS_JOIN_COUNT_MIN, DISTRESS_JOIN_COUNT_MAX)
-	var unit_id := "%s_%s" % [faction, ["fighter", "gunship", "corvette"][tier - 1]]
+	# У пиратов корабль I ранга называется raider, а не pirate_fighter.
+	# Явные списки не дают вывести технический id и добавить несуществующий тип.
+	var unit_ids := ["raider", "pirate_gunship", "pirate_corvette"] if faction == "pirate" else ["trader_fighter", "trader_gunship", "trader_corvette"]
+	var unit_id := String(unit_ids[tier - 1])
 	var unit_label := String(UnitDefs.get_unit(unit_id).get("label", unit_id))
 	var description := "На сигнал откликнулся отряд: %s ×%d. Принять их во флот?" % [unit_label, count]
 	var choices: Array[Dictionary] = [
