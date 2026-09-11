@@ -1114,16 +1114,17 @@ func _defensive_move_cell_score(
 	# любое заметное изменение дистанции штрафуется одинаково.
 	var distance_change := float(target_distance - current_distance)
 	var score := -absf(distance_change) * DEFENSIVE_DISTANCE_WEIGHT
-	var board_center := Vector2i(GRID_COLUMNS / 2, GRID_ROWS / 2)
-	score -= float(_hex_distance(cell, board_center)) * 8.0
+	var base_cells: Array = SIDE1_CELLS if int(active["side"]) == 1 else SIDE2_CELLS
+	var base_distance := 999
+	for base_cell in base_cells:
+		base_distance = mini(base_distance, _hex_distance(cell, base_cell))
+	# В защитном режиме флот держится возле своей базы, пока враг не вошёл
+	# в зону угрозы. При угрозе бонус залпа ниже перевешивает этот приоритет.
+	score -= float(base_distance) * 8.0
 	score -= _encirclement_penalty(cell, int(active["side"]))
 	if not inevitable:
 		if can_shoot:
 			score -= DEFENSIVE_DANGER_WEIGHT
-		else:
-			# Нельзя оборонять базу, оставаясь вне собственной дальности огня:
-			# до позиции залпа корабль сближается, затем удерживает эшелон.
-			score -= MOVE_SCORE_APPROACH * float(target_distance)
 		return score
 	if can_shoot:
 		score += MOVE_SCORE_CAN_SHOOT
