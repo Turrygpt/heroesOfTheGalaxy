@@ -1139,9 +1139,11 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 		"color": Color(0.55, 0.9, 1.0) if attacker["side"] == 1 else Color(1.0, 0.62, 0.45),
 		"weapon_type": String(attacker.get("weapon_type", "cannon")),
 	})
-	var floater_text := ("КРИТ!  -%d" % damage) if critical else ("-%d" % damage)
+	# Компактная подпись не обрезается шириной боевого поля и не оставляет
+	# лишние скобки/тире после числа критического урона.
+	var floater_text := ("КРИТ! −%d" % damage) if critical else ("−%d" % damage)
 	if losses > 0:
-		floater_text += "   (−%d кор.)" % losses
+		floater_text += " · −%d кор." % losses
 	floaters.append({
 		"position": _hex_center(target["cell"], origin) + Vector2(0.0, -50.0),
 		"text": floater_text,
