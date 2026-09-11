@@ -830,6 +830,16 @@ func _try_leadership_extra_turn() -> bool:
 	if chance <= 0.0 or randf() >= chance:
 		return false
 	last_event = "%s получает дополнительный ход благодаря высокой морали" % active["label"]
+	var origin := _grid_origin()
+	floaters.append({
+		"position": _hex_center(active["cell"], origin) + Vector2(0.0, -50.0),
+		"text": "МОРАЛЬ! +ХОД",
+		"critical": false,
+		"morale": true,
+		"shake_seed": float(active["cell"].x * 13 + active["cell"].y * 29),
+		"time": FLOATER_DURATION,
+		"delay": 0.0,
+	})
 	return true
 
 
@@ -1992,12 +2002,13 @@ func _draw_floater(floater: Dictionary) -> void:
 	var progress: float = 1.0 - floater["time"] / FLOATER_DURATION
 	var anchor: Vector2 = floater["position"] - Vector2(70.0, 26.0 * progress)
 	var critical := bool(floater.get("critical", false))
+	var morale := bool(floater.get("morale", false))
 	if critical:
 		var seed := float(floater.get("shake_seed", 0.0))
 		anchor += Vector2(sin(visual_time * 42.0 + seed), cos(visual_time * 37.0 + seed)) * 5.0
 	var alpha: float = minf(1.0, floater["time"] / 0.45)
-	var font_size := 21 if critical else 16
-	var color := Color(1.0, 0.32, 0.18, alpha) if critical else Color(1.0, 0.86, 0.55, alpha)
+	var font_size := 21 if critical or morale else 16
+	var color := Color(1.0, 0.32, 0.18, alpha) if critical else (Color(0.45, 0.9, 1.0, alpha) if morale else Color(1.0, 0.86, 0.55, alpha))
 	draw_string(ThemeDB.fallback_font, anchor + Vector2(0.0, 2.0), floater["text"], HORIZONTAL_ALIGNMENT_CENTER, 140.0, font_size, Color(0.03, 0.01, 0.02, alpha))
 	draw_string(ThemeDB.fallback_font, anchor, floater["text"], HORIZONTAL_ALIGNMENT_CENTER, 140.0, font_size, color)
 
