@@ -1510,7 +1510,8 @@ func _can_cast(side: int, id: String) -> bool:
 		return false
 	var hero: Dictionary = heroes[side]
 	var cooldowns: Dictionary = hero.get("protocol_cooldowns", {})
-	if not (hero["book"] as Array).has(id) or int(cooldowns.get(id, -1)) == round_number:
+	# Командир активирует лишь один протокол за раунд, независимо от его типа.
+	if not (hero["book"] as Array).has(id) or int(cooldowns.get(id, -1)) == round_number or int(hero.get("cast_round", -1)) == round_number:
 		return false
 	return int(hero["energy"]) >= int(PROTOCOLS.get_protocol(id)["cost"])
 
@@ -1609,6 +1610,13 @@ func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) ->
 	var protocol: Dictionary = PROTOCOLS.get_protocol(id)
 	if not _can_cast(side, id):
 		return
+	var target_mode := String(protocol["target"])
+	# Защита на уровне применения: бафф не затронет врага, а урон и дебафф —
+	# союзника, даже если вызов пришёл не из ручного наведения.
+	if target_mode == "ally" and (target_index < 0 or units[target_index]["side"] != side):
+		return
+	if target_mode == "enemy" and (target_index < 0 or units[target_index]["side"] == side):
+		return
 	var power := int(hero["power"])
 	hero["energy"] = int(hero["energy"]) - int(protocol["cost"])
 	var cooldowns: Dictionary = hero.get("protocol_cooldowns", {})
@@ -1692,8 +1700,11 @@ func _protocol_targets(side: int, protocol: Dictionary, target_index: int, cell:
 			for index in range(units.size()):
 				if units[index]["hp"] > 0 and _hex_distance(units[index]["cell"], cell) <= radius:
 					result.append(index)
-		_:
-			if target_index >= 0 and units[target_index]["hp"] > 0:
+		"ally":
+			if target_index >= 0 and units[target_index]["hp"] > 0 and units[target_index]["side"] == side:
+				result.append(target_index)
+		"enemy":
+			if target_index >= 0 and units[target_index]["hp"] > 0 and units[target_index]["side"] != side:
 				result.append(target_index)
 	return result
 

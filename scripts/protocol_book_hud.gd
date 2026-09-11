@@ -146,7 +146,8 @@ func _row(protocol_id: String, cooldowns: Dictionary) -> Control:
 	var cost := int(protocol["cost"])
 	var energy := int(hero.get("energy", 0))
 	var on_cooldown := int(cooldowns.get(protocol_id, -1)) == round_number
-	var affordable := energy >= cost and not on_cooldown
+	var protocol_used := int(hero.get("cast_round", -1)) == round_number
+	var affordable := energy >= cost and not on_cooldown and not protocol_used
 	var school: String = protocol["school"]
 	var school_color: Color = PROTOCOLS.school_color(protocol_id)
 	var ink := INK if affordable else MUTED
@@ -184,7 +185,8 @@ func _row(protocol_id: String, cooldowns: Dictionary) -> Control:
 	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_pill.add_child(cost_label)
 	action.add_child(cost_pill)
-	var button := _button("ПЕРЕЗАРЯДКА" if on_cooldown else "ПРИМЕНИТЬ", school_color, 132)
+	var button_text := "ХОД ИСЧЕРПАН" if protocol_used else ("ПЕРЕЗАРЯДКА" if on_cooldown else "ПРИМЕНИТЬ")
+	var button := _button(button_text, school_color, 132)
 	button.disabled = not affordable
 	preload("res://scripts/ui_style.gd").apply_button(button)
 	button.pressed.connect(_choose.bind(protocol_id))
