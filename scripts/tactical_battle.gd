@@ -1120,6 +1120,10 @@ func _defensive_move_cell_score(
 	if not inevitable:
 		if can_shoot:
 			score -= DEFENSIVE_DANGER_WEIGHT
+		else:
+			# Нельзя оборонять базу, оставаясь вне собственной дальности огня:
+			# до позиции залпа корабль сближается, затем удерживает эшелон.
+			score -= MOVE_SCORE_APPROACH * float(target_distance)
 		return score
 	if can_shoot:
 		score += MOVE_SCORE_CAN_SHOOT
