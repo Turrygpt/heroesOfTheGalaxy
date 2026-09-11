@@ -99,6 +99,18 @@ func _run() -> void:
 	_check(battle.battle_finished, "A complete battle must reach a result without getting stuck")
 	battle.free()
 
+	# Автобой обязан продолжить текущий ход сразу после переключения режима.
+	battle = scene.instantiate()
+	root.add_child(battle)
+	battle.set_process(false)
+	battle._toggle_auto_battle()
+	for tick in range(800):
+		if battle.battle_finished:
+			break
+		battle._process(1.0)
+	_check(battle.battle_finished, "Autobattle must finish without manual input")
+	battle.free()
+
 	# Реальный флот теперь хранится слотами: одинаковые корабли в разных слотах
 	# должны входить в бой отдельными пачками и занимать разные стартовые гексы.
 	battle = scene.instantiate()

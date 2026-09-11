@@ -42,7 +42,7 @@ const UNITS := {
 	"ork_fighter": {
 		"label": "Коготь", "role": "обычный истребитель 1 ранга (короткая дистанция)", "tier": 1,
 		"hull": 6, "attack": 6, "defense": 5, "damage_min": 1, "damage_max": 3,
-		"move": 8, "range": 2, "initiative": 13, "sprite_width": 104.0, "weapon_type": "machine_gun",
+		"move": 8, "range": 1, "initiative": 13, "sprite_width": 104.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/orc/claw.png"), "region": Rect2(0, 0, 1422, 509),
 		"kind": "orc_dwelling", "dwelling": "ork_fighter_yard", "dwelling_level": 1,
 		"cost": {"credits": 50}, "weekly_growth": 10,
@@ -51,7 +51,7 @@ const UNITS := {
 	"ork_elite_fighter": {
 		"label": "Элитный Коготь", "role": "элитный истребитель 1 ранга (короткая дистанция)", "tier": 1,
 		"hull": 11, "attack": 8, "defense": 6, "damage_min": 3, "damage_max": 6,
-		"move": 7, "range": 2, "initiative": 11, "sprite_width": 112.0, "weapon_type": "machine_gun",
+		"move": 7, "range": 1, "initiative": 11, "sprite_width": 112.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/orc/elite_claw.png"), "region": Rect2(0, 0, 1426, 512),
 		"kind": "orc_dwelling", "dwelling": "ork_fighter_yard", "dwelling_level": 2,
 		"cost": {"credits": 90, "Руда": 1}, "weekly_growth": 8,
@@ -61,7 +61,7 @@ const UNITS := {
 	"ork_gunship": {
 		"label": "Пиранья", "role": "обычный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
 		"hull": 16, "attack": 8, "defense": 6, "damage_min": 4, "damage_max": 7,
-		"move": 7, "range": 2, "initiative": 11, "sprite_width": 124.0, "weapon_type": "rocket",
+		"move": 7, "range": 1, "initiative": 11, "sprite_width": 124.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/orc/piranha.png"), "region": Rect2(0, 0, 1330, 556),
 		"kind": "orc_dwelling", "dwelling": "ork_gunship_yard", "dwelling_level": 1,
 		"cost": {"credits": 150, "Руда": 5}, "weekly_growth": 6,
@@ -70,7 +70,7 @@ const UNITS := {
 	"ork_elite_gunship": {
 		"label": "Элитная Пиранья", "role": "элитный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
 		"hull": 26, "attack": 10, "defense": 8, "damage_min": 6, "damage_max": 10,
-		"move": 7, "range": 2, "initiative": 12, "sprite_width": 132.0, "weapon_type": "rocket",
+		"move": 7, "range": 1, "initiative": 12, "sprite_width": 132.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/orc/elite_piranha.png"), "region": Rect2(0, 0, 1336, 560),
 		"kind": "orc_dwelling", "dwelling": "ork_gunship_yard", "dwelling_level": 2,
 		"cost": {"credits": 250, "Руда": 8, "Энергокристаллы": 2}, "weekly_growth": 5,
@@ -80,7 +80,7 @@ const UNITS := {
 	"ork_corvette": {
 		"label": "Акула", "role": "обычный корвет 3 ранга (дальнобойный)", "tier": 3,
 		"hull": 32, "attack": 11, "defense": 8, "damage_min": 8, "damage_max": 13,
-		"move": 6, "range": 3, "initiative": 9, "sprite_width": 140.0, "weapon_type": "cannon",
+		"move": 6, "range": 2, "initiative": 9, "sprite_width": 140.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/shark.png"), "region": Rect2(0, 0, 1644, 583),
 		"kind": "orc_dwelling", "dwelling": "ork_corvette_yard", "dwelling_level": 1,
 		"cost": {"credits": 400, "Руда": 10, "Топливо": 5}, "weekly_growth": 4,
@@ -89,7 +89,7 @@ const UNITS := {
 	"ork_elite_corvette": {
 		"label": "Элитная Акула", "role": "элитный корвет 3 ранга (дальнобойный)", "tier": 3,
 		"hull": 51, "attack": 14, "defense": 10, "damage_min": 12, "damage_max": 20,
-		"move": 6, "range": 4, "initiative": 9, "sprite_width": 150.0, "weapon_type": "cannon",
+		"move": 6, "range": 2, "initiative": 9, "sprite_width": 150.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/elite_shark.png"), "region": Rect2(0, 0, 1645, 584),
 		"kind": "orc_dwelling", "dwelling": "ork_corvette_yard", "dwelling_level": 2,
 		"cost": {"credits": 650, "Руда": 16, "Топливо": 8}, "weekly_growth": 3,

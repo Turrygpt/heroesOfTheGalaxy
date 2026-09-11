@@ -132,14 +132,14 @@ const UNIT_BLUEPRINTS := [
 		"cell": Vector2i(1, 1), "side": 1, "count": 23, "tier": 1,
 		"label": "Перехватчик", "role": "лёгкий истребитель (короткая дистанция)",
 		"hull": 7, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
-		"move": 7, "range": 2, "initiative": 12, "sprite_width": 104.0, "weapon_type": "machine_gun",
+		"move": 7, "range": 1, "initiative": 12, "sprite_width": 104.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/human_new/interceptor.png"), "region": Rect2(220, 356, 1290, 382),
 	},
 	{
 		"cell": Vector2i(2, 4), "side": 1, "count": 8, "tier": 2,
 		"label": "Штурмовик", "role": "истребитель 2 уровня (короткая дистанция)",
 		"hull": 14, "attack": 8, "defense": 7, "damage_min": 3, "damage_max": 6,
-		"move": 6, "range": 2, "initiative": 10, "sprite_width": 112.0, "weapon_type": "machine_gun",
+		"move": 6, "range": 1, "initiative": 10, "sprite_width": 112.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/human_new/heavy_interceptor.png"), "region": Rect2(218, 358, 1292, 432),
 	},
 	{
@@ -1625,6 +1625,10 @@ func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) ->
 	cooldowns[id] = round_number
 	hero["protocol_cooldowns"] = cooldowns
 	hero["cast_round"] = round_number
+	# Dictionary, извлечённый по ключу, может быть локальной копией. Возвращаем
+	# его в таблицу героев, иначе ИИ бесконечно повторяет один протокол и не
+	# переходит к манёвру.
+	heroes[side] = hero
 	var color: Color = PROTOCOLS.school_color(id)
 	var origin := _grid_origin()
 	var kind: String = protocol["kind"]
@@ -1796,7 +1800,7 @@ func _strongest_enemy_stack(side: int) -> int:
 	var best := -1
 	var best_score := -1.0
 	for index in range(units.size()):
-		if units[index]["side"] != side or units[index]["hp"] <= 0:
+		if units[index]["side"] == side or units[index]["hp"] <= 0:
 			continue
 		var score := float(_stat(units[index], "attack")) * float(_stack_count(units[index]))
 		if score > best_score:

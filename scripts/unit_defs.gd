@@ -24,7 +24,7 @@ const UNITS := {
 	"interceptor": {
 		"label": "Истребитель", "role": "обычный истребитель 1 ранга (короткая дистанция)", "tier": 1,
 		"hull": 8, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
-		"move": 7, "range": 2, "initiative": 12, "sprite_width": 104.0, "weapon_type": "machine_gun",
+		"move": 7, "range": 1, "initiative": 12, "sprite_width": 104.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/human_new/interceptor.png"), "region": Rect2(220, 356, 1290, 382),
 		"kind": "dwelling", "dwelling": "fighter_yard", "dwelling_level": 1,
 		"cost": {"credits": 50}, "weekly_growth": 10,
@@ -32,7 +32,7 @@ const UNITS := {
 	"heavy_interceptor": {
 		"label": "Элитный истребитель", "role": "элитный истребитель 1 ранга (короткая дистанция)", "tier": 1,
 		"hull": 14, "attack": 8, "defense": 7, "damage_min": 3, "damage_max": 6,
-		"move": 6, "range": 2, "initiative": 10, "sprite_width": 112.0, "weapon_type": "machine_gun",
+		"move": 6, "range": 1, "initiative": 10, "sprite_width": 112.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/human_new/heavy_interceptor.png"), "region": Rect2(218, 358, 1292, 432),
 		"kind": "dwelling", "dwelling": "fighter_yard", "dwelling_level": 2,
 		"cost": {"credits": 90, "Руда": 1}, "weekly_growth": 8,
@@ -40,7 +40,7 @@ const UNITS := {
 	"gunship": {
 		"label": "Штурмовик", "role": "обычный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
 		"hull": 20, "attack": 8, "defense": 8, "damage_min": 4, "damage_max": 7,
-		"move": 6, "range": 2, "initiative": 10, "sprite_width": 124.0, "weapon_type": "rocket",
+		"move": 6, "range": 1, "initiative": 10, "sprite_width": 124.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/human_new/corvette.png"), "region": Rect2(236, 316, 1420, 540),
 		"kind": "dwelling", "dwelling": "gunship_yard", "dwelling_level": 1,
 		"cost": {"credits": 150, "Руда": 5}, "weekly_growth": 6,
@@ -48,7 +48,7 @@ const UNITS := {
 	"elite_gunship": {
 		"label": "Элитный штурмовик", "role": "элитный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
 		"hull": 32, "attack": 10, "defense": 10, "damage_min": 6, "damage_max": 10,
-		"move": 6, "range": 2, "initiative": 11, "sprite_width": 132.0, "weapon_type": "rocket",
+		"move": 6, "range": 1, "initiative": 11, "sprite_width": 132.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/human_new/elite_corvette.png"), "region": Rect2(72, 336, 1592, 508),
 		"kind": "dwelling", "dwelling": "gunship_yard", "dwelling_level": 2,
 		"cost": {"credits": 250, "Руда": 8, "Энергокристаллы": 2}, "weekly_growth": 5,
@@ -56,7 +56,7 @@ const UNITS := {
 	"corvette": {
 		"label": "Корвет", "role": "обычный корвет 3 ранга (дальнобойный)", "tier": 3,
 		"hull": 40, "attack": 11, "defense": 10, "damage_min": 8, "damage_max": 13,
-		"move": 5, "range": 3, "initiative": 8, "sprite_width": 140.0, "weapon_type": "cannon",
+		"move": 5, "range": 2, "initiative": 8, "sprite_width": 140.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/frigate.png"), "region": Rect2(60, 304, 1602, 466),
 		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 1,
 		"cost": {"credits": 400, "Руда": 10, "Топливо": 5}, "weekly_growth": 4,
@@ -64,7 +64,7 @@ const UNITS := {
 	"elite_corvette": {
 		"label": "Элитный корвет", "role": "элитный корвет 3 ранга (дальнобойный)", "tier": 3,
 		"hull": 64, "attack": 14, "defense": 13, "damage_min": 12, "damage_max": 20,
-		"move": 5, "range": 4, "initiative": 8, "sprite_width": 150.0, "weapon_type": "cannon",
+		"move": 5, "range": 2, "initiative": 8, "sprite_width": 150.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/elite_frigate.png"), "region": Rect2(62, 304, 1598, 468),
 		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 2,
 		"cost": {"credits": 650, "Руда": 16, "Топливо": 8}, "weekly_growth": 3,
@@ -106,7 +106,7 @@ const UNITS := {
 		# I–V: обычные корабли людей. VI–VII: элитный эсминец ×1,35/×1,8 по корпусу и урону.
 		# Корпус и защита ×0,7 с округлением. Урон ×1,1 применяется к итоговому залпу.
 		"label": "Охотник", "role": "пиратский истребитель", "tier": 1,
-		"hull": 6, "attack": 6, "defense": 4, "damage_min": 1, "damage_max": 3, "move": 7, "range": 2, "initiative": 12,
+		"hull": 6, "attack": 6, "defense": 4, "damage_min": 1, "damage_max": 3, "move": 7, "range": 1, "initiative": 12,
 		"sprite_width": 112.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/pirates/tier_1.png"),
 		"region": Rect2(0, 0, 1139, 568), "kind": "guardian", "faction": "pirate",
@@ -114,7 +114,7 @@ const UNITS := {
 	},
 	"pirate_gunship": {
 		"label": "Абордажник", "role": "пиратский штурмовик", "tier": 2,
-		"hull": 14, "attack": 8, "defense": 6, "damage_min": 4, "damage_max": 7, "move": 6, "range": 2, "initiative": 10,
+		"hull": 14, "attack": 8, "defense": 6, "damage_min": 4, "damage_max": 7, "move": 6, "range": 1, "initiative": 10,
 		"sprite_width": 124.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/pirates/tier_2.png"),
 		"region": Rect2(0, 0, 1278, 488), "kind": "guardian", "faction": "pirate",
@@ -122,7 +122,7 @@ const UNITS := {
 	},
 	"pirate_corvette": {
 		"label": "Капер", "role": "пиратский корвет", "tier": 3,
-		"hull": 28, "attack": 11, "defense": 7, "damage_min": 8, "damage_max": 13, "move": 5, "range": 3, "initiative": 8,
+		"hull": 28, "attack": 11, "defense": 7, "damage_min": 8, "damage_max": 13, "move": 5, "range": 2, "initiative": 8,
 		"sprite_width": 136.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/pirates/tier_3.png"),
 		"region": Rect2(0, 0, 1568, 622), "kind": "guardian", "faction": "pirate",
@@ -164,7 +164,7 @@ const UNITS := {
 	"trader_fighter": {
 		"label": "Торговый истребитель", "role": "конвойный истребитель", "tier": 1,
 		"hull": 8, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
-		"move": 6, "range": 2, "initiative": 11, "sprite_width": 112.0, "weapon_type": "machine_gun",
+		"move": 6, "range": 1, "initiative": 11, "sprite_width": 112.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/traders/tier_1.png"),
 		"region": Rect2(0, 0, 1185, 462), "kind": "guardian", "faction": "trader",
 		"damage_factor": 0.8,
@@ -172,7 +172,7 @@ const UNITS := {
 	"trader_gunship": {
 		"label": "Торговый штурмовик", "role": "конвойный штурмовик", "tier": 2,
 		"hull": 20, "attack": 8, "defense": 8, "damage_min": 4, "damage_max": 7,
-		"move": 5, "range": 2, "initiative": 9, "sprite_width": 124.0, "weapon_type": "rocket",
+		"move": 5, "range": 1, "initiative": 9, "sprite_width": 124.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/traders/tier_2.png"),
 		"region": Rect2(0, 0, 1172, 446), "kind": "guardian", "faction": "trader",
 		"damage_factor": 0.8,
@@ -180,7 +180,7 @@ const UNITS := {
 	"trader_corvette": {
 		"label": "Торговый корвет", "role": "конвойный корвет", "tier": 3,
 		"hull": 40, "attack": 11, "defense": 10, "damage_min": 8, "damage_max": 13,
-		"move": 5, "range": 3, "initiative": 7, "sprite_width": 136.0, "weapon_type": "cannon",
+		"move": 5, "range": 2, "initiative": 7, "sprite_width": 136.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/traders/tier_3.png"),
 		"region": Rect2(0, 0, 1507, 631), "kind": "guardian", "faction": "trader",
 		"damage_factor": 0.8,
@@ -204,7 +204,7 @@ const UNITS := {
 	"ork_raider": {
 		"label": "Оркский торпедный крейсер", "role": "тяжёлый корабль (дальнобойный)", "tier": 3,
 		"hull": 50, "attack": 11, "defense": 9, "damage_min": 10, "damage_max": 16,
-		"move": 5, "range": 3, "initiative": 9, "sprite_width": 140.0, "weapon_type": "rocket",
+		"move": 5, "range": 2, "initiative": 9, "sprite_width": 140.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/random/ork_torpedo_cruiser.png"),
 		"region": Rect2(170, 10, 1220, 306), "kind": "guardian", "faction": "pirate",
 	},
