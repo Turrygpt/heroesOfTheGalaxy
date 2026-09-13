@@ -36,14 +36,38 @@ const TEMPLATES := {
 	"trader_rare_elite": [{"unit_id": "trader_frigate", "count": 10}, {"unit_id": "trader_destroyer", "count": 4}],
 	"trader_rare_capital": [{"unit_id": "trader_frigate", "count": 12}, {"unit_id": "trader_destroyer", "count": 5}],
 	"trader_rare_flagship": [{"unit_id": "trader_frigate", "count": 12}, {"unit_id": "trader_destroyer", "count": 8}],
+	## Космический патруль — держит узкие проходы разломов ("мосты", см.
+	## space_strategy_map.gd:_guard_passages), не месторождения и не углы.
+	"patrol_weak": [{"unit_id": "patrol_scout", "count": 10}],
+	"patrol_medium": [{"unit_id": "patrol_scout", "count": 14}, {"unit_id": "patrol_interceptor", "count": 4}],
+	"patrol_strong": [{"unit_id": "patrol_interceptor", "count": 10}, {"unit_id": "patrol_cruiser", "count": 4}],
+	"patrol_heavy": [{"unit_id": "patrol_cruiser", "count": 10}, {"unit_id": "patrol_warden", "count": 4}],
+	"patrol_elite": [{"unit_id": "patrol_warden", "count": 8}, {"unit_id": "patrol_marshal", "count": 3}],
+	"patrol_capital": [{"unit_id": "patrol_marshal", "count": 8}, {"unit_id": "patrol_flagship", "count": 3}],
+	"patrol_flagship": [
+		{"unit_id": "patrol_marshal", "count": 10},
+		{"unit_id": "patrol_flagship", "count": 5},
+		{"unit_id": "patrol_command", "count": 2},
+	],
+	## Стражи Древних — редкий нейтральный противник, не привязан к поясам
+	## угрозы (не входит в DISTANCE_TEMPLATES), ставится точечно самим
+	## генератором карты (см. "ancient_relic" в map_object_defs.gd). Малые
+	## отряды из мощных единиц, а не рой, как у пиратов того же уровня силы.
+	"ancient_outpost": [{"unit_id": "ancient_sentinel", "count": 4}],
+	"ancient_stronghold": [{"unit_id": "ancient_sentinel", "count": 3}, {"unit_id": "ancient_warden", "count": 3}],
+	"ancient_colossus_guard": [{"unit_id": "ancient_warden", "count": 4}, {"unit_id": "ancient_colossus", "count": 1}],
 }
 
-const KIND_FOR_TEMPLATE := {"weak": "pirate", "medium": "pirate", "strong": "pirate"}
+const KIND_FOR_TEMPLATE := {
+	"weak": "pirate", "medium": "pirate", "strong": "pirate",
+	"ancient_outpost": "ancient", "ancient_stronghold": "ancient", "ancient_colossus_guard": "ancient",
+}
 ## Семь поясов угрозы: стартовые месторождения доступны начальному флоту.
 const DISTANCE_LIMITS := [10, 16, 22, 30, 40, 50]
 const DISTANCE_TEMPLATES := ["weak", "medium", "strong", "heavy", "elite", "capital", "flagship"]
 const TRADER_DISTANCE_TEMPLATES := ["trader_weak", "trader_medium", "trader_strong", "trader_heavy", "trader_elite", "trader_capital", "trader_flagship"]
 const RARE_TRADER_DISTANCE_TEMPLATES := ["trader_rare_weak", "trader_rare_medium", "trader_rare_strong", "trader_rare_heavy", "trader_rare_elite", "trader_rare_capital", "trader_rare_flagship"]
+const PATROL_DISTANCE_TEMPLATES := ["patrol_weak", "patrol_medium", "patrol_strong", "patrol_heavy", "patrol_elite", "patrol_capital", "patrol_flagship"]
 
 
 static func template_for_distance(distance: int) -> String:
@@ -67,6 +91,13 @@ static func rare_trader_template_for_distance(distance: int) -> String:
 	return "trader_rare_flagship"
 
 
+static func patrol_template_for_distance(distance: int) -> String:
+	for index in range(DISTANCE_LIMITS.size()):
+		if distance < DISTANCE_LIMITS[index]:
+			return PATROL_DISTANCE_TEMPLATES[index]
+	return "patrol_flagship"
+
+
 static func fleet_for(template_id: String) -> Array:
 	var fleet: Array = []
 	for entry in TEMPLATES.get(template_id, []):
@@ -77,6 +108,8 @@ static func fleet_for(template_id: String) -> Array:
 static func kind_for(template_id: String) -> String:
 	if template_id.begins_with("trader"):
 		return "trader"
+	if template_id.begins_with("patrol"):
+		return "patrol"
 	return KIND_FOR_TEMPLATE.get(template_id, "pirate")
 
 

@@ -5,6 +5,17 @@ const UNITS := preload("res://scripts/unit_defs.gd")
 const GUARDS := preload("res://scripts/guardian_defs.gd")
 const REWARDS := preload("res://scripts/battle_rewards.gd")
 const BASES := ["interceptor", "gunship", "corvette", "frigate", "destroyer", "elite_destroyer", "elite_destroyer"]
+## Пираты откалиброваны как 0,70 от корпуса землян НА МОМЕНТ КАЛИБРОВКИ, а не
+## живьём от текущих чисел (см. data/pirate_balance.md: "Корпус пиратов НЕ
+## следует за корпусом землян"). Корпус играбельных флотов с тех пор подняли
+## ×1,5 (data/balance_plan.md §3.4) осознанно НЕ трогая стражей — в этом и был
+## рычаг. Проверяем формулу против этой замороженной таблицы, а не против
+## живых UNITS.get_unit(), иначе следующая правка корпуса землян молча
+## обнулит просадку пиратов и тест ничего не заметит.
+const PRE_TUNING_HUMAN_HULL := {
+	"interceptor": 8, "gunship": 20, "corvette": 40, "frigate": 75,
+	"destroyer": 130, "elite_destroyer": 175,
+}
 var failures := 0
 
 
@@ -27,7 +38,8 @@ func _run() -> void:
 			var tier := int(unit.tier)
 			var base := UNITS.get_unit(BASES[tier - 1])
 			var scale := 1.0 if tier <= 5 else (1.35 if tier == 6 else 1.8)
-			_check(unit.hull == roundi(roundi(base.hull * scale) * 0.7), "Прочность пиратов: −30%")
+			var pre_tuning_hull := int(PRE_TUNING_HUMAN_HULL[BASES[tier - 1]])
+			_check(unit.hull == roundi(roundi(pre_tuning_hull * scale) * 0.7), "Прочность пиратов: −30%")
 			_check(unit.defense == roundi(base.defense * 0.7), "Защита пиратов: −30%")
 			_check(is_equal_approx(unit.damage_factor, 1.1), "Урон пиратов: +10%")
 			_check(unit.texture.resource_path.contains("/pirates/"), "Новый спрайт пиратов")
@@ -69,10 +81,15 @@ func _run() -> void:
 			battle.set_process(false)
 			battle.heroes.clear()
 			battle.experience_granted = true
-			for step in range(2000):
+			# Дедлайн по настенным часам, а не по числу шагов: quick_battle сам
+			# ограничивает себя 12мс настенного времени на один _process, так что
+			# число раундов за шаг зависит от загрузки системы — фиксированный
+			# счётчик шагов флаковый (то проходит, то нет на одной и той же
+			# машине). Корпус кораблей x1,5 (data/balance_plan.md §3.4) только
+			# усугубило: боёв стало ощутимо больше на весь прогон.
+			var deadline_ms := Time.get_ticks_msec() + 90000
+			while not battle.battle_finished and battle.quick_battle and Time.get_ticks_msec() < deadline_ms:
 				battle._process(0.016)
-				if battle.battle_finished or not battle.quick_battle:
-					break
 			_check(battle.battle_finished, "Пробный бой завершился")
 			if battle._side_alive(1):
 				wins += 1

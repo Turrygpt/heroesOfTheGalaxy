@@ -108,8 +108,8 @@ static func generate(
 		var kind_name := "planetoid" if rng.randf() < 0.62 else "asteroid_field"
 		var center := origin_cell + Vector2i(
 			rng.randi_range(-8, 8), rng.randi_range(-8, 8))
-		if center == origin_cell or center.x < 3 or center.y < 3 \
-			or center.x >= map_size.x - 3 or center.y >= map_size.y - 3:
+		if center == origin_cell or center.x < 1 or center.y < 1 \
+			or center.x >= map_size.x - 1 or center.y >= map_size.y - 1:
 			continue
 		var feature := _make_feature(rng, map_size, kind_name, center)
 		var cells: Array = feature["cells"]
@@ -137,7 +137,11 @@ static func _make_feature(
 	rng: RandomNumberGenerator, map_size: Vector2i, kind_name: String,
 	preferred_center: Vector2i = Vector2i(-1, -1)
 ) -> Dictionary:
-	var center := Vector2i(rng.randi_range(5, map_size.x - 6), rng.randi_range(5, map_size.y - 6))
+	# Отступ центра от края (было 5) специально небольшой: сама фигура при
+	# невыгодном изгибе/наклоне всё равно вылезет за границу и будет
+	# отброшена в _fits — так и должно быть, иначе край карты снова стал бы
+	# гарантированно чистым коридором (см. _fits).
+	var center := Vector2i(rng.randi_range(2, map_size.x - 3), rng.randi_range(2, map_size.y - 3))
 	if preferred_center.x >= 0:
 		center = preferred_center
 	# Разлом непроходим и шириной в клетку — диагональная ось дала бы цепочку
@@ -155,7 +159,7 @@ static func _make_feature(
 		var length := rng.randi_range(9, 17)
 		if kind_name == "rift":
 			length = rng.randi_range(22, 30)
-			center = Vector2i(rng.randi_range(18, map_size.x - 19), rng.randi_range(18, map_size.y - 19))
+			center = Vector2i(rng.randi_range(12, map_size.x - 13), rng.randi_range(12, map_size.y - 13))
 		elif kind_name == "nebula":
 			length = rng.randi_range(4, 8)
 		else:
@@ -274,9 +278,16 @@ static func _close_diagonals(mask: Dictionary, rng: RandomNumberGenerator) -> vo
 			mask[side_a if rng.randf() < 0.5 else side_b] = true
 
 
+## Раньше здесь был запас в целую клетку (`< 1` / `>= map_size - 1`), из-за
+## чего вдоль всей кромки карты навсегда оставался гарантированно чистый
+## коридор — пролететь по краю получалось всегда, что бы ни сгенерировалось
+## внутри. Центры фигур всё ещё стартуют в глубине (см. _make_feature), но
+## сама фигура (пояс, разлом) теперь может дотянуться концом или боком до
+## самого края — тогда кромка на этом участке карты будет перекрыта, а на
+## другом — как повезёт, нет.
 static func _fits(cells: Array, map_size: Vector2i, protected: Dictionary, occupied: Dictionary) -> bool:
 	for cell in cells:
-		if cell.x < 1 or cell.y < 1 or cell.x >= map_size.x - 1 or cell.y >= map_size.y - 1:
+		if cell.x < 0 or cell.y < 0 or cell.x >= map_size.x or cell.y >= map_size.y:
 			return false
 		if protected.has(cell) or occupied.has(cell):
 			return false

@@ -188,7 +188,11 @@ func _run() -> void:
 	map._resolve_orc_battle("hero", [], false, true)
 	_check(map.movement_points == 0, "Отступление съедает все оставшиеся ходы на сол")
 	map._resolve_orc_battle("hero", [], false, false)
-	_check(map.current_cell == map.PLAYER_ONE_START_CELL, "Проигравший игрок отброшен к своей планете")
+	# HUMAN_PLANET_CENTER, а не PLAYER_ONE_START_CELL: та клетка лежит вне
+	# футпринта планеты и на прямом пути орков к ней, из-за чего следующий
+	# перехват героя засчитывался как полевая стычка в обход осады (гарнизон
+	# и оборона планеты не участвовали) — см. orc_ai.gd:_resolve_arrival.
+	_check(map.current_cell == map.HUMAN_PLANET_CENTER, "Проигравший игрок отброшен на свою планету")
 	map._resolve_orc_battle("planet", [], false, false)
 	_check(map.human_planet_owner == 2 and map.campaign_outcome == "defeat",
 		"Падение планеты игрока заканчивает кампанию поражением")

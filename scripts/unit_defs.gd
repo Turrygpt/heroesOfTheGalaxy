@@ -19,11 +19,17 @@ extends RefCounted
 ## пересканирования проекта редактором, а так работает и headless-CLI.
 const ORC_DEFS := preload("res://scripts/orc_defs.gd")
 
+## Корпус земных и орочьих кораблей (kind == "dwelling"/весь orc_defs.gd:UNITS)
+## поднят ×1,5 относительно первоначальных значений — измерено balance_sim.gd
+## (см. data/balance_plan.md §3.4): потери при победе падали вдвое (28% → 51%
+## уцелевших против слабого стража), флот перестал топтаться на месте. Стражи
+## и нейтралы (kind == "guardian" ниже) корпус НЕ получили — это и есть
+## рычаг: игрок стал крепче относительно уже откалиброванных стражей.
 const UNITS := {
 # --- Покупаемые юниты Земного флота ----------------------------------------
 	"interceptor": {
 		"label": "Истребитель", "role": "обычный истребитель 1 ранга (короткая дистанция)", "tier": 1,
-		"hull": 8, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
+		"hull": 12, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
 		"move": 7, "range": 2, "initiative": 12, "sprite_width": 104.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/human_new/interceptor.png"), "region": Rect2(220, 356, 1290, 382),
 		"kind": "dwelling", "dwelling": "fighter_yard", "dwelling_level": 1,
@@ -31,63 +37,63 @@ const UNITS := {
 	},
 	"heavy_interceptor": {
 		"label": "Элитный истребитель", "role": "элитный истребитель 1 ранга (короткая дистанция)", "tier": 1,
-		"hull": 14, "attack": 8, "defense": 7, "damage_min": 3, "damage_max": 6,
+		"hull": 21, "attack": 8, "defense": 7, "damage_min": 3, "damage_max": 6,
 		"move": 6, "range": 2, "initiative": 10, "sprite_width": 112.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/human_new/heavy_interceptor.png"), "region": Rect2(218, 358, 1292, 432),
 		"kind": "dwelling", "dwelling": "fighter_yard", "dwelling_level": 2,
-		"cost": {"credits": 90, "Руда": 1}, "weekly_growth": 8,
+		"cost": {"credits": 90}, "weekly_growth": 8,
 	},
 	"gunship": {
 		"label": "Штурмовик", "role": "обычный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
-		"hull": 20, "attack": 8, "defense": 8, "damage_min": 4, "damage_max": 7,
+		"hull": 30, "attack": 8, "defense": 8, "damage_min": 4, "damage_max": 7,
 		"move": 6, "range": 2, "initiative": 10, "sprite_width": 124.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/human_new/corvette.png"), "region": Rect2(236, 316, 1420, 540),
 		"kind": "dwelling", "dwelling": "gunship_yard", "dwelling_level": 1,
-		"cost": {"credits": 150, "Руда": 5}, "weekly_growth": 6,
+		"cost": {"credits": 150}, "weekly_growth": 6,
 	},
 	"elite_gunship": {
 		"label": "Элитный штурмовик", "role": "элитный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
-		"hull": 32, "attack": 10, "defense": 10, "damage_min": 6, "damage_max": 10,
+		"hull": 48, "attack": 10, "defense": 10, "damage_min": 6, "damage_max": 10,
 		"move": 6, "range": 2, "initiative": 11, "sprite_width": 132.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/human_new/elite_corvette.png"), "region": Rect2(72, 336, 1592, 508),
 		"kind": "dwelling", "dwelling": "gunship_yard", "dwelling_level": 2,
-		"cost": {"credits": 250, "Руда": 8, "Энергокристаллы": 2}, "weekly_growth": 5,
+		"cost": {"credits": 250}, "weekly_growth": 5,
 	},
 	"corvette": {
 		"label": "Корвет", "role": "обычный корвет 3 ранга (дальнобойный)", "tier": 3,
-		"hull": 40, "attack": 11, "defense": 10, "damage_min": 8, "damage_max": 13,
+		"hull": 60, "attack": 11, "defense": 10, "damage_min": 8, "damage_max": 13,
 		"move": 5, "range": 3, "initiative": 8, "sprite_width": 140.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/frigate.png"), "region": Rect2(60, 304, 1602, 466),
 		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 1,
-		"cost": {"credits": 400, "Руда": 10, "Топливо": 5}, "weekly_growth": 4,
+		"cost": {"credits": 400}, "weekly_growth": 4,
 	},
 	"elite_corvette": {
 		"label": "Элитный корвет", "role": "элитный корвет 3 ранга (дальнобойный)", "tier": 3,
-		"hull": 64, "attack": 14, "defense": 13, "damage_min": 12, "damage_max": 20,
+		"hull": 96, "attack": 14, "defense": 13, "damage_min": 12, "damage_max": 20,
 		"move": 5, "range": 4, "initiative": 8, "sprite_width": 150.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/elite_frigate.png"), "region": Rect2(62, 304, 1598, 468),
 		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 2,
-		"cost": {"credits": 650, "Руда": 16, "Топливо": 8}, "weekly_growth": 3,
+		"cost": {"credits": 650}, "weekly_growth": 3,
 	},
 	"frigate": {
 		"label": "Фрегат", "role": "обычный фрегат 4 ранга (дальнобойный)", "tier": 4,
-		"hull": 75, "attack": 14, "defense": 13, "damage_min": 14, "damage_max": 22,
+		"hull": 113, "attack": 14, "defense": 13, "damage_min": 14, "damage_max": 22,
 		"move": 4, "range": 3, "initiative": 6, "sprite_width": 155.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/cruiser.png"), "region": Rect2(34, 200, 1712, 514),
 		"kind": "dwelling", "dwelling": "frigate_yard", "dwelling_level": 1,
-		"cost": {"credits": 900, "Руда": 20, "Топливо": 10, "Энергокристаллы": 5}, "weekly_growth": 2,
+		"cost": {"credits": 900}, "weekly_growth": 2,
 	},
 	"elite_frigate": {
 		"label": "Элитный фрегат", "role": "элитный фрегат 4 ранга (дальнобойный)", "tier": 4,
-		"hull": 113, "attack": 17, "defense": 16, "damage_min": 20, "damage_max": 31,
+		"hull": 170, "attack": 17, "defense": 16, "damage_min": 20, "damage_max": 31,
 		"move": 4, "range": 4, "initiative": 6, "sprite_width": 165.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/elite_cruiser.png"), "region": Rect2(30, 194, 1722, 526),
 		"kind": "dwelling", "dwelling": "frigate_yard", "dwelling_level": 2,
-		"cost": {"credits": 1600, "Руда": 33, "Топливо": 17, "Энергокристаллы": 8}, "weekly_growth": 1,
+		"cost": {"credits": 1600}, "weekly_growth": 1,
 	},
 	"destroyer": {
 		"label": "Эсминец", "role": "обычный эсминец 5 ранга (дальнобойный)", "tier": 5,
-		"hull": 130, "attack": 18, "defense": 16, "damage_min": 24, "damage_max": 36,
+		"hull": 195, "attack": 18, "defense": 16, "damage_min": 24, "damage_max": 36,
 		"move": 3, "range": 4, "initiative": 5, "sprite_width": 170.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/destroyer.png"), "region": Rect2(36, 44, 1734, 788),
 		"kind": "dwelling", "dwelling": "destroyer_yard", "dwelling_level": 1,
@@ -95,7 +101,7 @@ const UNITS := {
 	},
 	"elite_destroyer": {
 		"label": "Элитный эсминец", "role": "элитный эсминец 5 ранга (дальнобойный)", "tier": 5,
-		"hull": 175, "attack": 21, "defense": 19, "damage_min": 31, "damage_max": 45,
+		"hull": 263, "attack": 21, "defense": 19, "damage_min": 31, "damage_max": 45,
 		"move": 4, "range": 5, "initiative": 6, "sprite_width": 180.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/elite_destroyer.png"), "region": Rect2(34, 42, 1740, 792),
 		"kind": "dwelling", "dwelling": "destroyer_yard", "dwelling_level": 2,
@@ -201,12 +207,140 @@ const UNITS := {
 		"region": Rect2(0, 0, 1681, 579), "kind": "guardian", "faction": "trader",
 		"damage_factor": 0.8,
 	},
+	# --- Космический патруль: охраняет узкие проходы разломов ("мосты", см. ---
+	# space_strategy_map.gd:_guard_passages) --------------------------------
+	## Профиль "держи дистанцию": min_engage_range=2 — в упор (дистанция 1)
+	## орудие физически не может навестись, залпа и ответного залпа нет вовсе
+	## (см. tactical_battle.gd:_can_shoot_unit/_attack_unit). far_range_penalty
+	## — насколько слабее залп на максимальной дальности юнита (0.6 = урон
+	## падает до 40%). Между min_engage_range и range урон линейно
+	## интерполируется от полного до этого минимума — пик силы у ближней
+	## границы дальности, а не в упор и не на пределе (см. _range_penalty).
+	## Компенсация слепой зоны и просадки на пределе — инициатива: патруль
+	## почти всегда стреляет первым (+2 к инициативе земного аналога того же
+	## ранга). Корпус/атака/защита/урон взяты напрямую с земного аналога без
+	## фракционного множителя — вся разница фракции в дальности и инициативе,
+	## не в сырых цифрах урона.
+	"patrol_scout": {
+		"label": "Дозорный", "role": "патрульный катер 1 ранга (держит дистанцию)", "tier": 1,
+		"hull": 12, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
+		"move": 7, "range": 4, "initiative": 14, "sprite_width": 108.0, "weapon_type": "machine_gun",
+		"texture": preload("res://assets/ships/patrol/tier_1.png"),
+		"region": Rect2(0, 0, 1408, 1408), "kind": "guardian", "faction": "patrol",
+		"min_engage_range": 2, "far_range_penalty": 0.6,
+	},
+	"patrol_interceptor": {
+		"label": "Перехватчик", "role": "патрульный перехватчик 2 ранга (держит дистанцию)", "tier": 2,
+		"hull": 30, "attack": 8, "defense": 8, "damage_min": 4, "damage_max": 7,
+		"move": 6, "range": 4, "initiative": 12, "sprite_width": 120.0, "weapon_type": "rocket",
+		"texture": preload("res://assets/ships/patrol/tier_2.png"),
+		"region": Rect2(0, 0, 1408, 1408), "kind": "guardian", "faction": "patrol",
+		"min_engage_range": 2, "far_range_penalty": 0.6,
+	},
+	"patrol_cruiser": {
+		"label": "Патрульный крейсер", "role": "патрульный крейсер 3 ранга (держит дистанцию)", "tier": 3,
+		"hull": 60, "attack": 11, "defense": 10, "damage_min": 8, "damage_max": 13,
+		"move": 5, "range": 5, "initiative": 10, "sprite_width": 134.0, "weapon_type": "cannon",
+		"texture": preload("res://assets/ships/patrol/tier_3.png"),
+		"region": Rect2(0, 0, 1728, 1152), "kind": "guardian", "faction": "patrol",
+		"min_engage_range": 2, "far_range_penalty": 0.6,
+	},
+	"patrol_warden": {
+		"label": "Страж рубежа", "role": "патрульный страж 4 ранга (держит дистанцию)", "tier": 4,
+		"hull": 113, "attack": 14, "defense": 13, "damage_min": 14, "damage_max": 22,
+		"move": 4, "range": 5, "initiative": 8, "sprite_width": 148.0, "weapon_type": "cannon",
+		"texture": preload("res://assets/ships/patrol/tier_4.png"),
+		"region": Rect2(0, 0, 1728, 1152), "kind": "guardian", "faction": "patrol",
+		"min_engage_range": 2, "far_range_penalty": 0.6,
+	},
+	"patrol_marshal": {
+		"label": "Комендант эскадры", "role": "патрульный комендант 5 ранга (держит дистанцию)", "tier": 5,
+		"hull": 195, "attack": 18, "defense": 16, "damage_min": 24, "damage_max": 36,
+		"move": 3, "range": 6, "initiative": 7, "sprite_width": 162.0, "weapon_type": "laser",
+		"texture": preload("res://assets/ships/patrol/tier_5.png"),
+		"region": Rect2(0, 0, 1792, 1008), "kind": "guardian", "faction": "patrol",
+		"min_engage_range": 2, "far_range_penalty": 0.6,
+	},
+	"patrol_flagship": {
+		"label": "Флагман патруля", "role": "патрульный флагман 6 ранга (держит дистанцию)", "tier": 6,
+		"hull": 355, "attack": 24, "defense": 21, "damage_min": 42, "damage_max": 61,
+		"move": 4, "range": 7, "initiative": 8, "sprite_width": 176.0, "weapon_type": "laser",
+		"texture": preload("res://assets/ships/patrol/tier_6.png"),
+		"region": Rect2(0, 0, 1792, 1008), "kind": "guardian", "faction": "patrol",
+		"min_engage_range": 2, "far_range_penalty": 0.6,
+	},
+	"patrol_command": {
+		"label": "Командный крейсер", "role": "патрульный командный крейсер 7 ранга (держит дистанцию)", "tier": 7,
+		"hull": 473, "attack": 27, "defense": 23, "damage_min": 56, "damage_max": 81,
+		"move": 4, "range": 7, "initiative": 9, "sprite_width": 190.0, "weapon_type": "laser",
+		"texture": preload("res://assets/ships/patrol/tier_7.png"),
+		"region": Rect2(0, 0, 1792, 1008), "kind": "guardian", "faction": "patrol",
+		"min_engage_range": 2, "far_range_penalty": 0.6,
+	},
+	# Стражи Древних: редкий и опасный нейтральный противник (не фракция
+	# игрока, не орки) — пробуждённые сторожевые конструкты, охраняют
+	# дальний космос и "Схрон Древних" в углах карты (см. GuardianDefs
+	# TEMPLATES ancient_*, data/art_generation_prompts.md §3). Прочнее и
+	# бьют больнее пиратов того же ранга — встреча должна читаться как
+	# особый, нетиповой риск, а не рядовой пиратский заслон.
+	"ancient_sentinel": {
+		"label": "Страж-часовой", "role": "конструкт Древних (дальнобойный)", "tier": 5,
+		"hull": 130, "attack": 20, "defense": 18, "damage_min": 26, "damage_max": 38,
+		"move": 4, "range": 4, "initiative": 8, "sprite_width": 168.0, "weapon_type": "laser",
+		"texture": preload("res://assets/ships/ancient/tier_5.png"),
+		"region": Rect2(0, 0, 1408, 1408), "kind": "guardian", "faction": "ancient",
+		"damage_factor": 1.15,
+	},
+	"ancient_warden": {
+		"label": "Страж-хранитель", "role": "конструкт Древних (дальнобойный)", "tier": 6,
+		"hull": 220, "attack": 24, "defense": 20, "damage_min": 46, "damage_max": 66,
+		"move": 4, "range": 5, "initiative": 8, "sprite_width": 180.0, "weapon_type": "laser",
+		"texture": preload("res://assets/ships/ancient/tier_6.png"),
+		"region": Rect2(0, 0, 2128, 912), "kind": "guardian", "faction": "ancient",
+		"damage_factor": 1.15,
+	},
+	"ancient_colossus": {
+		"label": "Страж-колосс", "role": "конструкт Древних (дальнобойный)", "tier": 7,
+		"hull": 300, "attack": 26, "defense": 22, "damage_min": 62, "damage_max": 88,
+		"move": 3, "range": 5, "initiative": 7, "sprite_width": 196.0, "weapon_type": "laser",
+		"texture": preload("res://assets/ships/ancient/tier_7.png"),
+		"region": Rect2(0, 0, 2128, 912), "kind": "guardian", "faction": "ancient",
+		"damage_factor": 1.15,
+	},
 	"ork_raider": {
 		"label": "Оркский торпедный крейсер", "role": "тяжёлый корабль (дальнобойный)", "tier": 3,
 		"hull": 50, "attack": 11, "defense": 9, "damage_min": 10, "damage_max": 16,
 		"move": 5, "range": 3, "initiative": 9, "sprite_width": 140.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/random/ork_torpedo_cruiser.png"),
 		"region": Rect2(170, 10, 1220, 306), "kind": "guardian", "faction": "pirate",
+	},
+	# --- Орбитальная оборона планеты (не нанимается, синтезируется на бой) ---
+	## Появляется в бою типа "planet" (штурм столицы орками) поштучно за
+	## каждый уровень форта — см. space_strategy_map.gd:_start_orc_battle.
+	## move=0: платформа не покидает свою клетку (BFS манёвра ИИ/игрока
+	## сводится к единственной достижимой клетке — самой себе).
+	"orbital_platform": {
+		"label": "Орбитальная батарея", "role": "стационарная оборона планеты", "tier": 3,
+		"hull": 70, "attack": 22, "defense": 22, "damage_min": 20, "damage_max": 30,
+		# range=18 — это и есть "весь экран": ровно наибольшее расстояние между
+		# двумя клетками поля 15x9 (см. tactical_battle.gd:GRID_COLUMNS/ROWS),
+		# измерено напрямую через _hex_distance, а не взято с запасом на глаз.
+		"move": 0, "range": 18, "initiative": 8, "sprite_width": 150.0, "weapon_type": "cannon",
+		"texture": preload("res://assets/ships/human_new/orbital_platform.png"),
+		"region": Rect2(0, 0, 1408, 1408), "kind": "guardian",
+	},
+	## Сегмент орбитальной стены — настоящее препятствие, не бонус к защите:
+	## блокирует и движение (как любой живой отряд — см. занятость клетки в
+	## tactical_battle.gd), и обзор (unit["is_wall"], см. _has_line_of_sight),
+	## пока не будет уничтожен. attack/damage=0 — стена не стреляет и не
+	## участвует в очереди хода (см. _rebuild_turn_order), только держит удар.
+	## Ставится линией на всю высоту поля — см. _spawn_guardian_wall.
+	"orbital_wall": {
+		"label": "Сегмент орбитальной стены", "role": "разрушаемое заграждение", "tier": 1,
+		"hull": 130, "attack": 0, "defense": 15, "damage_min": 0, "damage_max": 0,
+		"move": 0, "range": 0, "initiative": 0, "sprite_width": 90.0, "weapon_type": "cannon",
+		"texture": preload("res://assets/ships/human_new/orbital_wall.png"),
+		"region": Rect2(0, 0, 460, 1200), "kind": "guardian", "is_wall": true,
 	},
 }
 

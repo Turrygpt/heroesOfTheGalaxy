@@ -16,6 +16,9 @@ const ENEMY_COLOR := Color("ef5350")
 ## Выхлоп двигателей (см. _draw_engine_exhaust) — нейтралы (торговцы/пираты)
 ## отдельно от орков, поэтому свой цвет, а не ENEMY_COLOR у обоих.
 const NEUTRAL_ENGINE_COLOR := Color("f4d35e")
+## Стражи Древних — свой холодный цвет, чтобы конструкты не читались как
+## обычные пираты/торговцы (см. _engine_color).
+const ANCIENT_ENGINE_COLOR := Color("9b7bff")
 const INVALID_CELL := Vector2i(-1, -1)
 const BEAM_DURATION := 0.35
 const MOVE_DURATION := 0.35
@@ -169,6 +172,18 @@ const SIDE2_CELLS := [
 var player_units_override: Array[Dictionary] = []
 var enemy_units_override: Array[Dictionary] = []
 
+## Уровень форта при осаде столицы (orc_battle_kind == "planet", см.
+## space_strategy_map.gd:_start_orc_battle) — "стена": плоский бонус к защите
+## всех отрядов стороны 1 на этот бой, не сохраняется после него. Отдельно от
+## этого укрепления в бой синтезируется пачка "orbital_platform" — "пушки".
+var home_defense_bonus := 0
+## То же самое, но для стороны 2 — укреплённые нейтральные твердыни
+## (пиратская/торговая планета, см. MapObjectDefs.FORTIFIED_PLANET_KINDS и
+## space_strategy_map.gd:_start_guardian_battle). Игрок нападает первым, но
+## защищается уже страж.
+var guardian_fort_level := 0
+const WALL_DEFENSE_PER_FORT_LEVEL := 4
+
 ## Быстрый бой выполняет обычные ходы без ожидания анимаций.
 var auto_battle := false
 var quick_battle := false
@@ -197,6 +212,12 @@ var orc_battle_kind := ""
 
 var units: Array[Dictionary] = []
 var obstacle_at := {}
+## Клетки сегментов orbital_wall (см. _spawn_guardian_wall) — cell -> индекс
+## в units. Не отдельная копия состояния: жив сегмент или нет, всегда смотрим
+## в units[index]["hp"], здесь только быстрый обратный поиск по клетке для
+## _has_line_of_sight (сама стена ещё и блокирует движение, но это уже даёт
+## бесплатно обычная занятость клетки живым отрядом).
+var wall_at := {}
 var turn_order: Array[int] = []
 var order_position := 0
 var active_unit_index := 0
@@ -259,6 +280,7 @@ func _ready() -> void:
 		heroes[2] = _make_hero(2)
 	_build_units()
 	_generate_obstacles()
+	_begin_round()
 	_rebuild_turn_order()
 	active_unit_index = turn_order[0]
 	# Стражи на карте (пираты/конвои) — рядовые капитаны без протоколов; каст
@@ -391,6 +413,34 @@ func _build_units() -> void:
 		var blueprint := _override_blueprint(enemy_units_override[index], 2, index)
 		if not blueprint.is_empty():
 			units.append(_finalize_unit(blueprint))
+	_spawn_fort_walls()
+
+
+## Стена форта (см. home_defense_bonus — осада столицы игрока,
+## guardian_fort_level — пиратская/торговая твердыня) — сплошная линия
+## сегментов orbital_wall на всю высоту поля в одной колонке, прикрывающая
+## обороняющуюся сторону. Идёт мимо player/enemy_units_override и SIDE-клеток:
+## тем клеток всего 7, а стене нужна вся высота ровно одной колонки, иначе в
+## ней останутся проходы. Колонки для двух сторон зеркальны друг другу.
+const WALL_COLUMN_SIDE2 := 9
+const WALL_COLUMN_SIDE1 := GRID_COLUMNS - 1 - WALL_COLUMN_SIDE2
+
+func _spawn_fort_walls() -> void:
+	if home_defense_bonus > 0:
+		_spawn_wall_line(1, WALL_COLUMN_SIDE1)
+	if guardian_fort_level > 0:
+		_spawn_wall_line(2, WALL_COLUMN_SIDE2)
+
+
+func _spawn_wall_line(side: int, column: int) -> void:
+	for row in range(GRID_ROWS):
+		var cell := Vector2i(column, row)
+		if _unit_at_cell(cell) >= 0:
+			continue
+		var blueprint := UnitDefs.make_blueprint("orbital_wall", 1, cell, side)
+		var index := units.size()
+		units.append(_finalize_unit(blueprint))
+		wall_at[cell] = index
 
 
 func _override_blueprint(entry: Dictionary, side: int, order_index: int) -> Dictionary:
@@ -411,6 +461,10 @@ func _finalize_unit(unit: Dictionary) -> Dictionary:
 	var range_bonus := int(battle_hero.get("range_bonus", 0))
 	if range_bonus > 0:
 		unit["range"] += range_bonus
+	if home_defense_bonus > 0 and int(unit.get("side", 0)) == 1:
+		unit["defense"] = int(unit.get("defense", 0)) + WALL_DEFENSE_PER_FORT_LEVEL * home_defense_bonus
+	if guardian_fort_level > 0 and int(unit.get("side", 0)) == 2:
+		unit["defense"] = int(unit.get("defense", 0)) + WALL_DEFENSE_PER_FORT_LEVEL * guardian_fort_level
 	unit["leadership_chance"] = float(battle_hero.get("leadership_chance", 0.0))
 	unit["leadership_used_round"] = 0
 	unit["max_hp"] = unit["count"] * unit["hull"]
@@ -710,7 +764,27 @@ func _damage_multiplier(attacker: Dictionary, target: Dictionary) -> float:
 
 # Залп в упор (там же срабатывает ответный залп) — полный урон; с любой большей
 # дистанции орудиям сложнее держать наводку — урон падает до 70%.
-func _range_penalty(distance: int) -> float:
+## Космический патруль (unit_defs.gd "min_engage_range"/"far_range_penalty")
+## живёт по другой кривой: в упор орудие не наводится вовсе (это разбирает
+## _can_shoot_unit/_attack_unit, сюда такой вызов не дойдёт), урон полный у
+## ближней границы дальности (min_engage_range) и линейно падает до
+## far_range_penalty на пределе range — пик силы в середине полосы, а не по
+## краям.
+func _range_penalty(attacker: Dictionary, distance: int) -> float:
+	var min_range := int(attacker.get("min_engage_range", 0))
+	if min_range > 0:
+		if distance < min_range:
+			# Слепая зона: орудие физически не наводится ближе min_engage_range.
+			# _can_shoot_unit/_attack_unit не дают дойти до реального выстрела
+			# на такой дистанции — это только для честной оценки урона в
+			# подсказках/AI-скоринге (см. _expected_stack_damage).
+			return 0.0
+		var max_range := maxi(min_range, _stat(attacker, "range"))
+		var floor_mult := 1.0 - float(attacker.get("far_range_penalty", 0.0))
+		if max_range <= min_range:
+			return floor_mult
+		var t := clampf(float(distance - min_range) / float(max_range - min_range), 0.0, 1.0)
+		return lerpf(1.0, floor_mult, t)
 	return 1.0 if distance <= POINT_BLANK_DISTANCE else 0.7
 
 
@@ -725,7 +799,7 @@ func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int)
 			base += randi_range(damage_min, damage_max)
 	else:
 		base = count * (damage_min + damage_max) * 0.5
-	var total := base * _damage_multiplier(attacker, target) * _range_penalty(distance)
+	var total := base * _damage_multiplier(attacker, target) * _range_penalty(attacker, distance)
 	if randf() < float(attacker.get("luck_chance", 0.0)):
 		last_attack_was_critical = true
 		total *= 2.0
@@ -735,7 +809,7 @@ func _roll_stack_damage(attacker: Dictionary, target: Dictionary, distance: int)
 func _expected_stack_damage(attacker: Dictionary, target: Dictionary, distance: int) -> int:
 	var average: float = _stack_count(attacker) * (_stat(attacker, "damage_min") + _stat(attacker, "damage_max")) * 0.5
 	var luck_factor := 1.0 + float(attacker.get("luck_chance", 0.0)) * 0.5
-	return maxi(1, int(round(average * _damage_multiplier(attacker, target) * _range_penalty(distance) * luck_factor)))
+	return maxi(1, int(round(average * _damage_multiplier(attacker, target) * _range_penalty(attacker, distance) * luck_factor)))
 
 
 func _casualties_for(target: Dictionary, damage: int) -> int:
@@ -751,7 +825,10 @@ func _casualties_for(target: Dictionary, damage: int) -> int:
 func _rebuild_turn_order() -> void:
 	var living: Array = []
 	for index in range(units.size()):
-		if units[index]["hp"] > 0:
+		# Сегменты стены (см. _spawn_guardian_wall) никогда не ходят — им
+		# нечем стрелять и некуда плыть (move=0, range=0), это чистая
+		# статичная преграда.
+		if units[index]["hp"] > 0 and not bool(units[index].get("is_wall", false)):
 			living.append(index)
 	living.sort_custom(func(first: int, second: int) -> bool:
 		var first_initiative := _stat(units[first], "initiative")
@@ -840,8 +917,13 @@ func _advance_turn() -> void:
 
 # Новый раунд: индивидуальные cooldown’ы протоколов заканчиваются. Энергия
 # восстанавливается только в начале нового сола или полностью на родной планете.
+# round_start_cell фиксирует позиции на начало раунда — по ним защитный автобой
+# (см. _defensive_move_cell_score) судит о неизбежности контакта, а не по уже
+# сдвинувшимся в этот же раунд целям, иначе он цепной реакцией подтягивается
+# вслед за более резвыми отрядами, которые походили раньше по очереди хода.
 func _begin_round() -> void:
 	for unit in units:
+		unit["round_start_cell"] = unit["cell"]
 		var kept: Array = []
 		for effect in unit.get("effects", []):
 			if int(effect["expires"]) <= round_number:
@@ -1029,7 +1111,9 @@ func _move_cell_score(
 ) -> float:
 	var target_cell: Vector2i = target["cell"]
 	var target_distance := _hex_distance(cell, target_cell)
-	var can_shoot := target_distance <= shot_range and _has_line_of_sight(cell, target_cell)
+	var min_range := int(active.get("min_engage_range", 0))
+	var can_shoot := target_distance <= shot_range and target_distance >= min_range \
+		and _has_line_of_sight(cell, target_cell)
 	var encircled := _encirclement_penalty(cell, int(active["side"]))
 	var use_auto_mode := auto_battle and int(active["side"]) == 1
 	if use_auto_mode and auto_battle_mode == AUTO_MODE_DEFENSIVE:
@@ -1065,10 +1149,16 @@ func _defensive_move_cell_score(
 ) -> float:
 	var target_cell: Vector2i = target["cell"]
 	var target_distance := _hex_distance(cell, target_cell)
-	var can_shoot := target_distance <= shot_range and _has_line_of_sight(cell, target_cell)
+	var defensive_min_range := int(active.get("min_engage_range", 0))
+	var can_shoot := target_distance <= shot_range and target_distance >= defensive_min_range \
+		and _has_line_of_sight(cell, target_cell)
 	var current_distance := _hex_distance(start_cell, target_cell)
 	var inevitable_range := _stat(target, "move") + _stat(target, "range")
-	var inevitable := current_distance <= inevitable_range
+	# Неизбежность мерим по расстоянию на начало раунда (round_start_cell), а не
+	# по уже сдвинувшейся в этот же раунд цели — см. комментарий в _begin_round.
+	var target_round_start_cell: Vector2i = target.get("round_start_cell", target_cell)
+	var round_start_distance := _hex_distance(start_cell, target_round_start_cell)
+	var inevitable := round_start_distance <= inevitable_range
 	# Защита удерживает свой эшелон, а не пытается бесконечно отступать:
 	# любое заметное изменение дистанции штрафуется одинаково.
 	var distance_change := float(target_distance - current_distance)
@@ -1093,6 +1183,10 @@ func _retaliation_risk(cell: Vector2i, active: Dictionary, target: Dictionary) -
 	if _hex_distance(cell, target["cell"]) > POINT_BLANK_DISTANCE:
 		return 0.0
 	if bool(target.get("retaliated", false)):
+		return 0.0
+	# Патруль (min_engage_range) не может ответить в упор — заходить ему в
+	# тыл/борт безопаснее, чем кажется по одному лишь урону цели.
+	if int(target.get("min_engage_range", 0)) > POINT_BLANK_DISTANCE:
 		return 0.0
 	var expected := float(_expected_stack_damage(target, active, POINT_BLANK_DISTANCE))
 	var active_hp := maxi(1, int(active.get("hp", 1)))
@@ -1146,7 +1240,10 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 	else:
 		last_event = "%s%s: %d урона" % [prefix, attacker["label"], damage]
 	# Ответный залп — только в упор и один раз за раунд, как контратака в HoMM3.
-	if not is_retaliation and distance <= 1 and target["hp"] > 0 and not target["retaliated"]:
+	# Патруль (min_engage_range) не отвечает и в обороне — орудие в упор не
+	# наводится ни при атаке, ни при ответном залпе.
+	var target_min_range := int(target.get("min_engage_range", 0))
+	if not is_retaliation and distance <= 1 and target["hp"] > 0 and not target["retaliated"] and target_min_range <= 1:
 		_attack_unit(target_index, attacker_index, true)
 		return
 	_check_battle_end()
@@ -1225,8 +1322,8 @@ func _on_battle_results_closed(player_hero: Hero, _player_won: bool) -> void:
 
 ## Как звать противника в подписях боя. Фракцию определяет HUD по самим
 ## пачкам (см. tactical_battle_hud.enemy_faction), чтобы источник был один.
-const ENEMY_TITLE_BY_FACTION := {"orc": "Орки", "trader": "Торговцы", "pirate": "Пираты"}
-const ENEMY_GENITIVE_BY_FACTION := {"orc": "ОРКОВ", "trader": "ТОРГОВЦЕВ", "pirate": "ПИРАТОВ"}
+const ENEMY_TITLE_BY_FACTION := {"orc": "Орки", "trader": "Торговцы", "pirate": "Пираты", "ancient": "Стражи Древних"}
+const ENEMY_GENITIVE_BY_FACTION := {"orc": "ОРКОВ", "trader": "ТОРГОВЦЕВ", "pirate": "ПИРАТОВ", "ancient": "СТРАЖЕЙ ДРЕВНИХ"}
 
 
 func _enemy_faction_title() -> String:
@@ -1237,9 +1334,12 @@ func _enemy_faction_genitive() -> String:
 	return String(ENEMY_GENITIVE_BY_FACTION[BATTLE_HUD.enemy_faction(units)])
 
 
+## Стена (is_wall) в этот подсчёт не входит: она преграда, а не флот —
+## иначе уцелевший сегмент держал бы "сторона жива" вечно, и бой не мог бы
+## закончиться победой, даже когда весь настоящий флот стража уже уничтожен.
 func _side_alive(side: int) -> bool:
 	for unit in units:
-		if unit["side"] == side and unit["hp"] > 0:
+		if unit["side"] == side and unit["hp"] > 0 and not bool(unit.get("is_wall", false)):
 			return true
 	return false
 
@@ -1268,7 +1368,13 @@ func _can_shoot_unit(target_index: int) -> bool:
 		return false
 	var attacker_cell: Vector2i = _active_unit()["cell"]
 	var target_cell: Vector2i = units[target_index]["cell"]
-	if _hex_distance(attacker_cell, target_cell) > _stat(_active_unit(), "range"):
+	var distance := _hex_distance(attacker_cell, target_cell)
+	if distance > _stat(_active_unit(), "range"):
+		return false
+	# Космический патруль (min_engage_range) не может навести орудие в упор —
+	# это не штраф к урону, а полный запрет залпа на такой дистанции.
+	var min_range := int(_active_unit().get("min_engage_range", 0))
+	if min_range > 0 and distance < min_range:
 		return false
 	return _has_line_of_sight(attacker_cell, target_cell)
 
@@ -1453,7 +1559,10 @@ func _hex_line(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 func _has_line_of_sight(from: Vector2i, to: Vector2i) -> bool:
 	var line := _hex_line(from, to)
 	for index in range(1, line.size() - 1):
-		if obstacle_at.has(line[index]):
+		var cell: Vector2i = line[index]
+		if obstacle_at.has(cell):
+			return false
+		if wall_at.has(cell) and units[int(wall_at[cell])]["hp"] > 0:
 			return false
 	return true
 
@@ -2071,7 +2180,11 @@ func _draw_unit(index: int, origin: Vector2) -> void:
 	var ship_size: Vector2 = region.size * (TACTICAL_SHIP_WIDTHS[tier_index] / region.size.x)
 	# All source ships face left. Earth ships face the pirates on the right.
 	draw_set_transform(center, 0.0, Vector2(-1.0 if is_player else 1.0, 1.0))
-	_draw_engine_exhaust(unit, ship_size, index)
+	# Стена (is_wall) неподвижна и не корабль — выхлоп двигателя ей не идёт,
+	# особенно с учётом того, что её портретный (не альбомный) холст даёт
+	# несоразмерно раздутое пятно свечения (см. _draw_engine_exhaust).
+	if not bool(unit.get("is_wall", false)):
+		_draw_engine_exhaust(unit, ship_size, index)
 	draw_texture_rect_region(unit["texture"], Rect2(-ship_size * 0.5, ship_size), region)
 	draw_set_transform(Vector2.ZERO)
 	_draw_stack_badge(center, unit, color, index == active_unit_index)
@@ -2091,6 +2204,8 @@ func _engine_color(unit: Dictionary) -> Color:
 		return PLAYER_COLOR
 	if String(unit.get("faction", "")) == "orc":
 		return ENEMY_COLOR
+	if String(unit.get("faction", "")) == "ancient":
+		return ANCIENT_ENGINE_COLOR
 	return NEUTRAL_ENGINE_COLOR
 
 
@@ -2227,7 +2342,10 @@ func _grid_size() -> Vector2:
 ## продублирована, чтобы не тянуть зависимость на CanvasLayer ради одного числа.
 const GRID_SIDE_MARGIN := 20.0
 const GRID_TOP_MARGIN := 20.0
-const GRID_BOTTOM_RESERVED := 96.0
+## Продублировано из высоты нижней полосы HUD (BAR_HEIGHT + BAR_MARGIN*2 в
+## tactical_battle_hud.gd — 98 + 16*2 = 130) — полоса выросла на строку иконок
+## очереди хода, иначе сетка налезает на кнопки.
+const GRID_BOTTOM_RESERVED := 130.0
 
 
 func _grid_origin() -> Vector2:
@@ -2283,7 +2401,7 @@ func _update_hud() -> void:
 	if is_instance_valid(hud):
 		hud.auto_button.text = "РУЧНОЙ БОЙ" if auto_battle else "АВТОБИТВА"
 		hud.auto_button.disabled = battle_finished
-		hud.update_state(units, active_unit_index, round_number, last_event, battle_finished, _actions_locked(), _hover_hint(), String(AUTO_MODE_LABELS[auto_battle_mode]))
+		hud.update_state(units, active_unit_index, round_number, last_event, battle_finished, _actions_locked(), _hover_hint(), String(AUTO_MODE_LABELS[auto_battle_mode]), turn_order)
 
 
 func _visuals_busy() -> bool:
@@ -2328,8 +2446,13 @@ func _hover_hint() -> String:
 			var distance := _hex_distance(_active_unit()["cell"], unit["cell"])
 			var damage := _expected_stack_damage(_active_unit(), unit, distance)
 			var losses := _casualties_for(unit, damage)
-			var suffix := "" if _range_penalty(distance) >= 1.0 else "  ·  дальний выстрел −30%"
-			if distance <= 1 and not unit["retaliated"]:
+			var penalty := _range_penalty(_active_unit(), distance)
+			var suffix := "" if penalty >= 0.999 else "  ·  дальний выстрел −%d%%" % roundi((1.0 - penalty) * 100.0)
+			# Ответка зависит от того, может ли ЦЕЛЬ стрелять в упор — у
+			# патруля (min_engage_range=2) её нет и в обороне: орудие не
+			# наводится на такой дистанции ни в атаке, ни в ответ.
+			var target_min_range := int(unit.get("min_engage_range", 0))
+			if distance <= 1 and not unit["retaliated"] and target_min_range <= 1:
 				suffix += "  ·  будет ответный залп"
 			return "Залп по «%s» ×%d: ~%d урона · погибнет ~%d кор.%s%s" % [unit["label"], _stack_count(unit), damage, losses, suffix, effects_text]
 		if _active_unit()["shot"]:

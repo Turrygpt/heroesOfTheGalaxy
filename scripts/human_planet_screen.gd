@@ -15,6 +15,13 @@ var open_garrison_on_ready := false
 var fleet_only_mode := false
 var space_modal_mode := false
 var trading_post_mode := false
+## Откуда конкретный торговый пост берёт недельный запас кораблей (см.
+## space_strategy_map.gd:_trading_post_target/_open_trading_post) —
+## "map_object" (обычный пост, trading_planet) или "guardian" (взятая
+## пиратская твердыня). trading_post_index == -1 отключает наём (только обмен
+## ресурсов) — так исторически открывались посты без указания источника.
+var trading_post_source := "map_object"
+var trading_post_index := -1
 ## Только для UiShot: позволяет наполнить гарнизон без записи в пользовательский сейв.
 var garrison_preview_state: Dictionary = {}
 
@@ -222,6 +229,9 @@ var barter_target: OptionButton
 var barter_amount: SpinBox
 var barter_quote: Label
 var barter_button: Button
+## Строки найма кораблей на торговом посту (см. _build_recruitment_section) —
+## unit_id -> {stock: Label, amount: SpinBox, button: Button}.
+var trading_recruit_controls: Dictionary = {}
 
 @onready var back_button: Button = $Root/TopBar/Margin/HBox/BackButton
 @onready var background: TextureRect = $Root/Background
@@ -1118,9 +1128,10 @@ func _close_exchange_screen() -> void:
 ## Биржа: продажа/покупка ресурсов за кредиты. Строится целиком в коде - для одного экрана без
 ## сохраняемого состояния это проще, чем размечать ещё один узел в сцене.
 func _build_exchange_screen() -> PanelContainer:
+	var offers_recruitment := trading_post_mode and trading_post_index >= 0
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.custom_minimum_size = Vector2(900, 680)
+	panel.custom_minimum_size = Vector2(900, 680 + (190 if offers_recruitment else 0))
 	panel.size = panel.custom_minimum_size
 	panel.position = -panel.custom_minimum_size * 0.5
 	panel.add_theme_stylebox_override("panel", _exchange_panel_style())
@@ -1156,6 +1167,9 @@ func _build_exchange_screen() -> PanelContainer:
 	exchange_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(exchange_list)
 	_build_barter_controls(vbox)
+	if offers_recruitment:
+		vbox.add_child(HSeparator.new())
+		_build_recruitment_section(vbox)
 
 	var close_button := Button.new()
 	close_button.custom_minimum_size = Vector2(0, 38)
@@ -1177,6 +1191,96 @@ func _update_exchange_screen() -> void:
 		exchange_list.add_child(_build_exchange_row(resource_name))
 	_update_resource_bar()
 	_update_barter_quote()
+	_refresh_recruitment_section()
+
+
+## Наём кораблей III-V ранга на торговом посту/планете — только когда экран
+## открыт с конкретным источником (см. trading_post_source/trading_post_index,
+## space_strategy_map.gd:_open_trading_post). Запас и цены считает
+## TradingPost (trading_post.gd), сам найм — strategy_map.recruit_at_trading_post.
+func _build_recruitment_section(parent: VBoxContainer) -> void:
+	var heading := Label.new()
+	heading.text = "НАЁМ КОРАБЛЕЙ · запас пополняется раз в неделю"
+	heading.add_theme_font_size_override("font_size", 14)
+	parent.add_child(heading)
+	trading_recruit_controls.clear()
+	for unit_id in TradingPost.UNIT_OFFERS:
+		parent.add_child(_build_recruitment_row(unit_id))
+
+
+## Цена в TradingPost.UNIT_OFFERS отличается от UnitDefs.cost_text (обычная
+## цена ангара) — торговый пост берёт 90% кредитов, см. trading_post.gd.
+func _trading_post_cost_text(unit_id: String) -> String:
+	var cost: Dictionary = TradingPost.UNIT_OFFERS.get(unit_id, {}).get("cost", {})
+	var parts: Array[String] = []
+	if cost.has("credits"):
+		parts.append("%d кред." % int(cost["credits"]))
+	for key in cost:
+		if key != "credits":
+			parts.append("%d %s" % [int(cost[key]), key])
+	return " + ".join(parts)
+
+
+func _trading_label(text: String, font_size: int, color: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	return label
+
+
+func _build_recruitment_row(unit_id: String) -> Control:
+	var unit := UnitDefs.get_unit(unit_id)
+	var row := PanelContainer.new()
+	row.add_theme_stylebox_override("panel", _panel_row_style())
+	var content := HBoxContainer.new()
+	content.add_theme_constant_override("separation", 10)
+	row.add_child(content)
+	content.add_child(_unit_icon(unit, Vector2(96, 56)))
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_child(text)
+	text.add_child(_trading_label("%s · %d ранг" % [String(unit["label"]), int(unit["tier"])], 15, Color(0.9, 0.92, 0.95, 1)))
+	text.add_child(_trading_label(_trading_post_cost_text(unit_id), 12, Color(0.6, 0.63, 0.68, 1)))
+	var stock := _trading_label("", 14, Color(1, 0.85, 0.35, 1))
+	stock.custom_minimum_size = Vector2(96, 0)
+	content.add_child(stock)
+	var amount := SpinBox.new()
+	amount.min_value = 1
+	amount.max_value = maxi(1, int(TradingPost.UNIT_OFFERS[unit_id]["capacity"]))
+	amount.value = 1
+	amount.custom_minimum_size = Vector2(80, 34)
+	content.add_child(amount)
+	var hire := Button.new()
+	hire.text = "НАНЯТЬ"
+	hire.custom_minimum_size = Vector2(100, 34)
+	hire.pressed.connect(_recruit_from_trading_post.bind(unit_id))
+	content.add_child(hire)
+	amount.value_changed.connect(func(_value: float) -> void: _refresh_recruitment_section())
+	trading_recruit_controls[unit_id] = {"stock": stock, "amount": amount, "button": hire}
+	return row
+
+
+func _refresh_recruitment_section() -> void:
+	if strategy_map == null or trading_recruit_controls.is_empty():
+		return
+	for unit_id in trading_recruit_controls:
+		var controls: Dictionary = trading_recruit_controls[unit_id]
+		var amount := int((controls["amount"] as SpinBox).value)
+		var error: String = strategy_map.trading_post_recruit_error(
+			trading_post_source, trading_post_index, unit_id, amount)
+		(controls["button"] as Button).disabled = error != ""
+		(controls["button"] as Button).tooltip_text = error
+		var target: Dictionary = strategy_map._trading_post_target(trading_post_source, trading_post_index)
+		var stock: Dictionary = target.get("trading_stock", {})
+		(controls["stock"] as Label).text = "Есть: %d" % int(stock.get(unit_id, 0))
+
+
+func _recruit_from_trading_post(unit_id: String) -> void:
+	var controls: Dictionary = trading_recruit_controls[unit_id]
+	var amount := int((controls["amount"] as SpinBox).value)
+	strategy_map.recruit_at_trading_post(trading_post_source, trading_post_index, unit_id, amount)
+	_update_exchange_screen()
 
 
 ## Прямой обмен: количество в поле означает, сколько редкого ресурса получить.
@@ -1626,25 +1730,37 @@ func _build_production_row(unit_id: String, weekly: int, available: int) -> Cont
 	status_label.add_theme_color_override("font_color", Color(0.51, 0.79, 0.76, 1))
 	status_label.text = "+%d в неделю  ·  доступно %d" % [weekly, available]
 	text_box.add_child(status_label)
+	var blocker := _recruitment_blocker_reason(unit_id, available, can_store)
+	if not blocker.is_empty():
+		var blocker_label := Label.new()
+		blocker_label.add_theme_font_size_override("font_size", 10)
+		blocker_label.add_theme_color_override("font_color", Color(1.0, 0.57, 0.42, 1))
+		blocker_label.text = blocker
+		blocker_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text_box.add_child(blocker_label)
 
 	var buy_row := HBoxContainer.new()
 	buy_row.add_theme_constant_override("separation", 5)
 	text_box.add_child(buy_row)
 	var price := Label.new()
-	price.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	price.custom_minimum_size = Vector2(150, 0)
 	price.add_theme_font_size_override("font_size", 11)
 	price.add_theme_color_override("font_color", Color(0.63, 0.68, 0.72, 1))
-	price.text = UnitDefs.cost_text(unit_id)
-	price.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	price.tooltip_text = UnitDefs.cost_text(unit_id)
+	price.text = "1: %s" % UnitDefs.cost_text(unit_id)
+	price.tooltip_text = "Стоимость 1 корабля: %s" % UnitDefs.cost_text(unit_id)
 	buy_row.add_child(price)
 	if available >= 0:
 		var affordable := _max_affordable_recruits(unit_id, available)
+		price.text = _production_price_text(unit_id, affordable)
+		price.tooltip_text = price.text
 		var spin := SpinBox.new()
 		spin.min_value = 1
 		spin.max_value = maxi(1, affordable)
 		spin.value = 1
 		spin.custom_minimum_size = Vector2(62, 32)
+		spin.value_changed.connect(func(_value: float) -> void:
+			price.tooltip_text = _production_price_text(unit_id, affordable)
+		)
 		buy_row.add_child(spin)
 		var buy_button := Button.new()
 		buy_button.custom_minimum_size = Vector2(72, 32)
@@ -1652,11 +1768,8 @@ func _build_production_row(unit_id: String, weekly: int, available: int) -> Cont
 		buy_button.add_theme_font_size_override("font_size", 12)
 		buy_button.text = "НАНЯТЬ"
 		_style_action_button(buy_button)
-		buy_button.disabled = not can_store or affordable <= 0
-		if not can_store:
-			buy_button.tooltip_text = "В гарнизоне нет свободного слота."
-		elif affordable <= 0:
-			buy_button.tooltip_text = "Не хватает ресурсов для найма."
+		buy_button.disabled = not blocker.is_empty()
+		buy_button.tooltip_text = blocker
 		buy_button.pressed.connect(_recruit_unit.bind(unit_id, spin))
 		buy_row.add_child(buy_button)
 		var max_button := Button.new()
@@ -1665,8 +1778,8 @@ func _build_production_row(unit_id: String, weekly: int, available: int) -> Cont
 		max_button.add_theme_font_size_override("font_size", 12)
 		max_button.text = "MAX"
 		_style_action_button(max_button)
-		max_button.disabled = not can_store or affordable <= 0
-		max_button.tooltip_text = "Нанять максимум доступных кораблей за имеющиеся ресурсы."
+		max_button.disabled = not blocker.is_empty()
+		max_button.tooltip_text = blocker if not blocker.is_empty() else "Нанять максимум доступных кораблей за имеющиеся ресурсы."
 		max_button.pressed.connect(_recruit_max_unit.bind(unit_id))
 		buy_row.add_child(max_button)
 	return row
@@ -1911,6 +2024,12 @@ func _format_cost(cost: Dictionary) -> String:
 	return " + ".join(parts)
 
 
+func _production_price_text(unit_id: String, max_count: int) -> String:
+	var one_cost: Dictionary = UnitDefs.get_unit(unit_id).get("cost", {})
+	var max_cost := _scaled_cost(one_cost, maxi(0, max_count))
+	return "1: %s\nMAX (%d): %s" % [UnitDefs.cost_text(unit_id), max_count, _format_cost(max_cost)]
+
+
 func _max_affordable_recruits(unit_id: String, available: int) -> int:
 	if strategy_map == null:
 		return 0
@@ -1923,6 +2042,26 @@ func _max_affordable_recruits(unit_id: String, available: int) -> int:
 		var owned := int(strategy_map.player_one_credits) if key == "credits" else int(strategy_map.player_one_resources.get(key, 0))
 		result = mini(result, owned / price)
 	return maxi(0, result)
+
+
+func _recruitment_blocker_reason(unit_id: String, available: int, can_store: bool) -> String:
+	if available <= 0:
+		return "Нет кораблей в недельном запасе."
+	if not can_store:
+		return "Гарнизон заполнен: освободите слот."
+	if strategy_map == null:
+		return "Стратегическая карта не подключена."
+	var missing: Array[String] = []
+	var unit_cost: Dictionary = UnitDefs.get_unit(unit_id).get("cost", {})
+	for key in unit_cost:
+		var required := int(unit_cost[key])
+		var owned := int(strategy_map.player_one_credits) if key == "credits" else int(strategy_map.player_one_resources.get(key, 0))
+		if owned < required:
+			var resource_name := "кредиты" if key == "credits" else String(key)
+			missing.append("%s %d/%d" % [resource_name, owned, required])
+	if not missing.is_empty():
+		return "Не хватает: %s." % ", ".join(missing)
+	return ""
 
 
 ## Списывает ресурсы игрока через стратегическую карту и переводит корабли

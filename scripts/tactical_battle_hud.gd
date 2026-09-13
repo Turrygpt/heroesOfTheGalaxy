@@ -16,6 +16,8 @@ const ENEMY_TITLES := {
 	"pirate": ["ПИРАТСКИЙ ФЛОТ", "ВОЛЬНЫЕ КАПЕРЫ", "КАПИТАН ПИРАТОВ"],
 	"trader": ["ТОРГОВЫЙ КОНВОЙ", "ВОЛЬНЫЕ ТОРГОВЦЫ", "СТАРШИНА КАРАВАНА"],
 	"orc": ["ОРДА ОРКОВ", "БОЕВОЙ КЛАН ПУСТОТЫ", "ВОЖДЬ ОРКОВ"],
+	"ancient": ["СТРАЖИ ДРЕВНИХ", "ПРОБУЖДЁННЫЕ КОНСТРУКТЫ", "СТРАЖ-КОЛОСС"],
+	"patrol": ["КОСМИЧЕСКИЙ ПАТРУЛЬ", "ПОГРАНИЧНАЯ СТРАЖА", "КОМЕНДАНТ ПАТРУЛЯ"],
 }
 const GOLD := preload("res://scripts/ui_style.gd").GOLD
 const MUTED := preload("res://scripts/ui_style.gd").MUTED
@@ -26,13 +28,20 @@ const INK := preload("res://scripts/ui_style.gd").INK
 ## Состав флотов и характеристики активного отряда больше не показываются
 ## постоянно: число кораблей подписано прямо на карте под каждым отрядом
 ## (см. tactical_battle.gd:_draw_stack_badge).
-const BAR_HEIGHT := 64.0
+const BAR_HEIGHT := 98.0
 const BAR_MARGIN := 16.0
+## Полоса очереди хода: маленькие иконки пачек в порядке инициативы этого
+## раунда, начиная с активной. Единственная добавка к "минимальному" HUD
+## (см. AGENTS.md §7b) — без неё порядок хода не виден и не планируется,
+## а он строится по инициативе, а не по стороне.
+const TURN_ORDER_ICON_SIZE := 30.0
+const TURN_ORDER_MAX_ICONS := 10
 
 var round_label: Label
 var end_button: Button
 var back_button: Button
 var ui: Control
+var turn_order_row: HBoxContainer
 
 
 func setup(_units: Array[Dictionary], _turn_order: Array[int]) -> void:
@@ -82,9 +91,18 @@ func _build_bottom_bar() -> void:
 	bar.offset_top = -BAR_MARGIN - BAR_HEIGHT
 	bar.offset_bottom = -BAR_MARGIN
 
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 6)
+	bar.add_child(column)
+
+	turn_order_row = HBoxContainer.new()
+	turn_order_row.add_theme_constant_override("separation", 6)
+	turn_order_row.custom_minimum_size.y = TURN_ORDER_ICON_SIZE
+	column.add_child(turn_order_row)
+
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
-	bar.add_child(row)
+	column.add_child(row)
 
 	round_label = _label("РАУНД 01", 19, GOLD)
 	round_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -131,14 +149,14 @@ static func enemy_faction(units: Array[Dictionary]) -> String:
 	return "pirate"
 
 
-const ENEMY_FACTION_NAMES := {"orc": "ОРКИ", "trader": "ТОРГОВЦЫ", "pirate": "ПИРАТЫ"}
+const ENEMY_FACTION_NAMES := {"orc": "ОРКИ", "trader": "ТОРГОВЦЫ", "pirate": "ПИРАТЫ", "ancient": "СТРАЖИ ДРЕВНИХ", "patrol": "ПАТРУЛЬ"}
 
 
 static func _enemy_faction_name(units: Array[Dictionary]) -> String:
 	return String(ENEMY_FACTION_NAMES[enemy_faction(units)])
 
 
-func update_state(units: Array[Dictionary], active_index: int, round_number: int, event_text: String, finished: bool, locked: bool, _hint: String, auto_mode_label: String = "СБАЛАНСИРОВАННЫЙ") -> void:
+func update_state(units: Array[Dictionary], active_index: int, round_number: int, event_text: String, finished: bool, locked: bool, _hint: String, auto_mode_label: String = "СБАЛАНСИРОВАННЫЙ", turn_order: Array[int] = []) -> void:
 	var active := units[active_index]
 	var enemy_name := _enemy_faction_name(units)
 	round_label.text = event_text if finished else "РАУНД %02d  /  %s" % [
@@ -149,3 +167,60 @@ func update_state(units: Array[Dictionary], active_index: int, round_number: int
 	back_button.text = "←  НА КАРТУ" if finished else "←  СБЕЖАТЬ В ЗАМОК"
 	auto_mode_button.text = "РЕЖИМ: %s" % auto_mode_label
 	auto_mode_button.disabled = finished
+	_refresh_turn_order(units, turn_order, active_index, finished)
+
+
+## Очередь хода до конца раунда, начиная с активной пачки — дальше порядок
+## неизвестен заранее: _rebuild_turn_order пересобирает его каждый раунд и
+## выбывшие отряды из очереди пропадают.
+func _refresh_turn_order(units: Array[Dictionary], turn_order: Array[int], active_index: int, finished: bool) -> void:
+	for child in turn_order_row.get_children():
+		child.queue_free()
+	if finished or turn_order.is_empty():
+		turn_order_row.visible = false
+		return
+	turn_order_row.visible = true
+	var start := turn_order.find(active_index)
+	if start < 0:
+		start = 0
+	var shown := 0
+	for offset in range(turn_order.size() - start):
+		if shown >= TURN_ORDER_MAX_ICONS:
+			break
+		var unit_index: int = turn_order[start + offset]
+		if unit_index < 0 or unit_index >= units.size():
+			continue
+		var unit: Dictionary = units[unit_index]
+		if int(unit.get("hp", 0)) <= 0:
+			continue
+		turn_order_row.add_child(_turn_order_chip(unit, offset == 0))
+		shown += 1
+
+
+func _turn_order_chip(unit: Dictionary, is_active: bool) -> Control:
+	var is_player: bool = int(unit.get("side", 0)) == 1
+	var color := preload("res://scripts/ui_style.gd").CYAN if is_player else Color("f5826b")
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2.ONE * TURN_ORDER_ICON_SIZE
+	panel.add_theme_stylebox_override("panel", _style(GOLD if is_active else color, Color(0.03, 0.05, 0.08, 0.9)))
+	panel.tooltip_text = "%s ×%d" % [String(unit.get("label", "")), int(unit.get("count", 0))]
+	var icon := TextureRect.new()
+	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.texture = _chip_texture(unit)
+	panel.add_child(icon)
+	return panel
+
+
+func _chip_texture(unit: Dictionary) -> Texture2D:
+	var source := unit.get("texture", null) as Texture2D
+	if source == null:
+		return null
+	var region := unit.get("region", Rect2()) as Rect2
+	if region.size.x <= 0.0 or region.size.y <= 0.0:
+		return source
+	var atlas := AtlasTexture.new()
+	atlas.atlas = source
+	atlas.region = region
+	return atlas

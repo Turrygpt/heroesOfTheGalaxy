@@ -7,6 +7,12 @@ const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
 
 const PIRATE_COLOR := Color("ff3b30")
 const TRADER_COLOR := Color("e5b956")
+const PATROL_COLOR := Color("4fa8e0")
+## Кто из стражей враждебен игроку по умолчанию (влияет только на толщину
+## обводки — торговцы и патруль не гонятся за игроком сами, но бой всё равно
+## обязателен, если встать на их клетку).
+const NEUTRAL_KINDS := ["trader", "patrol"]
+const KIND_COLORS := {"trader": TRADER_COLOR, "patrol": PATROL_COLOR}
 const ICON_DIAMETER := 46.0
 ## Все кораблики-стражи (пираты и нейтральные торговцы) одного размера —
 ## пиратов отличает только акцентная красная обводка потолще, не масштаб.
@@ -33,8 +39,9 @@ func _draw_guardian(strategy_map: Node2D, guardian: Dictionary) -> void:
 		_draw_object_guardian(center, object_kind, size)
 		_draw_object_name(center, String(MapObjectDefs.get_kind(object_kind).get("name", object_kind)), size, true)
 		return
-	var is_enemy: bool = String(guardian["kind"]) != "trader"
-	var color: Color = PIRATE_COLOR if is_enemy else TRADER_COLOR
+	var kind := String(guardian["kind"])
+	var is_enemy: bool = kind not in NEUTRAL_KINDS
+	var color: Color = KIND_COLORS.get(kind, PIRATE_COLOR)
 	var outline_width := ENEMY_OUTLINE_WIDTH if is_enemy else NEUTRAL_OUTLINE_WIDTH
 	draw_circle(center, SHIP_ICON_DIAMETER * 0.5 + 4.0, Color(0.02, 0.03, 0.06, 0.88))
 	var icon_id: String = GuardianDefs.icon_unit_id(guardian["template"])

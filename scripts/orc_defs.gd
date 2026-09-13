@@ -41,7 +41,7 @@ const UNITS := {
 	# --- I ранг: истребители ------------------------------------------------
 	"ork_fighter": {
 		"label": "Коготь", "role": "обычный истребитель 1 ранга (короткая дистанция)", "tier": 1,
-		"hull": 6, "attack": 6, "defense": 5, "damage_min": 1, "damage_max": 3,
+		"hull": 10, "attack": 6, "defense": 5, "damage_min": 1, "damage_max": 3,
 		"move": 8, "range": 2, "initiative": 13, "sprite_width": 104.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/orc/claw.png"), "region": Rect2(0, 0, 1422, 509),
 		"kind": "orc_dwelling", "dwelling": "ork_fighter_yard", "dwelling_level": 1,
@@ -50,7 +50,7 @@ const UNITS := {
 	},
 	"ork_elite_fighter": {
 		"label": "Элитный Коготь", "role": "элитный истребитель 1 ранга (короткая дистанция)", "tier": 1,
-		"hull": 11, "attack": 8, "defense": 6, "damage_min": 3, "damage_max": 6,
+		"hull": 17, "attack": 8, "defense": 6, "damage_min": 3, "damage_max": 6,
 		"move": 7, "range": 2, "initiative": 11, "sprite_width": 112.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/orc/elite_claw.png"), "region": Rect2(0, 0, 1426, 512),
 		"kind": "orc_dwelling", "dwelling": "ork_fighter_yard", "dwelling_level": 2,
@@ -60,7 +60,7 @@ const UNITS := {
 	# --- II ранг: штурмовики ------------------------------------------------
 	"ork_gunship": {
 		"label": "Пиранья", "role": "обычный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
-		"hull": 16, "attack": 8, "defense": 6, "damage_min": 4, "damage_max": 7,
+		"hull": 24, "attack": 8, "defense": 6, "damage_min": 4, "damage_max": 7,
 		"move": 7, "range": 2, "initiative": 11, "sprite_width": 124.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/orc/piranha.png"), "region": Rect2(0, 0, 1330, 556),
 		"kind": "orc_dwelling", "dwelling": "ork_gunship_yard", "dwelling_level": 1,
@@ -69,7 +69,7 @@ const UNITS := {
 	},
 	"ork_elite_gunship": {
 		"label": "Элитная Пиранья", "role": "элитный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
-		"hull": 26, "attack": 10, "defense": 8, "damage_min": 6, "damage_max": 10,
+		"hull": 38, "attack": 10, "defense": 8, "damage_min": 6, "damage_max": 10,
 		"move": 7, "range": 2, "initiative": 12, "sprite_width": 132.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/orc/elite_piranha.png"), "region": Rect2(0, 0, 1336, 560),
 		"kind": "orc_dwelling", "dwelling": "ork_gunship_yard", "dwelling_level": 2,
@@ -79,7 +79,7 @@ const UNITS := {
 	# --- III ранг: корветы --------------------------------------------------
 	"ork_corvette": {
 		"label": "Акула", "role": "обычный корвет 3 ранга (дальнобойный)", "tier": 3,
-		"hull": 32, "attack": 11, "defense": 8, "damage_min": 8, "damage_max": 13,
+		"hull": 48, "attack": 11, "defense": 8, "damage_min": 8, "damage_max": 13,
 		"move": 6, "range": 3, "initiative": 9, "sprite_width": 140.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/shark.png"), "region": Rect2(0, 0, 1644, 583),
 		"kind": "orc_dwelling", "dwelling": "ork_corvette_yard", "dwelling_level": 1,
@@ -88,7 +88,7 @@ const UNITS := {
 	},
 	"ork_elite_corvette": {
 		"label": "Элитная Акула", "role": "элитный корвет 3 ранга (дальнобойный)", "tier": 3,
-		"hull": 51, "attack": 14, "defense": 10, "damage_min": 12, "damage_max": 20,
+		"hull": 77, "attack": 14, "defense": 10, "damage_min": 12, "damage_max": 20,
 		"move": 6, "range": 4, "initiative": 9, "sprite_width": 150.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/elite_shark.png"), "region": Rect2(0, 0, 1645, 584),
 		"kind": "orc_dwelling", "dwelling": "ork_corvette_yard", "dwelling_level": 2,
@@ -98,7 +98,7 @@ const UNITS := {
 	# --- IV ранг: фрегаты ---------------------------------------------------
 	"ork_frigate": {
 		"label": "Катран", "role": "обычный фрегат 4 ранга (дальнобойный)", "tier": 4,
-		"hull": 60, "attack": 14, "defense": 10, "damage_min": 14, "damage_max": 22,
+		"hull": 90, "attack": 14, "defense": 10, "damage_min": 14, "damage_max": 22,
 		"move": 5, "range": 3, "initiative": 7, "sprite_width": 155.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/katran.png"), "region": Rect2(0, 0, 1624, 576),
 		"kind": "orc_dwelling", "dwelling": "ork_frigate_yard", "dwelling_level": 1,
@@ -107,7 +107,7 @@ const UNITS := {
 	},
 	"ork_elite_frigate": {
 		"label": "Элитный Катран", "role": "элитный фрегат 4 ранга (дальнобойный)", "tier": 4,
-		"hull": 90, "attack": 17, "defense": 13, "damage_min": 20, "damage_max": 31,
+		"hull": 136, "attack": 17, "defense": 13, "damage_min": 20, "damage_max": 31,
 		"move": 5, "range": 4, "initiative": 7, "sprite_width": 165.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/elite_katran.png"), "region": Rect2(0, 0, 1628, 576),
 		"kind": "orc_dwelling", "dwelling": "ork_frigate_yard", "dwelling_level": 2,
@@ -117,7 +117,7 @@ const UNITS := {
 	# --- V ранг: эсминцы ----------------------------------------------------
 	"ork_destroyer": {
 		"label": "Дракон", "role": "обычный эсминец 5 ранга (дальнобойный)", "tier": 5,
-		"hull": 104, "attack": 18, "defense": 13, "damage_min": 24, "damage_max": 36,
+		"hull": 156, "attack": 18, "defense": 13, "damage_min": 24, "damage_max": 36,
 		"move": 4, "range": 4, "initiative": 6, "sprite_width": 170.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/orc/dragon.png"), "region": Rect2(0, 0, 1582, 567),
 		"kind": "orc_dwelling", "dwelling": "ork_destroyer_yard", "dwelling_level": 1,
@@ -126,7 +126,7 @@ const UNITS := {
 	},
 	"ork_elite_destroyer": {
 		"label": "Элитный Дракон", "role": "элитный эсминец 5 ранга (дальнобойный)", "tier": 5,
-		"hull": 140, "attack": 21, "defense": 15, "damage_min": 31, "damage_max": 45,
+		"hull": 210, "attack": 21, "defense": 15, "damage_min": 31, "damage_max": 45,
 		"move": 5, "range": 5, "initiative": 7, "sprite_width": 180.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/orc/elite_dragon.png"), "region": Rect2(0, 0, 1644, 565),
 		"kind": "orc_dwelling", "dwelling": "ork_destroyer_yard", "dwelling_level": 2,

@@ -116,10 +116,36 @@ func _test_ai_repositions_before_shot() -> void:
 	battle.free()
 
 
+## Неизбежность контакта в защитном автобое (см. _defensive_move_cell_score)
+## меряется по позиции цели на начало раунда (round_start_cell), а не по уже
+## сдвинувшейся в этот же раунд — иначе медленный защитный отряд цепной
+## реакцией срывается вдогонку за противником, который уже походил раньше по
+## очереди хода, хотя на начало раунда контакт ещё не был гарантирован.
+func _test_defensive_ignores_mid_round_approach() -> void:
+	var battle = _make_battle("frigate", 4, "frigate", 4)
+	var active: Dictionary = battle.units[0]
+	var target: Dictionary = battle.units[1]
+	var shot_range: int = battle._stat(active, "range")
+	var start_cell: Vector2i = active["cell"]
+	# На начало раунда цель была далеко (контакт не гарантирован), но уже
+	# успела сходить в этот же раунд и приблизиться. Обе кандидатные клетки
+	# всё ещё вне дальности залпа (target_distance > shot_range), чтобы сравнение
+	# не зависело от значения "можно выстрелить" и обстрела.
+	target["round_start_cell"] = Vector2i(start_cell.x + 30, start_cell.y)
+	target["cell"] = Vector2i(start_cell.x + 5, start_cell.y)
+	var stay_score: float = battle._defensive_move_cell_score(start_cell, active, target, shot_range, start_cell)
+	var advance_cell := Vector2i(start_cell.x + 1, start_cell.y)
+	var advance_score: float = battle._defensive_move_cell_score(advance_cell, active, target, shot_range, start_cell)
+	_check(stay_score > advance_score,
+		"Защитный отряд не обязан догонять уже приблизившегося врага, если контакт не был неизбежен на начало раунда")
+	battle.free()
+
+
 func _run() -> void:
 	_test_dead_attacker_still_advances_turn()
 	_test_leaves_only_encirclement()
 	_test_ai_repositions_before_shot()
+	_test_defensive_ignores_mid_round_approach()
 	if failures == 0:
-		print("PASS: гибель активного отряда от ответки не вешает ход, выход из окружения")
+		print("PASS: гибель активного отряда от ответки не вешает ход, выход из окружения, защитный автобой держит строй до начала-раунда угрозы")
 	quit(1 if failures else 0)
