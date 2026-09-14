@@ -47,7 +47,10 @@ const PATROL_RADIUS := 9
 ## 3×3 клетки вокруг патрульного корабля: центр и по одному соседу с каждой
 ## стороны. Диагонали также входят в зону агрессии.
 const PATROL_AGGRO_RADIUS := 1
-const GUARDED_RESOURCE_CACHE_COUNT := 6
+## Отдельные ресурсные тайники делятся на охраняемые и безопасные, чтобы на
+## карте были цели и для боевых вылазок, и для спокойного сбора добычи.
+const GUARDED_RESOURCE_CACHE_COUNT := 12
+const UNGUARDED_RESOURCE_CACHE_COUNT := 8
 const RESOURCE_CACHE_AMOUNT_MIN := 5
 const RESOURCE_CACHE_AMOUNT_MAX := 18
 ## Здание занимает 2×2 клетки; "cell" сайта — верхний левый угол этого
@@ -2122,6 +2125,7 @@ func _generate_map_objects() -> void:
 	_generate_trading_posts()
 	_generate_wormhole_pairs()
 	_generate_guarded_resource_caches()
+	_generate_unguarded_resource_caches()
 	_place_neutral_planets()
 	map_object_overlay.queue_redraw()
 
@@ -2189,6 +2193,20 @@ func _generate_guarded_resource_caches() -> void:
 		map_objects[object_index]["amount"] = amount
 		var template := "weak" if amount <= 8 else ("medium" if amount <= 13 else "strong")
 		_add_resource_cache_guardian(guardian_cell, template)
+
+
+## Обычные ресурсные тайники без стража. Размещаются отдельно от охраняемых,
+## чтобы безопасные находки не превращались в обязательные бои.
+func _generate_unguarded_resource_caches() -> void:
+	for _index in range(UNGUARDED_RESOURCE_CACHE_COUNT):
+		var cell := _find_free_object_cell(12, 1)
+		if cell.x < 0:
+			continue
+		_add_map_object(cell, "resource_cache", 1)
+		var object_index := map_objects.size() - 1
+		map_objects[object_index]["resource_name"] = _random_resource_name()
+		map_objects[object_index]["amount"] = map_random.randi_range(
+			RESOURCE_CACHE_AMOUNT_MIN, RESOURCE_CACHE_AMOUNT_MAX)
 
 
 func _add_resource_cache_guardian(cell: Vector2i, template: String) -> void:
@@ -3510,7 +3528,7 @@ func _add_random_production_cluster(
 ## Каждый из четырёх дальних типов встречается по три раза на карте.
 func _add_distant_production_sites(occupied_cells: Array[Vector2i]) -> void:
 	var sector_counts := {}
-	for resource_copy in range(3):
+	for resource_copy in range(4):
 		for blueprint_index in range(4, PRODUCTION_BLUEPRINTS.size()):
 			var blueprint: Dictionary = PRODUCTION_BLUEPRINTS[blueprint_index]
 			var sector_order: Array[Vector2i] = []
