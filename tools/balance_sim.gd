@@ -38,8 +38,6 @@ const CLASH_RUNS := 7
 ## о правках — исход кампании определяется разбросом, а не средней.
 ## Сид 0 детерминирован (map_seed), остальные — случайные.
 const MULTI_SEED_RUNS := 10
-## Предел шагов _process на один быстрый бой — страховка от зависания.
-const CLASH_STEPS := 4000
 ## На каких солах печатать строку таблицы.
 const REPORT_EVERY := 10
 
@@ -291,14 +289,23 @@ func _run_campaign() -> void:
 func _resolve_orc_attack(day: int, kind: String) -> bool:
 	var state := PLANET.load_state()
 	var defenders := player.army.duplicate()
+	var fort_level := 0
 	if kind == "planet":
 		for unit_id in state["garrison"]:
 			defenders[unit_id] = int(defenders.get(unit_id, 0)) + int(state["garrison"][unit_id])
+		# Укрепления форта — зеркало space_strategy_map.gd:_start_orc_battle:
+		# пушки (пачка orbital_platform по штуке за уровень форта) и стена
+		# (defense-бонус всем отрядам игрока, см. tactical_battle.gd:
+		# home_defense_bonus). Без этого зеркалирования измеритель судил бы
+		# об осаде по старой, ещё не защищённой планете.
+		fort_level = int(state["built_levels"].get("fort", 0))
 	var defender_fleet := _fleet_entries(defenders)
+	if fort_level > 0:
+		defender_fleet.append({"unit_id": "orbital_platform", "count": fort_level})
 	var attacker_fleet := _fleet_entries(warlord.army)
 	if defender_fleet.is_empty() or attacker_fleet.is_empty():
 		return true
-	var outcome := _run_battle(defender_fleet, attacker_fleet)
+	var outcome := _run_battle(defender_fleet, attacker_fleet, fort_level)
 	warlord.army = outcome["orc_army"]
 	battles_fought.append("сол %d: орки атаковали (%s) — %s" % [
 		day, kind, "игрок отбился" if bool(outcome["player_won"]) else "победа орков"])
@@ -313,10 +320,13 @@ func _resolve_orc_attack(day: int, kind: String) -> bool:
 		print("!!! сол %d: орки взяли планету игрока — кампания проиграна" % day)
 		campaign_lost_day = day
 		return false
-	# Поражение в поле: герой откатывается домой с одним истребителем
-	# (см. space_strategy_map.gd:_retreat_player_home).
+	# Поражение в поле: герой откатывается на саму планету с одним
+	# истребителем (см. space_strategy_map.gd:_retreat_player_home) — не на
+	# PLAYER_ONE_START_CELL, та клетка лежит вне футпринта планеты и на пути
+	# орков к ней, из-за чего следующий перехват засчитывался бы как полевая
+	# стычка в обход осады.
 	player.army = {"interceptor": 1}
-	map.current_cell = map.PLAYER_ONE_START_CELL
+	map.current_cell = map.HUMAN_PLANET_CENTER
 	return true
 
 
@@ -550,7 +560,7 @@ func _report_clash() -> void:
 		player_left_total += int(outcome["player_left"])
 		orc_left_total += int(outcome["orc_left"])
 	if unfinished > 0:
-		print("боёв, не доигранных за %d шагов: %d" % [CLASH_STEPS, unfinished])
+		print("боёв, не доигранных за отведённое время: %d" % unfinished)
 	var player_start := _fleet_ships(player_fleet)
 	var orc_start := _fleet_ships(orc_fleet)
 	print("побед игрока: %d из %d" % [player_wins, CLASH_RUNS])
@@ -588,18 +598,19 @@ func _fleet_text(fleet: Array[Dictionary]) -> String:
 	return ", ".join(parts) if not parts.is_empty() else "пусто"
 
 
-func _run_battle(player_fleet: Array[Dictionary], enemy_fleet: Array) -> Dictionary:
+func _run_battle(player_fleet: Array[Dictionary], enemy_fleet: Array, home_defense_bonus: int = 0) -> Dictionary:
 	var typed_enemy: Array[Dictionary] = []
 	for entry in enemy_fleet:
 		typed_enemy.append(entry as Dictionary)
-	return _run_battle_typed(player_fleet, typed_enemy)
+	return _run_battle_typed(player_fleet, typed_enemy, home_defense_bonus)
 
 
-func _run_battle_typed(player_fleet: Array[Dictionary], orc_fleet: Array[Dictionary]) -> Dictionary:
+func _run_battle_typed(player_fleet: Array[Dictionary], orc_fleet: Array[Dictionary], home_defense_bonus: int = 0) -> Dictionary:
 	var battle = load("res://scenes/TacticalBattle.tscn").instantiate()
 	battle.player_units_override = player_fleet
 	battle.enemy_units_override = orc_fleet
 	battle.enemy_has_admiral = true
+	battle.home_defense_bonus = home_defense_bonus
 	# quick_battle только ускоряет тики; ходить за сторону 1 разрешает
 	# именно auto_battle (см. tactical_battle.gd:_run_enemy_turn) — без него
 	# бой замирает на первом же ходе игрока.
@@ -609,10 +620,14 @@ func _run_battle_typed(player_fleet: Array[Dictionary], orc_fleet: Array[Diction
 	battle.set_process(false)
 	# Опыт и окно итогов в измерителе не нужны — героев не трогаем.
 	battle.experience_granted = true
-	for _step in range(CLASH_STEPS):
+	# Дедлайн по настенным часам, а не по CLASH_STEPS: quick_battle сам
+	# ограничивает себя 12мс настенного времени на _process, число
+	# завершённых раундов за шаг зависит от загрузки системы — фиксированный
+	# счётчик шагов время от времени не успевал (см. "не доигранных за N
+	# шагов" в выводе), особенно после того как корпус кораблей подняли x1,5.
+	var deadline_ms := Time.get_ticks_msec() + 45000
+	while not battle.battle_finished and battle.quick_battle and Time.get_ticks_msec() < deadline_ms:
 		battle._process(0.016)
-		if battle.battle_finished:
-			break
 	var outcome := {
 		"units": battle.units.duplicate(true),
 		"finished": battle.battle_finished,
@@ -635,7 +650,10 @@ func _surviving(units: Array, side: int) -> Dictionary:
 		var hull := int((unit as Dictionary).get("hull", 1))
 		var hp := int((unit as Dictionary).get("hp", 0))
 		var unit_id := String((unit as Dictionary).get("unit_id", ""))
-		if hp <= 0 or hull <= 0 or unit_id == "":
+		# Орбитальные платформы и сегменты стены (см. _resolve_orc_attack,
+		# tactical_battle.gd:_spawn_guardian_wall) синтезируются заново на
+		# каждый штурм — не должны оседать в мобильной армии игрока.
+		if hp <= 0 or hull <= 0 or unit_id == "" or unit_id in ["orbital_platform", "orbital_wall"]:
 			continue
 		survivors[unit_id] = int(survivors.get(unit_id, 0)) + int(ceil(float(hp) / float(hull)))
 	return survivors

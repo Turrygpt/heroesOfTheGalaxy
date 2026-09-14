@@ -8,6 +8,9 @@ extends Node2D
 const CELL_SIZE := 96.0
 const MAP_SIZE := Vector2i(64, 64)
 const SHIP_SPEED := 520.0
+## Прокрутка карты клавишами WASD (в мировых пикселях в секунду, без учёта
+## зума — при увеличении зумом камера всё равно едет медленнее по экрану).
+const CAMERA_PAN_SPEED := 900.0
 ## Нос спрайта корабля героя смотрит вверх (12 часов, вид сверху).
 const SHIP_SOURCE_ANGLE := -PI / 2.0
 const GRID_COLOR := Color("171c26")
@@ -60,6 +63,8 @@ const PLAYER_TWO_COLOR := Color("ef5350")
 ## не подхватывается до пересканирования проекта редактором, а так работает
 ## сразу и headless-CLI, и редактор.
 const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
+const SpaceDecorations := preload("res://scripts/space_decorations.gd")
+const TradingPost := preload("res://scripts/trading_post.gd")
 const OrcAI := preload("res://scripts/orc_ai.gd")
 const HERO_PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 const HERO_ENGINE_EXHAUST_OVERLAY := preload("res://scripts/hero_engine_exhaust_overlay.gd")
@@ -241,6 +246,10 @@ var dragging_map := false
 var navigation_message := ""
 var navigation_grid := AStarGrid2D.new()
 var map_random := RandomNumberGenerator.new()
+## Туманности/дальние планеты/кометы фона - чистая декорация, в сейв не идёт
+## (см. space_decorations.gd).
+var space_decorations: Dictionary = {}
+var space_comets: Array[Dictionary] = []
 var obstacle_sprites: Node2D
 var music_player: AudioStreamPlayer
 ## Стартовый запас новой кампании; при загрузке заменяется сохранённым.
@@ -286,6 +295,10 @@ func _ready() -> void:
 		map_random.seed = map_seed
 	else:
 		map_random.randomize()
+	var decoration_seed := int(map_random.seed) ^ 0x5EED
+	var map_pixel_size := Vector2(MAP_SIZE) * CELL_SIZE
+	space_decorations = SpaceDecorations.generate(decoration_seed, map_pixel_size)
+	space_comets = SpaceDecorations.make_comets(decoration_seed, map_pixel_size)
 	_init_fog()
 	var snapshot := CampaignSave.take_map()
 	if snapshot.is_empty():
@@ -440,7 +453,13 @@ func resume_music() -> void:
 
 
 func _process(delta: float) -> void:
+	# Кометы летят непрерывно, поэтому фон карты теперь перерисовывается каждый
+	# кадр - дёшево: пара кругов на туманность/комету и сетка, которая и так
+	# была лёгкой.
+	SpaceDecorations.tick_comets(space_comets, Vector2(MAP_SIZE) * CELL_SIZE, delta)
+	queue_redraw()
 	_update_hover()
+	_process_camera_pan(delta)
 	if is_moving:
 		var destination := _cell_center(next_cell)
 		ship_sprite.rotation = ship_position.angle_to_point(destination) - SHIP_SOURCE_ANGLE
@@ -481,6 +500,28 @@ func _process(delta: float) -> void:
 		route_overlay.queue_redraw()
 
 
+## Прокрутка карты WASD — как перетаскивание мышью, только клавиатурой:
+## неактивна, пока камера следует за кораблём (is_moving) или идёт
+## перетаскивание мышью, чтобы источники движения камеры не спорили друг с
+## другом за один кадр.
+func _process_camera_pan(delta: float) -> void:
+	if is_moving or dragging_map:
+		return
+	var direction := Vector2.ZERO
+	if Input.is_key_pressed(KEY_W):
+		direction.y -= 1.0
+	if Input.is_key_pressed(KEY_S):
+		direction.y += 1.0
+	if Input.is_key_pressed(KEY_A):
+		direction.x -= 1.0
+	if Input.is_key_pressed(KEY_D):
+		direction.x += 1.0
+	if direction.is_zero_approx():
+		return
+	camera.position += direction.normalized() * CAMERA_PAN_SPEED * delta / camera.zoom.x
+	camera.position = camera.position.clamp(Vector2.ZERO, Vector2(MAP_SIZE) * CELL_SIZE)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		if event.keycode == KEY_F6 and event.pressed and not event.echo:
@@ -516,13 +557,14 @@ func _open_tactical_battle() -> void:
 
 ## Бой со стражем: флоты собираются из настоящей армии героя и состава
 ## стража (см. _start_guardian_battle), а не из отладочного UNIT_BLUEPRINTS.
-func _open_guardian_battle(player_fleet: Array[Dictionary], enemy_fleet: Array[Dictionary], index: int, quick: bool = false) -> void:
+func _open_guardian_battle(player_fleet: Array[Dictionary], enemy_fleet: Array[Dictionary], index: int, quick: bool = false, fort_level: int = 0) -> void:
 	var battle = load("res://scenes/TacticalBattle.tscn").instantiate()
 	battle.auto_battle = quick
 	battle.quick_battle = quick
 	battle.player_units_override = player_fleet
 	battle.enemy_units_override = enemy_fleet
 	battle.guardian_index = index
+	battle.guardian_fort_level = fort_level
 	_swap_to_battle(battle)
 
 
@@ -558,17 +600,61 @@ func _open_hero_fleet_window() -> void:
 	set_process_unhandled_input(false)
 
 
-func _open_trading_post() -> void:
+## source/index указывают, откуда торговый пост берёт свой запас кораблей
+## (см. _trading_post_target): "map_object" — обычный торговый пост или
+## trading_planet, "guardian" — взятая пиратская твердыня. -1 у source
+## "map_object" для устаревших вызовов без индекса (найм тогда недоступен,
+## работает только обмен ресурсов).
+func _open_trading_post(source: String = "map_object", index: int = -1) -> void:
 	var trade_screen := HUMAN_PLANET_SCREEN.instantiate()
 	trade_screen.strategy_map = self
 	trade_screen.space_modal_mode = true
 	trade_screen.trading_post_mode = true
+	trade_screen.trading_post_source = source
+	trade_screen.trading_post_index = index
 	trade_screen.close_requested.connect(_close_human_planet.bind(trade_screen))
 	add_child(trade_screen)
 	await trade_screen.ready
 	trade_screen._open_exchange_screen()
 	set_process(false)
 	set_process_unhandled_input(false)
+
+
+## Где торговый пост хранит недельный запас кораблей (см. trading_post.gd) —
+## в map_objects (обычный пост, trading_planet) или в guardians (взятая
+## пиратская твердыня, см. _check_guardian_encounter).
+func _trading_post_target(source: String, index: int) -> Dictionary:
+	if source == "guardian":
+		return guardians[index] if index >= 0 and index < guardians.size() else {}
+	return map_objects[index] if index >= 0 and index < map_objects.size() else {}
+
+
+func trading_post_recruit_error(source: String, index: int, unit_id: String, count: int) -> String:
+	var object := _trading_post_target(source, index)
+	if object.is_empty():
+		return "Торговый пост недоступен."
+	if count <= 0:
+		return "Укажите количество."
+	TradingPost.ensure_state(object, current_day)
+	var stock: Dictionary = object["trading_stock"]
+	if int(stock.get(unit_id, 0)) < count:
+		return "Недостаточно кораблей в запасе."
+	if not can_afford(TradingPost.multiplied_cost(unit_id, count)):
+		return "Не хватает ресурсов."
+	return ""
+
+
+func recruit_at_trading_post(source: String, index: int, unit_id: String, count: int) -> void:
+	if trading_post_recruit_error(source, index, unit_id, count) != "":
+		return
+	var object := _trading_post_target(source, index)
+	pay_cost(TradingPost.multiplied_cost(unit_id, count))
+	TradingPost.take_from_stock(object, unit_id, count)
+	var hero := _player_hero()
+	if hero != null:
+		hero.add_to_army(unit_id, count)
+		_save_hero_roster()
+	_update_hud()
 
 
 func _open_planet_screen(fleet_only: bool) -> void:
@@ -645,6 +731,9 @@ func _draw() -> void:
 		var y := row * CELL_SIZE
 		draw_line(Vector2(0.0, y), Vector2(map_pixel_size.x, y), GRID_COLOR, 2.0)
 	_draw_production_owner_markers()
+	# После сетки и тёмной подложки - иначе полупрозрачный MAP_BACKGROUND_COLOR
+	# гасит кометы/планеты вдвое и их почти не видно поверх параллакса.
+	SpaceDecorations.draw(self, space_decorations, space_comets)
 
 
 ## Цветное кольцо показывает владельца захваченного месторождения прямо под
@@ -1177,6 +1266,21 @@ func _apply_neutral_weekly_growth() -> void:
 				continue
 			var grown := maxi(count + 1, int(round(float(count) * 1.10)))
 			(entry as Dictionary)["count"] = grown
+	_apply_trading_post_weekly_growth()
+
+
+## Пополняет запас кораблей нейтральных торговых постов (обычные посты — в
+## map_objects; trading_planet и pirate_planet — оба guardian_reward, значит
+## в guardians, см. trading_post.gd) до их capacity. Обеим планетам-твердыням
+## пополняется всегда, а не только после взятия — запас просто ждёт своего
+## часа, недоступен, пока страж жив (см. _check_guardian_encounter).
+func _apply_trading_post_weekly_growth() -> void:
+	for object in map_objects:
+		if String(object.get("kind", "")) == "trading_post":
+			TradingPost.apply_weekly_growth(object, current_day)
+	for guardian in guardians:
+		if String(guardian.get("object_kind", "")) in MapObjectDefs.FORTIFIED_PLANET_KINDS:
+			TradingPost.apply_weekly_growth(guardian, current_day)
 
 
 # --- Искусственный противник: орки (сторона 2) ------------------------------
@@ -1289,8 +1393,18 @@ func _finish_orc_turn() -> void:
 
 ## Бой, который начали орки: окно прогноза не показываем — у обороняющегося
 ## выбора нет. Состав игрока собирается так же, как для боя со стражем.
+## При осаде столицы (kind == "planet") добавляются укрепления форта: пушки —
+## отдельная пачка "orbital_platform" по штуке за уровень форта, стена — плоский
+## бонус защиты всем отрядам игрока на этот бой (см. tactical_battle.gd:
+## home_defense_bonus). Пушки — последний рубеж: они участвуют в бою, даже
+## если у героя не осталось ни армии, ни гарнизона.
 func _start_orc_battle(kind: String) -> void:
 	var player_fleet: Array[Dictionary] = _player_battle_fleet(kind == "planet")
+	var fort_level := 0
+	if kind == "planet":
+		fort_level = int(HumanPlanetState.load_state()["built_levels"].get("fort", 0))
+		if fort_level > 0:
+			player_fleet.append({"unit_id": "orbital_platform", "count": fort_level})
 	var enemy_fleet: Array[Dictionary] = orc_ai.hero_fleet(self)
 	if enemy_fleet.is_empty():
 		_finish_orc_turn()
@@ -1304,6 +1418,7 @@ func _start_orc_battle(kind: String) -> void:
 	battle.enemy_units_override = enemy_fleet
 	battle.orc_battle_kind = kind
 	battle.enemy_has_admiral = true
+	battle.home_defense_bonus = fort_level
 	_swap_to_battle(battle)
 
 
@@ -1413,7 +1528,8 @@ func _resolve_orc_victory(kind: String) -> void:
 			_refresh_orc_planet_nameplate()
 			campaign_outcome = "victory"
 			navigation_message = "База орков пала. Кампания выиграна!"
-			_show_object_reward_dialog("Победа в кампании", navigation_message)
+			_show_campaign_outcome(true, "ПОБЕДА",
+				"Флот вождя разбит, логова орков захвачены. Человечество отстояло свой сектор галактики.")
 		"planet":
 			orc_ai.kill_hero(self)
 			navigation_message = "Штурм отбит: орда вождя уничтожена у вашей планеты."
@@ -1433,7 +1549,8 @@ func _resolve_orc_defeat(kind: String) -> void:
 		human_planet_owner = 2
 		campaign_outcome = "defeat"
 		navigation_message = "Орки взяли вашу планету. Кампания проиграна."
-		_show_object_reward_dialog("Поражение", navigation_message)
+		_show_campaign_outcome(false, "ПОРАЖЕНИЕ",
+			"Орда вождя прорвала оборону столицы. Родная планета пала под натиском орков.")
 		return
 	_retreat_player_home("Вождь орков разбил ваш флот. Уцелел 1 истребитель.")
 
@@ -1441,12 +1558,18 @@ func _resolve_orc_defeat(kind: String) -> void:
 ## Общий откат после проигранного боя — тот же, что при бегстве от стража
 ## (см. _resolve_guardian_battle): иначе игрок застревает без флота вдали
 ## от базы и не может ни лететь, ни воевать.
+## Возвращает ровно на HUMAN_PLANET_CENTER, а не на PLAYER_ONE_START_CELL —
+## та клетка лежит вне футпринта планеты (_cell_is_in_planet), да ещё и на
+## прямом пути орков к столице. Орк, перехвативший героя именно там, засчитывал
+## это как обычную полевую стычку в обход осады (гарнизон и оборона планеты не
+## участвовали) — герой отбивался открытым флотом бой за боем и не мог ни разу
+## восстановиться. См. orc_ai.gd:_resolve_arrival.
 func _retreat_player_home(message: String) -> void:
 	var hero := _player_hero()
 	if hero != null:
 		hero.set_army_from_dict(RETREAT_ARMY)
 	_consume_movement_after_retreat()
-	current_cell = PLAYER_ONE_START_CELL
+	current_cell = HUMAN_PLANET_CENTER
 	next_cell = current_cell
 	ship_position = _cell_center(current_cell)
 	ship_sprite.position = ship_position
@@ -1506,7 +1629,13 @@ func _surviving_side_slots(battle_units: Array, side: int) -> Array[Dictionary]:
 		var hull := int((unit as Dictionary).get("hull", 1))
 		var hp := int((unit as Dictionary).get("hp", 0))
 		var unit_id := String((unit as Dictionary).get("unit_id", ""))
-		if hp <= 0 or hull <= 0 or unit_id == "":
+		# Орбитальные платформы и сегменты стены (см. _start_orc_battle,
+		# _start_guardian_battle, tactical_battle.gd:_spawn_guardian_wall) —
+		# часть обороны планеты, синтезируются заново на каждый штурм и не
+		# должны оседать в мобильной армии героя/сохранённом флоте стража —
+		# иначе флот навсегда получает недвижимый отряд, а при повторном бое
+		# у той же твердыни стена задвоится с только что заспавненной.
+		if hp <= 0 or hull <= 0 or unit_id == "" or unit_id in ["orbital_platform", "orbital_wall"]:
 			continue
 		surviving.append({"unit_id": unit_id, "count": int(ceil(float(hp) / float(hull)))})
 	return surviving
@@ -1562,9 +1691,10 @@ func _generate_guardians() -> void:
 	guardians.clear()
 	guardian_at.clear()
 	# Каждый флот, созданный при генерации карты, должен иметь конкретную
-	# задачу: охранять месторождение. Свободные патрули и охрана проходов
-	# убраны, чтобы на карте не появлялись нейтральные флоты без объекта.
+	# задачу: охранять месторождение или узкий проход через разлом (см.
+	# _guard_passages). Свободные патрули без объекта по-прежнему убраны.
 	_guard_production_sites()
+	_guard_passages()
 	guardian_overlay.queue_redraw()
 
 
@@ -1592,7 +1722,12 @@ func _guard_passages() -> void:
 		var cell: Vector2i = passage["cell"]
 		if guardian_at.has(cell) or obstacle_at.has(cell):
 			continue
-		var template := _guardian_template_for_distance(_threat_distance(cell))
+		# Проходы разломов ("мосты") держит именно Космический патруль, а не
+		# рядовые пираты — их профиль (держит дистанцию, см. unit_defs.gd
+		# "min_engage_range") имеет смысл ровно в таком узком месте: враг не
+		# может обойти стража стороной, а зайти в упор мешает сама геометрия
+		# прохода в один гекс шириной.
+		var template := GuardianDefs.patrol_template_for_distance(_threat_distance(cell))
 		_add_guardian(cell, template, -1)
 		picked += 1
 
@@ -1746,6 +1881,14 @@ func _add_guardian(cell: Vector2i, template: String, site_index: int) -> void:
 			"resource_name": _random_resource_name(),
 			"amount": map_random.randi_range(2, 10),
 		}
+	elif kind == "patrol":
+		# Конфискат с досмотрового склада — открытый проход не единственная
+		# причина связываться с патрулём.
+		guardian["reward"] = {
+			"type": "resources",
+			"resource_name": _random_resource_name(),
+			"amount": map_random.randi_range(3, 12),
+		}
 	guardians.append(guardian)
 
 
@@ -1807,6 +1950,13 @@ func _check_guardian_encounter(cell: Vector2i) -> bool:
 		return false
 	var guardian: Dictionary = guardians[index]
 	if not guardian["alive"]:
+		# Взятая пиратская твердыня или торговая планета (см. MapObjectDefs
+		# FORTIFIED_PLANET_KINDS) торгует кораблями III-V ранга — недоступно,
+		# пока страж жив, открывается сразу после победы. Остальные мёртвые
+		# стражи по-прежнему ничего не делают.
+		if String(guardian.get("object_kind", "")) in MapObjectDefs.FORTIFIED_PLANET_KINDS:
+			_open_trading_post("guardian", index)
+			return true
 		return false
 	var hero := _player_hero()
 	if hero == null or hero.army_is_empty():
@@ -1842,6 +1992,15 @@ func _start_guardian_battle(index: int) -> void:
 	var enemy_fleet: Array[Dictionary] = []
 	for entry in (guardians[index]["fleet"] as Array):
 		enemy_fleet.append((entry as Dictionary).duplicate())
+	# Укреплённые нейтральные твердыни (пиратская/торговая планета) обороняет
+	# форт III уровня — три орбитальные платформы, добавленные в состав ДО
+	# показа прогноза, чтобы окно честно предупреждало о них, и стена
+	# (см. tactical_battle.gd:guardian_fort_level), которая на состав флота
+	# не влияет — она только поднимает защиту уже перечисленных кораблей.
+	var fort_level := 0
+	if String(guardians[index].get("object_kind", "")) in MapObjectDefs.FORTIFIED_PLANET_KINDS:
+		fort_level = MapObjectDefs.FORTIFIED_PLANET_FORT_LEVEL
+		enemy_fleet.append({"unit_id": "orbital_platform", "count": fort_level})
 	var dialog := preload("res://scripts/battle_preview_dialog.gd").new()
 	var previous_mode := process_mode
 	process_mode = Node.PROCESS_MODE_DISABLED
@@ -1852,7 +2011,7 @@ func _start_guardian_battle(index: int) -> void:
 		if choice < 0:
 			_decline_battle_before_start()
 			return
-		_open_guardian_battle(player_fleet, enemy_fleet, index, choice == 1)
+		_open_guardian_battle(player_fleet, enemy_fleet, index, choice == 1, fort_level)
 	)
 
 
@@ -1963,7 +2122,46 @@ func _generate_map_objects() -> void:
 	_generate_trading_posts()
 	_generate_wormhole_pairs()
 	_generate_guarded_resource_caches()
+	_place_neutral_planets()
 	map_object_overlay.queue_redraw()
+
+
+## Две нейтральные планеты в углах, не занятых родными планетами игрока и
+## орков (см. MapObjectDefs.TRADE_PLANET_CENTER/PIRATE_PLANET_CENTER) — в
+## отличие от остальных объектов приключений ставятся не случайным поиском
+## свободной клетки, а на фиксированное место, поэтому сначала расчищают его
+## от того, что процедурная генерация уже успела там поставить.
+func _place_neutral_planets() -> void:
+	var trade_size := MapObjectDefs.size("trading_planet")
+	_clear_footprint_for_new_object(_footprint_cells(MapObjectDefs.TRADE_PLANET_CENTER, trade_size))
+	_add_object_guardian(MapObjectDefs.TRADE_PLANET_CENTER, "trading_planet", trade_size)
+
+	var pirate_size := MapObjectDefs.size("pirate_planet")
+	_clear_footprint_for_new_object(_footprint_cells(MapObjectDefs.PIRATE_PLANET_CENTER, pirate_size))
+	_add_object_guardian(MapObjectDefs.PIRATE_PLANET_CENTER, "pirate_planet", pirate_size)
+
+
+## Отвязывает препятствия/объекты/стражей от клеток, которые вот-вот займёт
+## нейтральная планета. Объекты и стражей не удаляют из массивов (сдвинуло бы
+## все дальнейшие индексы в *_at словарях) — просто помечают
+## consumed/мёртвыми и снимают все их клетки из lookup-словарей.
+func _clear_footprint_for_new_object(cells: Array[Vector2i]) -> void:
+	for cell in cells:
+		obstacle_at.erase(cell)
+		blocked_cells.erase(cell)
+		slow_cells.erase(cell)
+		if map_object_at.has(cell):
+			var object_index: int = map_object_at[cell]
+			var object: Dictionary = map_objects[object_index]
+			object["consumed"] = true
+			for occupied in _footprint_cells(object["cell"], int(object.get("size", 1))):
+				map_object_at.erase(occupied)
+		if guardian_at.has(cell):
+			var guardian_index: int = guardian_at[cell]
+			var guardian: Dictionary = guardians[guardian_index]
+			guardian["alive"] = false
+			for occupied in _footprint_cells(guardian["cell"], int(guardian.get("size", 1))):
+				guardian_at.erase(occupied)
 
 
 ## Видимые ресурсные точки: один значок ресурса и один флот рядом.
@@ -2215,7 +2413,11 @@ func _object_footprint_center(anchor: Vector2i, size: int) -> Vector2:
 
 
 func _roll_object_reward(def: Dictionary, cell: Vector2i) -> Dictionary:
-	if String(def.get("name", "")) == "Пиратская база":
+	# "pirate_planet" (нейтральная пиратская твердыня в углу карты) даёт тот
+	# же постоянный доход, что и обычная "Пиратская база" — проверяем по
+	# reward_pool, а не только по имени, иначе для неё не нашлось бы ветки
+	# в match ниже (там нет case "pirate_base_treasure") и трофей ушёл бы пустым.
+	if String(def.get("name", "")) == "Пиратская база" or def.get("reward_pool", []) == ["pirate_base_treasure"]:
 		return {
 			"type": "pirate_base_treasure",
 			"resource_name": _random_resource_name(),
@@ -2335,6 +2537,20 @@ const OBJECT_REWARD_DIALOG := preload("res://scripts/object_reward_dialog.gd")
 var reward_dialog_count := 0
 var reward_resume_process := false
 var reward_resume_input := false
+
+const CAMPAIGN_OUTCOME_DIALOG := preload("res://scripts/campaign_outcome_dialog.gd")
+
+
+## Конец кампании (взятие базы орков или падение родной планеты) — отдельный
+## полноэкранный итог, а не маленький попап находки: дальше играть уже нельзя
+## (campaign_outcome блокирует день и перемещение), поэтому нужен явный выход
+## в главное меню, а не "закрыть и вернуться на карту".
+func _show_campaign_outcome(victory: bool, headline: String, body_text: String) -> void:
+	set_process(false)
+	set_process_unhandled_input(false)
+	var dialog: CanvasLayer = CAMPAIGN_OUTCOME_DIALOG.new()
+	add_child(dialog)
+	dialog.setup(victory, headline, body_text)
 
 
 ## Модалка находки по центру экрана — для разовых пикапов (контейнер, ящик
@@ -2772,8 +2988,12 @@ func _trigger_beacon(index: int) -> void:
 
 func _trigger_loot(index: int) -> void:
 	var def := MapObjectDefs.get_kind(map_objects[index]["kind"])
-	if String(map_objects[index]["kind"]) == "resource_cache":
+	var kind := String(map_objects[index]["kind"])
+	if kind == "resource_cache":
 		_trigger_resource_cache(index)
+		return
+	if kind == "flotsam_wreck":
+		_trigger_flotsam_wreck(index, def)
 		return
 	map_objects[index]["consumed"] = true
 	var credits: int = CARGO_CREDITS_VALUES[map_random.randi_range(0, CARGO_CREDITS_VALUES.size() - 1)]
@@ -2791,6 +3011,18 @@ func _trigger_loot(index: int) -> void:
 		func(choice_id: String) -> void:
 			_apply_cargo_container_reward(choice_id, credits, experience)
 	)
+
+
+func _trigger_flotsam_wreck(index: int, def: Dictionary) -> void:
+	map_objects[index]["consumed"] = true
+	var credits: int = CARGO_CREDITS_VALUES[map_random.randi_range(0, CARGO_CREDITS_VALUES.size() - 1)]
+	add_credits(credits)
+	var description := "В обломках найдены платёжные чипы: %d кредитов." % credits
+	navigation_message = "Плавучие обломки: " + description
+	_update_hud()
+	_show_object_reward_dialog(String(def.get("name", "Плавучие обломки")), description, def.get("texture"), [
+		{"icon": CREDITS_ICON, "amount": credits},
+	])
 
 
 func _trigger_resource_cache(index: int) -> void:
@@ -2970,7 +3202,7 @@ func _trigger_info(index: int) -> void:
 		_trigger_emergency_buoy(index)
 		return
 	if kind == "trading_post":
-		_open_trading_post()
+		_open_trading_post("map_object", index)
 		return
 	if kind == "archive_station":
 		_trigger_archive_station(index)

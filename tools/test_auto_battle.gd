@@ -41,6 +41,10 @@ func _run() -> void:
 	var energy_before := int(battle.heroes[1]["energy"])
 	_check(battle._auto_hero_cast(1), "Автобой игрока применяет доступный протокол")
 	_check(int(battle.heroes[1]["energy"]) < energy_before, "Протокол автобоя расходует энергию героя")
+	# _ready() подтягивает режим из GameSettings (сохраняется между боями и
+	# между headless-прогонами через user://settings.json) — цикл ниже проверяет
+	# порядок переключения, а не то, с чего он начался, поэтому фиксируем старт.
+	battle.auto_battle_mode = battle.AUTO_MODE_BALANCED
 	battle._cycle_auto_battle_mode()
 	_check(battle.auto_battle_mode == battle.AUTO_MODE_AGGRESSIVE, "Переключается агрессивный режим автобоя")
 	battle._cycle_auto_battle_mode()
@@ -56,10 +60,13 @@ func _run() -> void:
 	battle._run_enemy_turn()
 	_check(active["cell"] == previous_cell, "ИИ не выполняет второй манёвр после ручного")
 	battle.quick_battle = true
-	for step in range(1000):
+	# Дедлайн по настенным часам, а не по числу шагов: quick_battle сам
+	# ограничивает себя 12мс настенного времени на _process, число
+	# завершённых раундов за шаг зависит от загрузки системы — фиксированный
+	# счётчик шагов флаковый под нагрузкой (см. tools/test_pirate_balance.gd).
+	var deadline_ms := Time.get_ticks_msec() + 30000
+	while not battle.battle_finished and battle.quick_battle and Time.get_ticks_msec() < deadline_ms:
 		battle._process(0.016)
-		if battle.battle_finished or not battle.quick_battle:
-			break
 	_check(battle.battle_finished, "Быстрый бой завершается")
 	_check(battle._side_alive(1) and not battle._side_alive(2), "Сильный флот побеждает слабый")
 	_check(battle.units[1]["hp"] == 0, "Быстрый бой фиксирует реальные потери")

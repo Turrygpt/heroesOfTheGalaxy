@@ -74,8 +74,10 @@ func _run() -> void:
 	var screen = packed.instantiate()
 	root.add_child(screen)
 	await process_frame
-	if screen.BUILDING_CATALOG.size() != 20 or screen.building_buttons.size() != 20:
-		_fail("Editor must contain 20 building parts")
+	# 23, не 20: университет дорос до четырёх уровней (см. BUILDING_CATALOG),
+	# число деталей редактора растёт вместе с каталогом построек.
+	if screen.BUILDING_CATALOG.size() != 23 or screen.building_buttons.size() != 23:
+		_fail("Editor must contain 23 building parts")
 		return
 	if screen.SHIP_BUILDING_KINDS.size() != 5:
 		_fail("Planet must contain exactly five ship-production buildings")
@@ -224,7 +226,7 @@ func _check_unit_upgrade(screen: Node) -> void:
 	if UnitDefs.upgrade_target("interceptor") != "heavy_interceptor":
 		_fail("Interceptor must upgrade to heavy_interceptor")
 		return
-	if int(upgrade_cost.get("credits", 0)) != 40 or int(upgrade_cost.get("Руда", 0)) != 1:
+	if int(upgrade_cost.get("credits", 0)) != 40 or upgrade_cost.has("Руда"):
 		_fail("Interceptor upgrade price must be the elite/base cost difference")
 		return
 	screen._upgrade_stack("garrison", 0)
@@ -233,7 +235,7 @@ func _check_unit_upgrade(screen: Node) -> void:
 	if garrison.has("interceptor") or int(garrison.get("heavy_interceptor", 0)) != 3:
 		_fail("Garrison upgrade must replace the ordinary stack with the elite one")
 		return
-	if fake_map.player_one_credits != 880 or int(fake_map.player_one_resources.get("Руда", 0)) != 97:
+	if fake_map.player_one_credits != 880 or int(fake_map.player_one_resources.get("Руда", 0)) != 100:
 		_fail("Garrison upgrade must pay the cost difference for the whole stack")
 		return
 	fake_map.queue_free()

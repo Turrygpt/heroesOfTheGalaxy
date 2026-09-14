@@ -52,8 +52,8 @@ func _run() -> void:
 	# Атака против защиты и штраф дальности.
 	_check(battle._damage_multiplier(battle.units[2], battle.units[3]) > 1.0, "Higher attack must raise damage")
 	_check(battle._damage_multiplier(battle.units[0], battle.units[2]) < 1.0, "Higher defence must lower damage")
-	_check(battle._range_penalty(3) == 0.7, "Shots beyond point-blank must fall to 70%")
-	_check(battle._range_penalty(1) == 1.0, "Point-blank shots must be at full strength")
+	_check(battle._range_penalty(battle.units[0], 3) == 0.7, "Shots beyond point-blank must fall to 70%")
+	_check(battle._range_penalty(battle.units[0], 1) == 1.0, "Point-blank shots must be at full strength")
 
 	# Очередь ходов идёт по инициативе, а не по порядку в массиве.
 	var initiatives := []
@@ -75,7 +75,10 @@ func _run() -> void:
 	battle._process(1.0)
 	_check(not battle._actions_locked(), "Actions must unlock after movement")
 	var enemy_turns := {}
-	for tick in range(600):
+	# 1200, не 600: корпус кораблей поднят x1,5 (см. data/balance_plan.md §3.4),
+	# бои стали дольше — тот же фиксированный тиковый бюджет с прежним
+	# запасом перестал хватать на полный розыгрыш боя.
+	for tick in range(1200):
 		if battle.battle_finished:
 			break
 		var active: Dictionary = battle._active_unit()
