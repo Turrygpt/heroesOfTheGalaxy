@@ -24,6 +24,20 @@ const BEAM_DURATION := 0.35
 const MOVE_DURATION := 0.35
 const FLOATER_DURATION := 1.1
 const CAST_DURATION := 0.5
+## --- Обратная связь при попадании и уничтожении (см. _apply_hit_feedback,
+## _start_destruction) --------------------------------------------------------
+const HIT_FLASH_DURATION := 0.18
+const DESTRUCTION_FADE_DURATION := 0.9
+## --- Тряска камеры (screen shake) ------------------------------------------
+## battle_camera.offset — не .position: камера жёстко закреплена 1:1 к экрану
+## (см. _ready: ANCHOR_MODE_FIXED_TOP_LEFT) именно чтобы бой не плавал за
+## камерой стратегической карты; .offset — временная добавка поверх этого.
+const SHAKE_DECAY := 2.4
+const SHAKE_MAX_OFFSET := 18.0
+const SHAKE_HIT_TRAUMA := 0.10
+const SHAKE_CRIT_TRAUMA := 0.20
+const SHAKE_DESTROY_TRAUMA_MIN := 0.35
+const SHAKE_DESTROY_TRAUMA_MAX := 0.85
 ## Лёгкая idle-анимация живых пачек: только визуальное смещение корпуса и
 ## пульсация выхлопа, боевые клетки и хитбоксы остаются неизменными.
 const IDLE_BOB_AMOUNT := 3.0
@@ -105,6 +119,11 @@ const BATTLE_REWARDS := preload("res://scripts/battle_rewards.gd")
 const BATTLE_RESULTS_DIALOG := preload("res://scripts/battle_results_dialog.gd")
 const PROTOCOL_BOOK_HUD := preload("res://scripts/protocol_book_hud.gd")
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
+## battle_vfx_defs.gd объявляет class_name BattleVfxDefs, но глобальный кэш
+## классов Godot подхватывает его только после того, как редактор хоть раз
+## просканировал проект — явный preload делает доступ надёжным сразу же,
+## в т.ч. в headless-тестах, как и у PROTOCOLS/BATTLE_HUD выше.
+const BATTLE_VFX_DEFS := preload("res://scripts/battle_vfx_defs.gd")
 ## Боевые темы. Карта (space_strategy_map.gd:SPACE_MUSIC_DIR) в это время уже
 ## затихла через return_map.pause_music() — здесь плавно нарастаем поверх.
 ## Папка со всеми треками — любое количество mp3. Треки перемешиваются при
@@ -229,6 +248,14 @@ var enemy_attack_delay := -1.0
 var enemy_pending_target := -1
 var beams: Array = []
 var floaters: Array = []
+## Взрывы/обломки-искры-дым/выгары при уничтожении и попаданиях — тот же
+## идиом, что и у beams/floaters: массив словарей, тикается в _tick_battle,
+## рисуется в _draw() поверх остального поля боя.
+var explosions: Array = []
+var battle_particles: Array = []
+var scorch_marks: Array = []
+## 0..1 — текущая "травма" тряски камеры, гасится в _tick_battle (SHAKE_DECAY).
+var shake_trauma := 0.0
 var last_attack_was_critical := false
 var last_event := "Бой начался"
 var turn_pending := false
@@ -598,13 +625,28 @@ func _tick_battle(delta: float) -> void:
 		if unit["anim_t"] < 1.0:
 			unit["anim_t"] = minf(1.0, unit["anim_t"] + delta / MOVE_DURATION)
 			animating = true
+		var hit_flash := float(unit.get("hit_flash", 0.0))
+		if hit_flash > 0.0:
+			unit["hit_flash"] = maxf(0.0, hit_flash - delta / HIT_FLASH_DURATION)
+			animating = true
+		if bool(unit.get("destroying", false)) and float(unit.get("death_time", 0.0)) < DESTRUCTION_FADE_DURATION:
+			var destruction_delay := float(unit.get("destruction_delay", 0.0))
+			if destruction_delay > 0.0:
+				unit["destruction_delay"] = destruction_delay - delta
+			else:
+				unit["death_time"] = float(unit.get("death_time", 0.0)) + delta
+			animating = true
 	for index in range(beams.size() - 1, -1, -1):
 		var beam: Dictionary = beams[index]
 		if beam["delay"] > 0.0:
 			beam["delay"] -= delta
 		else:
 			beam["time"] -= delta
+			if not quick_battle:
+				_tick_beam_particles(beam, delta)
 			if beam["time"] <= 0.0:
+				if not quick_battle:
+					_spawn_beam_impact(beam)
 				beams.remove_at(index)
 		animating = true
 	for index in range(floaters.size() - 1, -1, -1):
@@ -619,8 +661,40 @@ func _tick_battle(delta: float) -> void:
 	for index in range(cast_effects.size() - 1, -1, -1):
 		cast_effects[index]["time"] += delta
 		animating = true
-		if cast_effects[index]["time"] >= CAST_DURATION:
+		if cast_effects[index]["time"] >= float(cast_effects[index].get("duration", CAST_DURATION)):
 			cast_effects.remove_at(index)
+	for index in range(explosions.size() - 1, -1, -1):
+		var explosion: Dictionary = explosions[index]
+		if explosion.get("delay", 0.0) > 0.0:
+			explosion["delay"] -= delta
+		else:
+			explosion["time"] += delta
+			if explosion["time"] >= explosion["duration"]:
+				explosions.remove_at(index)
+		animating = true
+	for index in range(battle_particles.size() - 1, -1, -1):
+		var particle: Dictionary = battle_particles[index]
+		particle["time"] += delta
+		if particle["time"] >= particle["duration"]:
+			battle_particles.remove_at(index)
+			continue
+		particle["position"] += (particle["velocity"] as Vector2) * delta
+		particle["velocity"] = (particle["velocity"] as Vector2) * pow(0.05, delta)
+		particle["spin"] = float(particle["spin"]) + float(particle.get("spin_speed", 0.0)) * delta
+		animating = true
+	for index in range(scorch_marks.size() - 1, -1, -1):
+		var scorch: Dictionary = scorch_marks[index]
+		scorch["time"] += delta
+		if scorch["time"] >= scorch["duration"]:
+			scorch_marks.remove_at(index)
+		animating = true
+	if shake_trauma > 0.0:
+		shake_trauma = maxf(0.0, shake_trauma - SHAKE_DECAY * delta)
+		var magnitude := shake_trauma * shake_trauma * SHAKE_MAX_OFFSET
+		battle_camera.offset = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * magnitude
+		animating = true
+	elif battle_camera.offset != Vector2.ZERO:
+		battle_camera.offset = Vector2.ZERO
 	if parallax_offset.distance_squared_to(parallax_target) > 0.0001:
 		parallax_offset = parallax_offset.lerp(parallax_target, clampf(delta * 4.0, 0.0, 1.0))
 		animating = true
@@ -658,6 +732,137 @@ func _tick_battle(delta: float) -> void:
 			_begin_active_turn()
 		else:
 			_advance_turn()
+
+
+func _add_shake(amount: float) -> void:
+	shake_trauma = clampf(shake_trauma + amount, 0.0, 1.0)
+
+
+func _is_fading(unit: Dictionary) -> bool:
+	return bool(unit.get("destroying", false)) and float(unit.get("death_time", 0.0)) < DESTRUCTION_FADE_DURATION
+
+
+## Вспышка попадания (всегда) плюс тряска и запуск уничтожения (только если
+## отряд действительно погиб этим попаданием и ещё не начал угасать —
+## повторные удары по уже гибнущей пачке не должны переигрывать взрыв). delay
+## синхронизирует эффект с моментом, когда луч/снаряд реально долетает —
+## та же величина, что уже используют beams/floaters этого же выстрела.
+func _apply_hit_feedback(target_index: int, critical: bool, delay: float = 0.0) -> void:
+	var unit: Dictionary = units[target_index]
+	unit["hit_flash"] = 1.0
+	if not quick_battle:
+		_add_shake(SHAKE_CRIT_TRAUMA if critical else SHAKE_HIT_TRAUMA)
+	if unit["hp"] <= 0 and not bool(unit.get("destroying", false)):
+		_start_destruction(target_index, delay)
+
+
+func _start_destruction(target_index: int, delay: float = 0.0) -> void:
+	var unit: Dictionary = units[target_index]
+	unit["destroying"] = true
+	unit["death_time"] = 0.0
+	unit["destruction_delay"] = delay
+	unit["death_spin"] = randf_range(-0.6, 0.6)
+	if quick_battle:
+		return
+	var hull := int(unit.get("hull", 10))
+	var size := BATTLE_VFX_DEFS.size_factor(hull, ProceduralSfx.MAX_HULL_REFERENCE)
+	var tier := int(unit.get("tier", 1))
+	_add_shake(lerpf(SHAKE_DESTROY_TRAUMA_MIN, SHAKE_DESTROY_TRAUMA_MAX, size))
+	var origin := _grid_origin()
+	_spawn_explosion(_footprint_center(unit, unit["cell"], origin), tier, size, delay)
+	if tier >= 6:
+		SampleSfx.play_flagship_boom()
+
+
+func _spawn_explosion(center: Vector2, tier: int, size: float, delay: float = 0.0) -> void:
+	explosions.append({
+		"center": center,
+		"radius": BATTLE_VFX_DEFS.explosion_radius(size),
+		"duration": BATTLE_VFX_DEFS.explosion_duration(size),
+		"time": 0.0,
+		"delay": delay,
+	})
+	for i in range(BATTLE_VFX_DEFS.debris_count(tier)):
+		var angle := randf() * TAU
+		var speed := randf_range(BATTLE_VFX_DEFS.DEBRIS_SPEED_MIN, BATTLE_VFX_DEFS.DEBRIS_SPEED_MAX)
+		battle_particles.append({
+			"kind": "debris",
+			"position": center,
+			"velocity": Vector2(cos(angle), sin(angle)) * speed,
+			"time": 0.0,
+			"duration": randf_range(BATTLE_VFX_DEFS.DEBRIS_LIFETIME_MIN, BATTLE_VFX_DEFS.DEBRIS_LIFETIME_MAX),
+			"size": randf_range(2.0, 5.0),
+			"spin": randf_range(0.0, TAU),
+			"spin_speed": randf_range(-6.0, 6.0),
+		})
+
+
+## Дымный след ракеты во время полёта — редкие клубы дыма вдоль траектории,
+## отдельно от тонкой линии-следа, которую рисует _draw_rocket_beam.
+func _tick_beam_particles(beam: Dictionary, delta: float) -> void:
+	if String(beam.get("weapon_type", "")) != "rocket":
+		return
+	var next_puff: float = float(beam.get("next_puff_time", 0.0)) - delta
+	if next_puff > 0.0:
+		beam["next_puff_time"] = next_puff
+		return
+	beam["next_puff_time"] = 0.06
+	var alpha: float = beam["time"] / BEAM_DURATION
+	var progress := clampf(1.0 - alpha, 0.0, 1.0)
+	var head: Vector2 = (beam["start"] as Vector2).lerp(beam["end"], progress)
+	battle_particles.append({
+		"kind": "smoke",
+		"position": head,
+		"velocity": Vector2.ZERO,
+		"time": 0.0,
+		"duration": 0.5,
+		"size": randf_range(4.0, 8.0),
+		"spin": 0.0,
+		"spin_speed": 0.0,
+	})
+
+
+## Вызывается ровно один раз, в момент истечения луча — искры/выгар попадания
+## по типу оружия. Ракета уже получает вторичный взрыв отдельно (см.
+## _attack_unit), здесь для неё делать нечего.
+func _spawn_beam_impact(beam: Dictionary) -> void:
+	match String(beam.get("weapon_type", "cannon")):
+		"laser":
+			_spawn_impact_sparks(beam["end"], "laser")
+		"machine_gun":
+			_spawn_impact_sparks(beam["end"], "machine_gun")
+		"rocket":
+			pass
+		_:
+			_spawn_scorch_mark(beam["end"])
+
+
+func _spawn_impact_sparks(position: Vector2, weapon_type: String) -> void:
+	var color := BATTLE_VFX_DEFS.impact_spark_color(weapon_type)
+	for i in range(BATTLE_VFX_DEFS.impact_spark_count(weapon_type)):
+		var angle := randf() * TAU
+		var speed := randf_range(90.0, 220.0)
+		battle_particles.append({
+			"kind": "spark",
+			"position": position,
+			"velocity": Vector2(cos(angle), sin(angle)) * speed,
+			"time": 0.0,
+			"duration": randf_range(0.18, 0.32),
+			"size": randf_range(1.5, 3.0),
+			"color": color,
+			"spin": 0.0,
+			"spin_speed": 0.0,
+		})
+
+
+func _spawn_scorch_mark(position: Vector2) -> void:
+	scorch_marks.append({
+		"position": position,
+		"time": 0.0,
+		"duration": BATTLE_VFX_DEFS.SCORCH_DURATION,
+		"radius": randf_range(10.0, 16.0),
+		"angle": randf() * TAU,
+	})
 
 
 func _cycle_auto_battle_mode() -> void:
@@ -1207,15 +1412,24 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 		ProceduralSfx.play_shot(attacker, delay)
 	if losses > 0 and not quick_battle:
 		ProceduralSfx.play_destroyed(target, delay)
+	var weapon_type := String(attacker.get("weapon_type", "cannon"))
 	beams.append({
 		"start": _hex_center(attacker["cell"], origin),
 		"end": _hex_center(target["cell"], origin),
 		"time": BEAM_DURATION,
 		"delay": delay,
 		"color": Color(0.55, 0.9, 1.0) if attacker["side"] == 1 else Color(1.0, 0.62, 0.45),
-		"weapon_type": String(attacker.get("weapon_type", "cannon")),
+		"weapon_type": weapon_type,
+		"next_puff_time": 0.0,
 	})
-	var floater_text := ("КРИТ!  -%d" % damage) if critical else ("-%d" % damage)
+	# Вторичная ударная волна ракеты — приходит точно к моменту, когда снаряд
+	# долетает (delay + BEAM_DURATION), поверх собственной вспышки взрыва,
+	# которую рисует _draw_rocket_beam.
+	if weapon_type == "rocket" and not quick_battle:
+		_spawn_explosion(_hex_center(target["cell"], origin), 1, 0.4, delay + BEAM_DURATION)
+	# Компактная подпись не обрезается шириной боевого поля и не оставляет
+	# лишние скобки/тире после числа критического урона.
+	var floater_text := ("КРИТ! %d" % damage) if critical else ("%d" % damage)
 	if losses > 0:
 		floater_text += "   (−%d кор.)" % losses
 	floaters.append({
@@ -1229,6 +1443,7 @@ func _attack_unit(attacker_index: int, target_index: int, is_retaliation: bool) 
 	if critical:
 		_spawn_cast_fx(_hex_center(target["cell"], origin), GOLD_COLOR, 1)
 	target["hp"] = maxi(0, target["hp"] - damage)
+	_apply_hit_feedback(target_index, critical, delay)
 	attacker["shot"] = true
 	if is_retaliation:
 		attacker["retaliated"] = true
@@ -1262,6 +1477,11 @@ func _check_battle_end() -> void:
 	enemy_attack_delay = -1.0
 	turn_pending = false
 	last_event = "ПОБЕДА ЗЕМНОГО ФЛОТА" if player_alive else "ПОБЕДА %s" % _enemy_faction_genitive()
+	if not quick_battle:
+		if player_alive:
+			SampleSfx.play_victory()
+		else:
+			SampleSfx.play_defeat()
 	_grant_experience()
 
 
@@ -1683,19 +1903,22 @@ func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) ->
 	hero["protocol_cooldowns"] = cooldowns
 	hero["cast_round"] = round_number
 	var color: Color = PROTOCOLS.school_color(id)
+	var school := String(protocol.get("school", ""))
 	var origin := _grid_origin()
 	var kind: String = protocol["kind"]
 	var hero_name := String(hero.get("name", "КОМАНДИР"))
 	var report := "%s: %s" % [hero_name, protocol["name"]]
+	if not quick_battle:
+		SampleSfx.play_protocol_cast(id, school)
 
 	if kind == "teleport":
 		var jumper := teleport_unit if teleport_unit >= 0 else target_index
 		if jumper < 0:
 			return
-		_spawn_cast_fx(_hex_center(units[jumper]["cell"], origin), color, 0)
+		_spawn_cast_fx(_hex_center(units[jumper]["cell"], origin), color, 0, school)
 		_start_unit_move(units[jumper], cell)
 		units[jumper]["moved"] = false
-		_spawn_cast_fx(_hex_center(cell, origin), color, 0)
+		_spawn_cast_fx(_hex_center(cell, origin), color, 0, school)
 		report += " — %s уходит в прыжок" % units[jumper]["label"]
 		last_event = report
 		_update_hud()
@@ -1707,10 +1930,10 @@ func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) ->
 		return
 	var radius := int(protocol.get("radius", 0))
 	if radius > 0:
-		_spawn_cast_fx(_hex_center(cell, origin), color, radius)
+		_spawn_cast_fx(_hex_center(cell, origin), color, radius, school)
 	else:
 		for index in targets:
-			_spawn_cast_fx(_hex_center(units[index]["cell"], origin), color, 0)
+			_spawn_cast_fx(_hex_center(units[index]["cell"], origin), color, 0, school)
 
 	match kind:
 		"damage":
@@ -1774,6 +1997,8 @@ func _apply_protocol_damage(target_index: int, raw: int) -> int:
 			effect["shield"] = int(effect["shield"]) - absorbed
 			remaining -= absorbed
 	unit["hp"] = maxi(0, int(unit["hp"]) - remaining)
+	if remaining > 0:
+		_apply_hit_feedback(target_index, false)
 	return remaining
 
 
@@ -1897,12 +2122,16 @@ func _auto_hero_cast(side: int) -> bool:
 	return false
 
 
-func _spawn_cast_fx(center: Vector2, color: Color, radius: int) -> void:
+## school пустой ("") у общих эффектов вроде кольца крита — тогда рисуется
+## только базовое кольцо, без школьного "флюида" (см. _draw_cast_effects).
+func _spawn_cast_fx(center: Vector2, color: Color, radius: int, school: String = "", duration: float = CAST_DURATION) -> void:
 	cast_effects.append({
 		"center": center,
 		"radius": HEX_RADIUS * (1.0 + radius * 1.5),
 		"color": color,
 		"time": 0.0,
+		"school": school,
+		"duration": duration,
 	})
 
 
@@ -1916,9 +2145,11 @@ func _draw() -> void:
 		for row in range(GRID_ROWS):
 			_draw_hex(Vector2i(column, row), origin)
 	_draw_obstacles(origin)
+	_draw_scorch_marks()
 	_draw_hover_preview(origin)
 	for index in range(units.size()):
-		if units[index]["hp"] > 0:
+		var unit: Dictionary = units[index]
+		if unit["hp"] > 0 or _is_fading(unit):
 			_draw_unit(index, origin)
 	for beam in beams:
 		if beam["delay"] > 0.0:
@@ -1933,6 +2164,8 @@ func _draw() -> void:
 				_draw_rocket_beam(beam, alpha)
 			_:
 				_draw_cannon_beam(beam, alpha)
+	_draw_battle_particles()
+	_draw_explosions()
 	for floater in floaters:
 		if floater["delay"] > 0.0:
 			continue
@@ -2028,23 +2261,32 @@ func _pick_backdrop_object() -> void:
 ## Пушка (обычный залп 3-4 ранга) — толстый цветной луч с белым ядром и
 ## вспышкой попадания. Поведение по умолчанию для неизвестных типов оружия.
 func _draw_cannon_beam(beam: Dictionary, alpha: float) -> void:
+	# Муззл-вспышка у истока луча — только в первые кадры жизни (alpha
+	# считает от BEAM_DURATION вниз к 0, т.е. только что выстрелили).
+	if alpha > 0.7:
+		var muzzle_t := (alpha - 0.7) / 0.3
+		draw_circle(beam["start"], lerpf(4.0, 20.0, muzzle_t), Color(1.0, 0.85, 0.5, muzzle_t))
 	draw_line(beam["start"], beam["end"], Color(beam["color"], alpha), 10.0, true)
 	draw_line(beam["start"], beam["end"], Color(1.0, 1.0, 1.0, alpha), 3.0, true)
 	draw_circle(beam["end"], 16.0 * alpha, Color(1.0, 0.45, 0.15, alpha))
 
 
 ## Луч (5 ранг) — тонкий, предельно яркий непрерывный разряд с лёгким
-## свечением, без снарядной вспышки попадания.
+## свечением. Импакт-глоу растёт по мере того, как луч гаснет (alpha убывает
+## к 0), настоящая искровая россыпь попадания — отдельно, см. _spawn_beam_impact.
 func _draw_laser_beam(beam: Dictionary, alpha: float) -> void:
 	draw_line(beam["start"], beam["end"], Color(beam["color"], alpha * 0.35), 9.0, true)
 	draw_line(beam["start"], beam["end"], Color(beam["color"], alpha), 3.0, true)
 	draw_line(beam["start"], beam["end"], Color(1.0, 1.0, 1.0, alpha), 1.2, true)
-	draw_circle(beam["end"], 6.0 * alpha, Color(1.0, 1.0, 1.0, alpha))
+	draw_circle(beam["end"], lerpf(6.0, 14.0, 1.0 - alpha), Color(1.0, 1.0, 1.0, alpha))
 
 
 ## Пулемёт (1 ранг) — очередь из нескольких тонких параллельных трасс вместо
-## одного залпа, маленькие искры попадания.
+## одного залпа, маленькая муззл-вспышка и искры попадания.
 func _draw_machine_gun_beam(beam: Dictionary, alpha: float) -> void:
+	if alpha > 0.75:
+		var muzzle_t := (alpha - 0.75) / 0.25
+		draw_circle(beam["start"], lerpf(3.0, 10.0, muzzle_t), Color(1.0, 0.9, 0.6, muzzle_t))
 	var direction: Vector2 = beam["end"] - beam["start"]
 	var perpendicular := direction.orthogonal().normalized()
 	for offset: float in [-6.0, 0.0, 6.0]:
@@ -2064,9 +2306,55 @@ func _draw_rocket_beam(beam: Dictionary, alpha: float) -> void:
 	draw_circle(beam["end"], 4.0 + 14.0 * explosion_strength, Color(1.0, 0.45, 0.15, alpha * explosion_strength))
 
 
+## Выгары от пушечных попаданий — фоновые декали, рисуются под кораблями
+## (см. порядок вызовов в _draw), поэтому не мешают читать поле боя.
+func _draw_scorch_marks() -> void:
+	for scorch in scorch_marks:
+		var t: float = clampf(float(scorch["time"]) / float(scorch["duration"]), 0.0, 1.0)
+		var alpha := (1.0 - t) * 0.55
+		draw_set_transform(scorch["position"], float(scorch["angle"]), Vector2.ONE)
+		draw_circle(Vector2.ZERO, float(scorch["radius"]), Color(0.05, 0.03, 0.02, alpha))
+		draw_arc(Vector2.ZERO, float(scorch["radius"]), 0.0, PI * 1.4, 16, Color(0.3, 0.12, 0.05, alpha * 0.8), 2.0, true)
+		draw_set_transform(Vector2.ZERO)
+
+
+## Обломки/искры/дым (см. _spawn_explosion/_spawn_impact_sparks/
+## _tick_beam_particles) — общий разбор по "kind", рисуются поверх лучей.
+func _draw_battle_particles() -> void:
+	for particle in battle_particles:
+		var t: float = clampf(float(particle["time"]) / float(particle["duration"]), 0.0, 1.0)
+		var alpha := 1.0 - t
+		var size: float = particle["size"]
+		match String(particle["kind"]):
+			"debris":
+				draw_set_transform(particle["position"], float(particle["spin"]), Vector2.ONE)
+				draw_rect(Rect2(Vector2(-size, -size) * 0.5, Vector2.ONE * size), Color(BATTLE_VFX_DEFS.DEBRIS_COLOR, alpha))
+				draw_set_transform(Vector2.ZERO)
+			"spark":
+				draw_circle(particle["position"], size * alpha, Color(particle.get("color", Color.WHITE), alpha))
+			"smoke":
+				draw_circle(particle["position"], size * (1.0 + t), Color(BATTLE_VFX_DEFS.EXPLOSION_SMOKE_COLOR, alpha * 0.5))
+
+
+## Взрыв уничтожения/вторичная ударная волна ракеты — ядро + расширяющееся
+## кольцо + дымная дымка, поверх обломков/искр и лучей.
+func _draw_explosions() -> void:
+	for explosion in explosions:
+		if float(explosion.get("delay", 0.0)) > 0.0:
+			continue
+		var t: float = clampf(float(explosion["time"]) / float(explosion["duration"]), 0.0, 1.0)
+		var alpha := 1.0 - t
+		var radius: float = explosion["radius"]
+		var center: Vector2 = explosion["center"]
+		draw_circle(center, radius * 0.5 * (1.0 - t * 0.6), Color(BATTLE_VFX_DEFS.EXPLOSION_CORE_COLOR, alpha))
+		draw_arc(center, radius * (0.3 + t * 0.9), 0.0, TAU, 40, Color(BATTLE_VFX_DEFS.EXPLOSION_MID_COLOR, alpha * 0.8), 6.0, true)
+		draw_circle(center, radius * (0.4 + t * 0.5), Color(BATTLE_VFX_DEFS.EXPLOSION_SMOKE_COLOR, alpha * 0.25))
+
+
 func _draw_cast_effects() -> void:
 	for effect in cast_effects:
-		var t: float = clampf(float(effect["time"]) / CAST_DURATION, 0.0, 1.0)
+		var duration: float = float(effect.get("duration", CAST_DURATION))
+		var t: float = clampf(float(effect["time"]) / duration, 0.0, 1.0)
 		var alpha := 1.0 - t
 		var color: Color = effect["color"]
 		var center: Vector2 = effect["center"]
@@ -2074,6 +2362,62 @@ func _draw_cast_effects() -> void:
 		draw_arc(center, radius * (0.35 + 0.9 * t), 0.0, TAU, 48, Color(color, alpha), 4.0, true)
 		draw_arc(center, radius * (0.15 + 0.5 * t), 0.0, TAU, 40, Color(1.0, 1.0, 1.0, alpha * 0.7), 2.0, true)
 		draw_circle(center, radius * 0.35 * alpha, Color(color, alpha * 0.4))
+		match String(effect.get("school", "")):
+			PROTOCOLS.SCHOOL_ENGINEERING:
+				_draw_school_engineering(center, color, t, radius)
+			PROTOCOLS.SCHOOL_TACTICS:
+				_draw_school_tactics(center, color, t, radius)
+			PROTOCOLS.SCHOOL_EW:
+				_draw_school_ew(center, color, t, radius)
+			PROTOCOLS.SCHOOL_WEAPONS:
+				_draw_school_weapons(center, color, t, radius)
+
+
+## Рой нанитов/дронов, стягивающийся спиралью к центру — Инженерия (лечение,
+## щиты): читается как ремонтные механизмы, а не абстрактное кольцо.
+func _draw_school_engineering(center: Vector2, color: Color, t: float, radius: float) -> void:
+	var swirl_radius := radius * (0.9 - t * 0.7)
+	for i in range(10):
+		var angle := (float(i) / 10.0) * TAU + t * 10.0
+		var point := center + Vector2(cos(angle), sin(angle)) * swirl_radius
+		draw_circle(point, 3.0 * (1.0 - t), Color(color.lightened(0.3), (1.0 - t) * 0.85))
+
+
+## Растянутое "варп"-кольцо и белый эхо-контур — Тактика (баффы, телепорт,
+## синхронизация): читается как смещение/ускорение, а не статичный взрыв.
+func _draw_school_tactics(center: Vector2, color: Color, t: float, radius: float) -> void:
+	var stretch := Vector2(1.0 + t * 1.4, 1.0 - t * 0.3)
+	draw_set_transform(center, 0.0, stretch)
+	draw_arc(Vector2.ZERO, radius * 0.6, 0.0, TAU, 28, Color(color.lightened(0.2), (1.0 - t) * 0.5), 2.0, true)
+	draw_arc(Vector2.ZERO, radius * 0.6, 0.0, TAU, 28, Color(1.0, 1.0, 1.0, (1.0 - t) * 0.4), 1.5, true)
+	draw_set_transform(Vector2.ZERO)
+
+
+## Ломаные "молнии" со случайным смещением + мерцание — РЭБ (глушение, стан,
+## дебаффы): читается как помехи/электроника, а не плавный эффект.
+func _draw_school_ew(center: Vector2, color: Color, t: float, radius: float) -> void:
+	if sin(visual_time * 45.0) < 0.2:
+		return
+	var local_rng := RandomNumberGenerator.new()
+	local_rng.seed = int(center.x * 13 + center.y * 7 + t * 997.0)
+	for i in range(3):
+		var points := PackedVector2Array([center])
+		for step in range(3):
+			var offset := Vector2(local_rng.randf_range(-1.0, 1.0), local_rng.randf_range(-1.0, 1.0)) * radius * 0.35
+			points.append(center + offset * float(step + 1))
+		draw_polyline(points, Color(color.lightened(0.4), (1.0 - t) * 0.8), 1.5, true)
+
+
+## Энергетическая колонна, падающая сверху и разбегающаяся ударной волной —
+## Вооружение (орбитальные удары): читается как залп с орбиты, а не искра.
+func _draw_school_weapons(center: Vector2, color: Color, t: float, radius: float) -> void:
+	var slam_t := clampf(t / 0.4, 0.0, 1.0)
+	if slam_t < 1.0:
+		var pillar_top := center - Vector2(0.0, lerpf(600.0, 0.0, slam_t))
+		draw_line(pillar_top, center, Color(color.lightened(0.3), 0.8), 14.0 * (1.0 - slam_t * 0.5), true)
+	else:
+		var wave_t := clampf((t - 0.4) / 0.6, 0.0, 1.0)
+		draw_arc(center, radius * (0.3 + wave_t * 0.8), 0.0, TAU, 32, Color(color, (1.0 - wave_t) * 0.7), 5.0, true)
 
 
 func _draw_floater(floater: Dictionary) -> void:
@@ -2167,10 +2511,14 @@ const TACTICAL_SHIP_WIDTHS := [90.0, 101.0, 113.0, 181.0, 202.0, 220.0, 231.0]
 
 func _draw_unit(index: int, origin: Vector2) -> void:
 	var unit: Dictionary = units[index]
+	var fading := _is_fading(unit)
+	var fade_t := clampf(float(unit.get("death_time", 0.0)) / DESTRUCTION_FADE_DURATION, 0.0, 1.0) if fading else 0.0
 	var center := _unit_visual_center(unit, origin) + _unit_idle_offset(index, unit)
+	if fading:
+		center += Vector2(0.0, 22.0) * fade_t
 	var is_player: bool = unit["side"] == 1
 	var color := PLAYER_COLOR if is_player else ENEMY_COLOR
-	if index == active_unit_index:
+	if index == active_unit_index and not fading:
 		draw_circle(center, 39.0, Color(GOLD_COLOR, 0.10))
 		draw_arc(center, 40.0, 0.0, TAU, 48, GOLD_COLOR, 2.0, true)
 	if index == teleport_unit:
@@ -2179,16 +2527,25 @@ func _draw_unit(index: int, origin: Vector2) -> void:
 	var tier_index := clampi(int(unit.get("tier", 1)) - 1, 0, TACTICAL_SHIP_WIDTHS.size() - 1)
 	var ship_size: Vector2 = region.size * (TACTICAL_SHIP_WIDTHS[tier_index] / region.size.x)
 	# All source ships face left. Earth ships face the pirates on the right.
-	draw_set_transform(center, 0.0, Vector2(-1.0 if is_player else 1.0, 1.0))
+	# Гибнущая пачка ещё и заваливается собственным death_spin (см. _start_destruction).
+	var rotation := float(unit.get("death_spin", 0.0)) * fade_t
+	draw_set_transform(center, rotation, Vector2(-1.0 if is_player else 1.0, 1.0))
 	# Стена (is_wall) неподвижна и не корабль — выхлоп двигателя ей не идёт,
 	# особенно с учётом того, что её портретный (не альбомный) холст даёт
 	# несоразмерно раздутое пятно свечения (см. _draw_engine_exhaust).
 	if not bool(unit.get("is_wall", false)):
 		_draw_engine_exhaust(unit, ship_size, index)
-	draw_texture_rect_region(unit["texture"], Rect2(-ship_size * 0.5, ship_size), region)
+	if not fading and not bool(unit.get("is_wall", false)):
+		_draw_engine_exhaust(unit, ship_size, index)
+	draw_texture_rect_region(unit["texture"], Rect2(-ship_size * 0.5, ship_size), region,
+		Color(1.0, 1.0, 1.0, 1.0 - fade_t))
 	draw_set_transform(Vector2.ZERO)
-	_draw_stack_badge(center, unit, color, index == active_unit_index)
-	_draw_effect_pips(center, unit)
+	var hit_flash := float(unit.get("hit_flash", 0.0))
+	if hit_flash > 0.0:
+		draw_circle(center, ship_size.length() * 0.28, Color(1.0, 0.35, 0.28, hit_flash * 0.5 * (1.0 - fade_t)))
+	if not fading:
+		_draw_stack_badge(center, unit, color, index == active_unit_index)
+		_draw_effect_pips(center, unit)
 
 
 func _unit_idle_offset(index: int, unit: Dictionary) -> Vector2:

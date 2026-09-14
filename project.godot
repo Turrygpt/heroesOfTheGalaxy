@@ -21,6 +21,7 @@ ShipEditor="*res://scripts/ship_editor.gd"
 HeroRoster="*res://scripts/hero_roster.gd"
 CampaignSave="*res://scripts/campaign_save.gd"
 ProceduralSfx="*res://scripts/procedural_sfx.gd"
+SampleSfx="*res://scripts/sample_sfx.gd"
 
 [display]
 
