@@ -103,8 +103,8 @@ const RESOURCE_BUILDING_TEXTURES := {
 }
 ## Туман войны, как в HoMM: карта закрыта чёрным, герой открывает клетки в
 ## радиусе видимости корабля навсегда - однажды увиденное больше не гаснет.
-## На случайной карте туман временно отключён для отладки генерации. Для
-## обычной кампании оставляем классическое открытие карты разведкой.
+## Туман работает и на случайной карте: разведка должна оставаться частью
+## игры независимо от способа генерации раскладки.
 const FOG_ENABLED := true
 const FOG_REVEAL_RADIUS := 4
 const FOG_COLOR := Color(0.0, 0.0, 0.0, 1.0)
@@ -281,7 +281,7 @@ func _ready() -> void:
 		map_seed = 0
 		CampaignSave.random_map_requested = false
 	random_map_mode = map_seed == 0
-	fog_enabled = false if random_map_mode else FOG_ENABLED
+	fog_enabled = FOG_ENABLED
 	if map_seed != 0:
 		map_random.seed = map_seed
 	else:
