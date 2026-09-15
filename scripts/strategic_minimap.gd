@@ -18,7 +18,10 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var strategy_map := _strategy_map()
 		if strategy_map != null and not strategy_map.is_moving:
-			strategy_map.camera.position = event.position / size * MAP_SIZE * CELL_SIZE
+			# Через _camera_position_for, а не напрямую: выбранная точка должна
+			# встать в центр свободной области, а не под правую панель.
+			strategy_map.camera.position = strategy_map._camera_position_for(
+				event.position / size * MAP_SIZE * CELL_SIZE)
 		accept_event()
 
 
@@ -75,9 +78,19 @@ func _draw() -> void:
 		draw_circle(orc_point, 5.0, Color.WHITE)
 		draw_circle(orc_point, 3.0, PLAYER_TWO_COLOR)
 
-	var viewport_world_size: Vector2 = strategy_map.get_viewport_rect().size / strategy_map.camera.zoom
+	# Рамка обзора показывает ту часть карты, которую игрок действительно видит:
+	# HUD непрозрачен, поэтому полосы под верхней панелью и под правым сайдбаром
+	# из прямоугольника вычитаются. Заодно рамка перестаёт вылезать за край
+	# миникарты, когда карта упёрта в панель.
+	var zoom_factor: float = maxf(strategy_map.camera.zoom.x, 0.01)
+	var screen_size: Vector2 = strategy_map.get_viewport_rect().size
+	var hud_offset := Vector2(0.0, strategy_map.resource_bar.size.y)
+	var open_screen_size := screen_size - Vector2(strategy_map.right_sidebar.size.x, hud_offset.y)
+	var viewport_world_size := open_screen_size / zoom_factor
 	var viewport_world_position: Vector2 = (
-		strategy_map.camera.get_screen_center_position() - viewport_world_size * 0.5
+		strategy_map.camera.get_screen_center_position()
+		- screen_size / zoom_factor * 0.5
+		+ hud_offset / zoom_factor
 	)
 	var viewport_rect := Rect2(
 		viewport_world_position / world_size * size,

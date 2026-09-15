@@ -24,6 +24,9 @@ var transition_started := false
 var loading_scene := ""
 var requested_load := false
 var menu_buttons: Array[Button] = []
+var safe_area: MarginContainer
+var version_label: Label
+var space_backdrop: Control
 
 
 func _ready() -> void:
@@ -35,7 +38,7 @@ func _ready() -> void:
 	var panel_margin := 30
 	var column_width := int(minf(400.0, viewport_width - edge_margin * 2.0 - panel_margin * 2.0))
 	column_width = maxi(column_width, 260)
-	var safe_area := MarginContainer.new()
+	safe_area = MarginContainer.new()
 	safe_area.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	safe_area.add_theme_constant_override("margin_left", edge_margin)
 	safe_area.add_theme_constant_override("margin_top", 42)
@@ -98,8 +101,22 @@ func _ready() -> void:
 	call_deferred("_start_music")
 
 
+## Скрывает панель с кнопками и подпись версии, оставляя только фон —
+## нужно для чистого скриншота меню (см. tools/ui_shot.gd, режим "menu_clean").
+func set_menu_items_visible(is_visible: bool) -> void:
+	safe_area.visible = is_visible
+	version_label.visible = is_visible
+
+
+## Скрывает слой логотипа на процедурном фоне (когда доступны main_menu_layers).
+func set_logo_visible(is_visible: bool) -> void:
+	if space_backdrop != null:
+		space_backdrop.set_logo_visible(is_visible)
+
+
 func _build_version_label() -> void:
 	var label := Label.new()
+	version_label = label
 	label.text = "Ранняя версия · %s" % GAME_VERSION
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
@@ -123,6 +140,7 @@ func _make_menu_font() -> Font:
 func _build_background() -> void:
 	if _menu_layers_available():
 		var backdrop := preload("res://scripts/menu_space_backdrop.gd").new()
+		space_backdrop = backdrop
 		add_child(backdrop)
 		return
 	var texture := _pick_random_background_texture()

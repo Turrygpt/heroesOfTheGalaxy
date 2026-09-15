@@ -142,6 +142,7 @@ const KINDS := {
 	## собственной логикой, только сюда генератор попадёт на общий текст-подсказку.
 	"signal_post": {
 		"family": "info", "name": "Сигнальный маяк", "glyph": "➤", "color": "8da7ba", "repeatable": false,
+		"texture": preload("res://assets/map_objects/signal_post.png"),
 	},
 	"emergency_buoy": {
 		"family": "info", "name": "Аварийный буй", "glyph": "i", "color": "8da7ba", "repeatable": false,

@@ -15,6 +15,8 @@ const CAMERA_PAN_SPEED := 900.0
 const SHIP_SOURCE_ANGLE := -PI / 2.0
 const GRID_COLOR := Color("171c26")
 const MAP_BACKGROUND_COLOR := Color(0.01, 0.02, 0.04, 0.55)
+## Минимальная дистанция между объектами одного типа на стратегической карте.
+const SAME_OBJECT_KIND_MIN_DISTANCE := 15
 const MOVEMENT_POINTS_PER_DAY := 10
 ## С чем герой остаётся после проигранного боя или бегства: один корабль
 ## I ранга. То же правило у орков (см. orc_ai.gd:RESPAWN_ARMY) — обе стороны
@@ -49,8 +51,8 @@ const PATROL_RADIUS := 9
 const PATROL_AGGRO_RADIUS := 1
 ## Отдельные ресурсные тайники делятся на охраняемые и безопасные, чтобы на
 ## карте были цели и для боевых вылазок, и для спокойного сбора добычи.
-const GUARDED_RESOURCE_CACHE_COUNT := 12
-const UNGUARDED_RESOURCE_CACHE_COUNT := 8
+const RESOURCE_PILE_COUNT_MIN := 8
+const RESOURCE_PILE_COUNT_MAX := 10
 const RESOURCE_CACHE_AMOUNT_MIN := 5
 const RESOURCE_CACHE_AMOUNT_MAX := 18
 ## Здание занимает 2×2 клетки; "cell" сайта — верхний левый угол этого
@@ -67,9 +69,11 @@ const PLAYER_TWO_COLOR := Color("ef5350")
 ## сразу и headless-CLI, и редактор.
 const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
 const SpaceDecorations := preload("res://scripts/space_decorations.gd")
+const STRATEGIC_NEBULA_TEXTURE := preload("res://assets/space/backdrops/strategic_nebula_background.png")
 const TradingPost := preload("res://scripts/trading_post.gd")
 const OrcAI := preload("res://scripts/orc_ai.gd")
 const HERO_PROTOCOLS := preload("res://scripts/hero_protocols.gd")
+const PROTOCOL_BOOK_HUD := preload("res://scripts/protocol_book_hud.gd")
 const HERO_ENGINE_EXHAUST_OVERLAY := preload("res://scripts/hero_engine_exhaust_overlay.gd")
 const HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/human.png")
 ## Флагман вождя орков — настоящий арт (холст 702x1301, не квадратный, в
@@ -111,9 +115,8 @@ const RESOURCE_BUILDING_TEXTURES := {
 }
 ## Туман войны, как в HoMM: карта закрыта чёрным, герой открывает клетки в
 ## радиусе видимости корабля навсегда - однажды увиденное больше не гаснет.
-## Туман работает и на случайной карте: разведка должна оставаться частью
-## игры независимо от способа генерации раскладки.
-const FOG_ENABLED := true
+## Временно отключён для отладки расстановки объектов и баланса карты.
+const FOG_ENABLED := false
 const FOG_REVEAL_RADIUS := 4
 const FOG_COLOR := Color(0.0, 0.0, 0.0, 1.0)
 const GUARDIAN_PASSAGE_COUNT := 3
@@ -173,6 +176,8 @@ const PRODUCTION_BLUEPRINTS := [
 ]
 
 @onready var camera: Camera2D = $Camera2D
+@onready var resource_bar: Control = $HUD/ResourceBar
+@onready var right_sidebar: Control = $HUD/RightSidebar
 @onready var human_planet: Sprite2D = $HumanPlanet
 @onready var orc_planet: Sprite2D = $OrcPlanet
 @onready var planet_nameplate: Control = $PlanetNameplate
@@ -185,10 +190,10 @@ const PRODUCTION_BLUEPRINTS := [
 @onready var route_overlay: Node2D = $RouteOverlay
 @onready var fog_overlay: Node2D = $FogOverlay
 @onready var ship_sprite: Sprite2D = $Ship
-@onready var day_label: Label = $HUD/TurnPanel/Margin/VBox/DayLabel
-@onready var movement_label: Label = $HUD/TurnPanel/Margin/VBox/MovementLabel
-@onready var income_label: Label = $HUD/TurnPanel/Margin/VBox/IncomeLabel
-@onready var end_day_button: Button = $HUD/TurnPanel/Margin/VBox/EndDayButton
+@onready var day_label: Label = $HUD/ResourceBar/Margin/HBox/TurnInfo/DayLabel
+@onready var movement_label: Label = $HUD/ResourceBar/Margin/HBox/TurnInfo/MovementLabel
+@onready var income_label: Label = $HUD/ResourceBar/Margin/HBox/TurnInfo/IncomeLabel
+@onready var end_day_button: Button = $HUD/ResourceBar/Margin/HBox/TurnInfo/EndDayButton
 @onready var credits_label: Label = $HUD/ResourceBar/Margin/HBox/CreditsLabel
 @onready var products_value: Label = $HUD/ResourceBar/Margin/HBox/ProductsSlot/Value
 @onready var ore_value: Label = $HUD/ResourceBar/Margin/HBox/OreSlot/Value
@@ -205,6 +210,7 @@ const PRODUCTION_BLUEPRINTS := [
 @onready var stats_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox/StatsLabel
 @onready var skills_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/SkillsLabel
 @onready var skills_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/SkillsList
+@onready var protocols_button: Button = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ProtocolsButton
 @onready var army_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArmyList
 @onready var artifacts_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArtifactsList
 
@@ -253,6 +259,7 @@ var map_random := RandomNumberGenerator.new()
 ## (см. space_decorations.gd).
 var space_decorations: Dictionary = {}
 var space_comets: Array[Dictionary] = []
+var far_planet_camera_origin := Vector2.ZERO
 var obstacle_sprites: Node2D
 var music_player: AudioStreamPlayer
 ## Стартовый запас новой кампании; при загрузке заменяется сохранённым.
@@ -346,14 +353,23 @@ func _ready() -> void:
 	ship_sprite.rotation = -PI / 2.0 - SHIP_SOURCE_ANGLE
 	_refresh_orc_ship_sprite()
 	_create_hero_engine_exhaust_overlay()
-	camera.limit_left = 0
-	camera.limit_top = 0
-	camera.limit_right = roundi(MAP_SIZE.x * CELL_SIZE)
-	camera.limit_bottom = roundi(MAP_SIZE.y * CELL_SIZE)
-	camera.position = ship_position.round()
+	_update_camera_limits()
+	get_viewport().size_changed.connect(_update_camera_limits)
+	# Размеры панелей HUD известны только после первого расчёта разметки,
+	# поэтому пределы пересчитываются ещё и по их `resized` - иначе на первом
+	# кадре запас под панель считается от нулевой ширины.
+	right_sidebar.resized.connect(_update_camera_limits)
+	resource_bar.resized.connect(_update_camera_limits)
+	camera.position = _camera_position_for(ship_position.round())
 	if not snapshot.is_empty():
 		camera.position = snapshot.get("camera_position", camera.position)
 		camera.zoom = snapshot.get("camera_zoom", camera.zoom)
+		camera.position = _camera_position_for(camera.position)
+	else:
+		# То же самое: на момент _ready панели ещё нулевого размера, поэтому
+		# первичное центрирование на корабле повторяется после разметки.
+		call_deferred("_recenter_camera_after_layout")
+	far_planet_camera_origin = camera.position
 	end_day_button.pressed.connect(_end_day)
 	human_planet_name_button.pressed.connect(_open_human_planet)
 	side_hero_portrait.gui_input.connect(_on_hero_portrait_input)
@@ -369,6 +385,7 @@ func _ready() -> void:
 	side_planet_list.item_selected.connect(_on_side_planet_selected)
 	army_list.item_selected.connect(_clear_item_list_selection.bind(army_list))
 	skills_list.item_selected.connect(_clear_item_list_selection.bind(skills_list))
+	protocols_button.pressed.connect(_open_protocol_book)
 	artifacts_list.item_selected.connect(_clear_item_list_selection.bind(artifacts_list))
 	_start_music()
 	_update_hud()
@@ -499,7 +516,7 @@ func _process(delta: float) -> void:
 			# просто скользит между клетками - обновляем только по факту
 			# прибытия, а не каждый кадр анимации (иначе полёт подлагивает).
 			_update_hud()
-		camera.position = ship_position.round()
+		camera.position = _camera_position_for(ship_position.round())
 		route_overlay.queue_redraw()
 
 
@@ -522,7 +539,7 @@ func _process_camera_pan(delta: float) -> void:
 	if direction.is_zero_approx():
 		return
 	camera.position += direction.normalized() * CAMERA_PAN_SPEED * delta / camera.zoom.x
-	camera.position = camera.position.clamp(Vector2.ZERO, Vector2(MAP_SIZE) * CELL_SIZE)
+	camera.position = _clamp_camera_position(camera.position)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -539,6 +556,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
 			var factor := 1.12 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 1.12
 			camera.zoom = Vector2.ONE * clampf(camera.zoom.x * factor, 0.35, 1.4)
+			# Пределы заданы в мировых единицах и зависят от зума - после
+			# колеса их надо пересчитать, иначе край карты уезжает под панель.
+			_update_camera_limits()
 			get_viewport().set_input_as_handled()
 			return
 		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
@@ -546,7 +566,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 	if event is InputEventMouseMotion and dragging_map and not is_moving:
 		camera.position -= event.relative / camera.zoom
-		camera.position = camera.position.clamp(Vector2.ZERO, Vector2(MAP_SIZE) * CELL_SIZE)
+		camera.position = _clamp_camera_position(camera.position)
 		get_viewport().set_input_as_handled()
 
 
@@ -726,6 +746,13 @@ func _handle_right_click(clicked_cell: Vector2i) -> void:
 func _draw() -> void:
 	var map_pixel_size := Vector2(MAP_SIZE) * CELL_SIZE
 	draw_rect(Rect2(Vector2.ZERO, map_pixel_size), MAP_BACKGROUND_COLOR)
+	# Фоновая иллюстрация туманности заменяет старые процедурные круги. Растяжка
+	# на всю карту сохраняет рисунок неподвижным относительно звёздной карты.
+	draw_texture_rect(STRATEGIC_NEBULA_TEXTURE, Rect2(Vector2.ZERO, map_pixel_size), false, Color(1.0, 1.0, 1.0, 0.42))
+	# Далёкие планеты и кометы находятся за сеткой и объектами карты: они не
+	# должны выглядеть как интерактивные элементы перед игровым слоем.
+	SpaceDecorations.draw(self, space_decorations, space_comets,
+		camera.position - far_planet_camera_origin, 0.2)
 
 	for column in range(MAP_SIZE.x + 1):
 		var x := column * CELL_SIZE
@@ -734,9 +761,6 @@ func _draw() -> void:
 		var y := row * CELL_SIZE
 		draw_line(Vector2(0.0, y), Vector2(map_pixel_size.x, y), GRID_COLOR, 2.0)
 	_draw_production_owner_markers()
-	# После сетки и тёмной подложки - иначе полупрозрачный MAP_BACKGROUND_COLOR
-	# гасит кометы/планеты вдвое и их почти не видно поверх параллакса.
-	SpaceDecorations.draw(self, space_decorations, space_comets)
 
 
 ## Цветное кольцо показывает владельца захваченного месторождения прямо под
@@ -1088,6 +1112,15 @@ func _update_hud() -> void:
 	_update_hero_card()
 
 
+func _open_protocol_book() -> void:
+	var hero := _player_hero()
+	if hero == null:
+		return
+	var book := PROTOCOL_BOOK_HUD.new()
+	add_child(book)
+	book.setup(hero.to_battle_hero(1), 0, true)
+
+
 func _update_right_menu_lists() -> void:
 	side_hero_list.clear()
 	var hero := _player_hero()
@@ -1120,8 +1153,56 @@ func _on_planet_portrait_input(event: InputEvent) -> void:
 
 
 func _center_camera_on_cell(cell: Vector2i) -> void:
-	camera.position = _cell_center(cell).round()
-	camera.position = camera.position.clamp(Vector2.ZERO, Vector2(MAP_SIZE) * CELL_SIZE)
+	camera.position = _camera_position_for(_cell_center(cell).round())
+
+
+func _recenter_camera_after_layout() -> void:
+	_update_camera_limits()
+	camera.position = _camera_position_for(ship_position.round())
+	far_planet_camera_origin = camera.position
+
+
+## Центрирует карту в доступной области слева от правой панели и ниже верхней
+## полосы, а не во всём окне. Иначе корабли и подписи у края попадают под HUD.
+func _camera_position_for(target: Vector2) -> Vector2:
+	var zoom_factor := maxf(camera.zoom.x, 0.01)
+	# Панель справа сдвигает свободную область влево, поэтому центр экрана
+	# должен стоять правее цели на её полуширину; верхняя полоса - наоборот,
+	# выше цели на свою полувысоту.
+	var offset := Vector2(right_sidebar.size.x, -resource_bar.size.y) * 0.5 / zoom_factor
+	return _clamp_camera_position(target + offset)
+
+
+## HUD не полупрозрачный, поэтому карта под ним просто не видна - значит она
+## не должна туда заезжать вообще. Приём: пределы камеры расширены за край
+## карты ровно на полосы HUD, пересчитанные в мировые единицы текущего зума.
+## Тогда на упоре вправо/вверх край карты встаёт вплотную к панели, а под
+## самой панелью остаётся пустота, а не обрезанный кусок поля.
+func _update_camera_limits() -> void:
+	# Верхний HUD может стать выше заданного минимума из-за масштаба шрифта
+	# или размеров ресурсных иконок. Поэтому боковую панель нельзя держать на
+	# фиксированном offset_top: она должна начинаться после фактической высоты
+	# верхней панели, иначе карта и рамка панели визуально пересекаются.
+	var resource_bar_height := resource_bar.size.y
+	if absf(right_sidebar.offset_top - resource_bar_height) > 0.5:
+		right_sidebar.offset_top = resource_bar_height
+	var map_pixel := Vector2(MAP_SIZE) * CELL_SIZE
+	var zoom_factor := maxf(camera.zoom.x, 0.01)
+	camera.limit_left = 0
+	camera.limit_top = -roundi(resource_bar_height / zoom_factor)
+	camera.limit_right = roundi(map_pixel.x + right_sidebar.size.x / zoom_factor)
+	camera.limit_bottom = roundi(map_pixel.y)
+	camera.position = _clamp_camera_position(camera.position)
+
+
+## Допустимая область для ЦЕНТРА камеры - пределы, поджатые на половину
+## видимой области. Считать её вручную приходится потому, что Camera2D зажимает
+## только саму отрисовку, а `position` уезжает дальше и прокрутка "залипает".
+func _clamp_camera_position(target: Vector2) -> Vector2:
+	var half_view := get_viewport_rect().size * 0.5 / maxf(camera.zoom.x, 0.01)
+	var min_center := Vector2(camera.limit_left, camera.limit_top) + half_view
+	var max_center := Vector2(camera.limit_right, camera.limit_bottom) - half_view
+	return target.clamp(min_center, min_center.max(max_center))
 
 
 func _clear_item_list_selection(_index: int, list: ItemList) -> void:
@@ -1576,7 +1657,7 @@ func _retreat_player_home(message: String) -> void:
 	next_cell = current_cell
 	ship_position = _cell_center(current_cell)
 	ship_sprite.position = ship_position
-	camera.position = ship_position.round()
+	camera.position = _camera_position_for(ship_position.round())
 	is_moving = false
 	planned_path.clear()
 	planned_destination = Vector2i(-1, -1)
@@ -2073,7 +2154,7 @@ func _resolve_guardian_battle(index: int, battle_units: Array, player_won: bool,
 	next_cell = current_cell
 	ship_position = _cell_center(current_cell)
 	ship_sprite.position = ship_position
-	camera.position = ship_position.round()
+	camera.position = _camera_position_for(ship_position.round())
 	if String(guardian.get("kind", "")) == "trader":
 		navigation_message = "Торговый конвой разгромлен."
 	else:
@@ -2113,8 +2194,13 @@ func _generate_map_objects() -> void:
 		var count := int(MapObjectDefs.SPAWN_COUNT.get(kind, 0))
 		var size := MapObjectDefs.size(kind)
 		for _index in range(count):
-			var cell := _find_free_hard_object_cell(size) if family == "guardian_reward" \
-				else _find_free_object_cell(4, size, ARTIFACT_CACHE_MIN_PLANET_DISTANCE if kind == "artifact_cache" else 0)
+			var cell := Vector2i(-1, -1)
+			for _attempt in range(300):
+				var candidate := _find_free_hard_object_cell(size) if family == "guardian_reward" \
+					else _find_free_object_cell(4, size, ARTIFACT_CACHE_MIN_PLANET_DISTANCE if kind == "artifact_cache" else 0)
+				if candidate.x >= 0 and _same_object_kind_is_far(candidate, size, kind):
+					cell = candidate
+					break
 			if cell.x < 0:
 				continue
 			if family == "guardian_reward":
@@ -2171,7 +2257,8 @@ func _clear_footprint_for_new_object(cells: Array[Vector2i]) -> void:
 ## Видимые ресурсные точки: один значок ресурса и один флот рядом.
 ## Это отдельные тайники, а не здания, чтобы цель читалась сразу.
 func _generate_guarded_resource_caches() -> void:
-	for _index in range(GUARDED_RESOURCE_CACHE_COUNT):
+	var pile_count := map_random.randi_range(RESOURCE_PILE_COUNT_MIN, RESOURCE_PILE_COUNT_MAX)
+	for _index in range(pile_count):
 		var cell := _find_free_object_cell(12, 1)
 		if cell.x < 0:
 			continue
@@ -2198,7 +2285,8 @@ func _generate_guarded_resource_caches() -> void:
 ## Обычные ресурсные тайники без стража. Размещаются отдельно от охраняемых,
 ## чтобы безопасные находки не превращались в обязательные бои.
 func _generate_unguarded_resource_caches() -> void:
-	for _index in range(UNGUARDED_RESOURCE_CACHE_COUNT):
+	var pile_count := map_random.randi_range(RESOURCE_PILE_COUNT_MIN, RESOURCE_PILE_COUNT_MAX)
+	for _index in range(pile_count):
 		var cell := _find_free_object_cell(12, 1)
 		if cell.x < 0:
 			continue
@@ -2237,6 +2325,8 @@ func _generate_corner_objects() -> void:
 		for kind in MapObjectDefs.CORNER_LAYOUT:
 			var size := MapObjectDefs.size(kind)
 			var cell := _find_free_object_cell_in_box(corner[0], corner[1], size)
+			if cell.x >= 0 and not _same_object_kind_is_far(cell, size, kind):
+				cell = Vector2i(-1, -1)
 			if kind == "artifact_cache" and cell.x >= 0 \
 				and _nearest_planet_distance(cell) < ARTIFACT_CACHE_MIN_PLANET_DISTANCE:
 				# Ближний к планете угол не должен содержать артефактный тайник.
@@ -2261,7 +2351,7 @@ func _generate_trading_posts() -> void:
 	var size := MapObjectDefs.size(kind)
 	for preferred_cell in MapObjectDefs.TRADING_POST_CELLS:
 		var cell := _find_free_object_cell_near(preferred_cell, size)
-		if cell.x < 0:
+		if cell.x < 0 or not _same_object_kind_is_far(cell, size, kind):
 			continue
 		_add_map_object(cell, kind, size)
 
@@ -2813,6 +2903,32 @@ func _cell_is_free_for_object(cell: Vector2i, min_distance_from_start: int) -> b
 	return true
 
 
+## Проверяет расстояние между футпринтами объектов одного типа. Учитываются
+## как обычные map_objects, так и охраняемые здания из массива guardians.
+func _same_object_kind_is_far(anchor: Vector2i, size: int, kind: String) -> bool:
+	var candidate_cells := _footprint_cells(anchor, size)
+	for object in map_objects:
+		if bool(object.get("consumed", false)) or String(object.get("kind", "")) != kind:
+			continue
+		var existing_cells := _footprint_cells(
+			object["cell"], int(object.get("size", 1)))
+		for candidate in candidate_cells:
+			for existing in existing_cells:
+				if _chebyshev_distance(candidate, existing) < SAME_OBJECT_KIND_MIN_DISTANCE:
+					return false
+	for guardian in guardians:
+		if not bool(guardian.get("alive", false)) \
+			or String(guardian.get("object_kind", "")) != kind:
+			continue
+		var existing_cells := _footprint_cells(
+			guardian["cell"], int(guardian.get("size", 1)))
+		for candidate in candidate_cells:
+			for existing in existing_cells:
+				if _chebyshev_distance(candidate, existing) < SAME_OBJECT_KIND_MIN_DISTANCE:
+					return false
+	return true
+
+
 ## Хук на прибытие в клетку (см. _process) - в отличие от _check_guardian_encounter
 ## останавливает движение только для телепорта (сменилась позиция корабля),
 ## пикапы/квесты/инфо срабатывают "на лету" и путь продолжается.
@@ -2966,7 +3082,7 @@ func _trigger_teleport(index: int) -> void:
 	next_cell = destination
 	ship_position = _cell_center(destination)
 	ship_sprite.position = ship_position
-	camera.position = ship_position.round()
+	camera.position = _camera_position_for(ship_position.round())
 	if _reveal_around(destination, FOG_REVEAL_RADIUS):
 		fog_overlay.queue_redraw()
 	navigation_message = "Нестабильные врата переносят флот в другую точку карты."
@@ -3528,7 +3644,7 @@ func _add_random_production_cluster(
 ## Каждый из четырёх дальних типов встречается по три раза на карте.
 func _add_distant_production_sites(occupied_cells: Array[Vector2i]) -> void:
 	var sector_counts := {}
-	for resource_copy in range(4):
+	for resource_copy in range(3):
 		for blueprint_index in range(4, PRODUCTION_BLUEPRINTS.size()):
 			var blueprint: Dictionary = PRODUCTION_BLUEPRINTS[blueprint_index]
 			var sector_order: Array[Vector2i] = []

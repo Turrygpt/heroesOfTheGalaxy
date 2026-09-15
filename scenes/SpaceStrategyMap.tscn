@@ -57,7 +57,7 @@ corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_sidebar"]
-bg_color = Color(0.049, 0.061, 0.078, 0.94)
+bg_color = Color(0.049, 0.061, 0.078, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -68,8 +68,13 @@ corner_radius_top_right = 5
 corner_radius_bottom_right = 5
 corner_radius_bottom_left = 5
 
+[sub_resource type="StyleBoxFlat" id="StyleBox_sidebar_docked"]
+bg_color = Color(0.049, 0.061, 0.078, 1)
+border_width_left = 1
+border_color = Color(0.32, 0.41, 0.5, 0.95)
+
 [sub_resource type="StyleBoxFlat" id="StyleBox_sidebar_inner"]
-bg_color = Color(0.075, 0.087, 0.105, 0.92)
+bg_color = Color(0.075, 0.087, 0.105, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -241,7 +246,7 @@ script = ExtResource("15_fog_overlay")
 [node name="ResourceBar" type="PanelContainer" parent="HUD"]
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 58.0
+offset_bottom = 72.0
 grow_horizontal = 2
 
 [node name="Margin" type="MarginContainer" parent="HUD/ResourceBar"]
@@ -391,52 +396,49 @@ layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="TurnPanel" type="PanelContainer" parent="HUD"]
-offset_left = 16.0
-offset_top = 72.0
-offset_right = 340.0
-offset_bottom = 228.0
-
-[node name="Margin" type="MarginContainer" parent="HUD/TurnPanel"]
+[node name="TurnSeparator" type="VSeparator" parent="HUD/ResourceBar/Margin/HBox"]
 layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 12
 
-[node name="VBox" type="VBoxContainer" parent="HUD/TurnPanel/Margin"]
+[node name="TurnInfo" type="HBoxContainer" parent="HUD/ResourceBar/Margin/HBox"]
 layout_mode = 2
-theme_override_constants/separation = 7
+theme_override_constants/separation = 12
 
-[node name="DayLabel" type="Label" parent="HUD/TurnPanel/Margin/VBox"]
+[node name="DayLabel" type="Label" parent="HUD/ResourceBar/Margin/HBox/TurnInfo"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_colors/font_color = Color(0.78, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 16
 text = "1 неделя, 1 сол"
+vertical_alignment = 1
 
-[node name="MovementLabel" type="Label" parent="HUD/TurnPanel/Margin/VBox"]
+[node name="MovementLabel" type="Label" parent="HUD/ResourceBar/Margin/HBox/TurnInfo"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 16
 text = "Ходы: 10 / 10"
+vertical_alignment = 1
 
-[node name="IncomeLabel" type="Label" parent="HUD/TurnPanel/Margin/VBox"]
+[node name="IncomeLabel" type="Label" parent="HUD/ResourceBar/Margin/HBox/TurnInfo"]
 layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.82, 0.3, 1)
+theme_override_font_sizes/font_size = 16
 text = "Совет 1: +500/сол"
+vertical_alignment = 1
 
-[node name="EndDayButton" type="Button" parent="HUD/TurnPanel/Margin/VBox"]
+[node name="EndDayButton" type="Button" parent="HUD/ResourceBar/Margin/HBox/TurnInfo"]
+custom_minimum_size = Vector2(140, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "Завершить сол"
 
 [node name="RightSidebar" type="PanelContainer" parent="HUD"]
-anchors_preset = 1
+anchors_preset = 11
 anchor_left = 1.0
 anchor_right = 1.0
+anchor_bottom = 1.0
 offset_left = -372.0
 offset_top = 72.0
-offset_right = -16.0
-offset_bottom = 1064.0
 grow_horizontal = 0
-theme_override_styles/panel = SubResource("StyleBox_sidebar")
+grow_vertical = 1
+theme_override_styles/panel = SubResource("StyleBox_sidebar_docked")
 
 [node name="Margin" type="MarginContainer" parent="HUD/RightSidebar"]
 layout_mode = 2
@@ -558,6 +560,7 @@ focus_mode = 0
 mouse_filter = 1
 
 [node name="NavigationPanel" type="PanelContainer" parent="HUD"]
+visible = false
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
@@ -692,6 +695,16 @@ focus_mode = 0
 mouse_filter = 1
 item_0/text = "Артиллерия (I)"
 item_1/text = "Лидерство (I)"
+
+[node name="ProtocolsSeparator" type="HSeparator" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="ProtocolsButton" type="Button" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.72, 0.35, 1)
+theme_override_font_sizes/font_size = 15
+text = "ОТКРЫТЬ КНИГУ ПРОТОКОЛОВ"
 
 [node name="ArtifactsSeparator" type="HSeparator" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2

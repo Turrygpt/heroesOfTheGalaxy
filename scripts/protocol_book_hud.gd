@@ -31,11 +31,13 @@ const SCHOOL_GLYPH := {
 
 var hero: Dictionary
 var round_number: int
+var read_only := false
 
 
-func setup(hero_data: Dictionary, current_round: int) -> void:
+func setup(hero_data: Dictionary, current_round: int, read_only_mode: bool = false) -> void:
 	hero = hero_data
 	round_number = current_round
+	read_only = read_only_mode
 	layer = 11
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -74,7 +76,7 @@ func setup(hero_data: Dictionary, current_round: int) -> void:
 
 	var footer := HBoxContainer.new()
 	body.add_child(footer)
-	footer.add_child(_line_label("ESC — закрыть без выбора  ·  ПКМ на поле боя отменяет наведение цели", 12, MUTED))
+	footer.add_child(_line_label("ESC — закрыть" if read_only else "ESC — закрыть без выбора  ·  ПКМ на поле боя отменяет наведение цели", 12, MUTED))
 	var footer_spacer := Control.new()
 	footer_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(footer_spacer)
@@ -147,7 +149,7 @@ func _row(protocol_id: String, cooldowns: Dictionary) -> Control:
 	var energy := int(hero.get("energy", 0))
 	var on_cooldown := int(cooldowns.get(protocol_id, -1)) == round_number
 	var protocol_used := int(hero.get("cast_round", -1)) == round_number
-	var affordable := energy >= cost and not on_cooldown and not protocol_used
+	var affordable := not read_only and energy >= cost and not on_cooldown and not protocol_used
 	var school: String = protocol["school"]
 	var school_color: Color = PROTOCOLS.school_color(protocol_id)
 	var ink := INK if affordable else MUTED
@@ -185,7 +187,7 @@ func _row(protocol_id: String, cooldowns: Dictionary) -> Control:
 	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_pill.add_child(cost_label)
 	action.add_child(cost_pill)
-	var button_text := "ХОД ИСЧЕРПАН" if protocol_used else ("ПЕРЕЗАРЯДКА" if on_cooldown else "ПРИМЕНИТЬ")
+	var button_text := "ИЗУЧЕНО" if read_only else ("ХОД ИСЧЕРПАН" if protocol_used else ("ПЕРЕЗАРЯДКА" if on_cooldown else "ПРИМЕНИТЬ"))
 	var button := _button(button_text, school_color, 132)
 	button.disabled = not affordable
 	preload("res://scripts/ui_style.gd").apply_button(button)

@@ -46,6 +46,16 @@ var layers_ready := false
 var space_rect: ColorRect
 var sun_rect: ColorRect
 var sun_material: ShaderMaterial
+var logo_should_be_visible := true
+
+
+## Скрывает слой логотипа — для чистого фона без него (см. tools/ui_shot.gd).
+## Слой грузится асинхронно (`_build_layers_deferred`), поэтому желаемое
+## состояние запоминается и на случай, если вызвано до его появления.
+func set_logo_visible(is_visible: bool) -> void:
+	logo_should_be_visible = is_visible
+	if logo_layer != null:
+		logo_layer.visible = is_visible
 
 
 func _ready() -> void:
@@ -80,6 +90,7 @@ func _build_layers_deferred() -> void:
 	_make_sun_layer()
 	asteroids_layer = _make_layer("asteroids.png")
 	logo_layer = _make_layer("logo.png")
+	logo_layer.visible = logo_should_be_visible
 	layers_ready = true
 	_layout_layers()
 	_attach_space_shader()

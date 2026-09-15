@@ -106,6 +106,10 @@ const PARALLAX_LAYERS := [
 	{"texture": preload("res://assets/space/parallax_nebula_mid.png"), "strength": 14.0},
 	{"texture": preload("res://assets/space/parallax_dust_near.png"), "strength": 26.0},
 ]
+## Дополнительные крупные силуэты дальнего космоса. Они генерируются один раз
+## на бой и двигаются с разной скоростью, поэтому фон не выглядит плоским.
+const BACKGROUND_ELEMENT_COUNT := 7
+const BACKGROUND_PLANET_COUNT := 1
 ## Запас за краями экрана, чтобы сдвиг слоя никогда не оголил его границу.
 const PARALLAX_OVERSCAN := 48.0
 ## Папка с декоративными задниками (планета/луна/туманность) — см. промт для
@@ -296,6 +300,7 @@ var parallax_offset := Vector2.ZERO
 ## с броском. Не путать с обелисками/препятствиями поля: это чистая декорация
 ## заднего плана, боя не касается.
 var backdrop_object: Dictionary = {}
+var background_elements: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -330,6 +335,7 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(queue_redraw)
 	_precompute_hex_centers()
 	_pick_backdrop_object()
+	_generate_background_elements()
 	_start_music()
 	_begin_active_turn()
 
@@ -1795,6 +1801,11 @@ func _has_line_of_sight(from: Vector2i, to: Vector2i) -> bool:
 func _can_cast(side: int, id: String) -> bool:
 	if battle_finished or not heroes.has(side):
 		return false
+	# Стражи ферм, шахт и других объектов — рядовые капитаны без адмирала.
+	# Проверяем это здесь, в общей точке входа, чтобы протоколы не прошли ни
+	# через автобой, ни через прямой вызов _cast_protocol.
+	if side == 2 and guardian_index >= 0:
+		return false
 	var hero: Dictionary = heroes[side]
 	var cooldowns: Dictionary = hero.get("protocol_cooldowns", {})
 	if not (hero["book"] as Array).has(id) or int(cooldowns.get(id, -1)) == round_number:
@@ -2181,7 +2192,79 @@ func _draw_background() -> void:
 	_draw_backdrop_object(viewport_size, 10.0)
 	for layer in PARALLAX_LAYERS:
 		_draw_parallax_layer(layer["texture"], float(layer["strength"]), viewport_size)
+	_draw_background_elements(viewport_size)
 	draw_rect(Rect2(Vector2.ZERO, viewport_size), Color(0.01, 0.025, 0.045, 0.35))
+
+
+## Создаёт заметные, но приглушённые элементы: планеты, кольца и поля
+## астероидов. Координаты нормализованы, поэтому фон переживает resize окна.
+func _generate_background_elements() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	background_elements.clear()
+	for index in range(BACKGROUND_ELEMENT_COUNT):
+		if index < BACKGROUND_PLANET_COUNT and not bool(backdrop_object.get("is_planet", false)):
+			background_elements.append({
+				"kind": "planet",
+				"position": Vector2(rng.randf_range(0.08, 0.92), rng.randf_range(0.12, 0.82)),
+				"radius": rng.randf_range(0.10, 0.22),
+				"color": [Color("315c86"), Color("704e87"), Color("88643e")][index],
+				"ring": rng.randf() > 0.45,
+				"angle": rng.randf_range(-0.45, 0.45),
+				"strength": rng.randf_range(8.0, 16.0),
+			})
+		else:
+			var rocks: Array[Dictionary] = []
+			for _rock in range(rng.randi_range(18, 32)):
+				rocks.append({
+					"offset": Vector2(rng.randf_range(-1.0, 1.0), rng.randf_range(-0.34, 0.34)),
+					"radius": rng.randf_range(0.012, 0.035),
+					"alpha": rng.randf_range(0.25, 0.65),
+				})
+			background_elements.append({
+				"kind": "asteroids",
+				"position": Vector2(rng.randf_range(0.05, 0.95), rng.randf_range(0.10, 0.88)),
+				"size": rng.randf_range(0.12, 0.28),
+				"rotation": rng.randf_range(-0.7, 0.7),
+				"color": Color("8b7c70"),
+				"rocks": rocks,
+				"strength": rng.randf_range(22.0, 38.0),
+			})
+
+
+func _draw_background_elements(viewport_size: Vector2) -> void:
+	var smallest_side := minf(viewport_size.x, viewport_size.y)
+	for element in background_elements:
+		var center := Vector2(element["position"]) * viewport_size
+		center += parallax_offset * float(element["strength"])
+		if element["kind"] == "planet":
+			_draw_background_planet(center, smallest_side * float(element["radius"]), element)
+		else:
+			_draw_background_asteroids(center, smallest_side * float(element["size"]), element)
+
+
+func _draw_background_planet(center: Vector2, radius: float, element: Dictionary) -> void:
+	var color: Color = element["color"]
+	draw_circle(center + Vector2(radius * 0.08, radius * 0.12), radius, Color(color.darkened(0.55), 0.42))
+	draw_circle(center - Vector2(radius * 0.12, radius * 0.14), radius * 0.88, Color(color, 0.24))
+	draw_arc(center - Vector2(radius * 0.12, radius * 0.14), radius * 0.88, -2.7, 0.35, 36, Color(color.lightened(0.35), 0.46), 3.0, true)
+	if bool(element["ring"]):
+		var points := PackedVector2Array()
+		for index in range(49):
+			var angle := -0.55 + float(index) / 48.0 * (PI + 1.1)
+			points.append(center + Vector2(cos(angle) * radius * 1.45, sin(angle) * radius * 0.34))
+		draw_polyline(points, Color(color.lightened(0.25), 0.34), 3.0, true)
+
+
+func _draw_background_asteroids(center: Vector2, size: float, element: Dictionary) -> void:
+	var rotation := float(element["rotation"])
+	var color: Color = element["color"]
+	for rock in element["rocks"]:
+		var offset: Vector2 = rock["offset"]
+		var rock_center := center + Vector2(offset.x * size, offset.y * size).rotated(rotation)
+		var rock_radius := size * float(rock["radius"])
+		draw_circle(rock_center, rock_radius, Color(color, float(rock["alpha"])))
+		draw_circle(rock_center - Vector2(rock_radius * 0.25, rock_radius * 0.2), rock_radius * 0.45, Color(color.lightened(0.35), float(rock["alpha"]) * 0.55))
 
 
 ## Тайлится с запасом по краям (PARALLAX_OVERSCAN), чтобы сдвиг на strength
@@ -2235,7 +2318,8 @@ func _pick_backdrop_object() -> void:
 	dir.list_dir_begin()
 	var file_name := dir.get_next()
 	while file_name != "":
-		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "png":
+		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "png" \
+			and file_name != "strategic_nebula_background.png":
 			candidates.append(file_name)
 		file_name = dir.get_next()
 	dir.list_dir_end()
@@ -2252,6 +2336,7 @@ func _pick_backdrop_object() -> void:
 	var corners := [Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0), Vector2(1.0, 1.0)]
 	backdrop_object = {
 		"texture": texture,
+		"is_planet": chosen.to_lower().contains("world") or chosen.to_lower() == "moon.png",
 		"anchor": corners[rng.randi_range(0, corners.size() - 1)],
 		"scale": rng.randf_range(0.55, 0.95),
 		"peek": rng.randf_range(0.4, 0.65),

@@ -55,7 +55,7 @@ func _ready() -> void:
 			"rift":
 				_build_rift(feature, rng)
 			"planetoid":
-				_build_planetoid(feature)
+				_build_planetoid(feature, rng)
 			"nebula":
 				_build_nebula(feature, rng)
 			_:
@@ -118,11 +118,11 @@ func _build_nebula(feature: Dictionary, rng: RandomNumberGenerator) -> void:
 			Color(1, 1, 1, rng.randf_range(0.55, 0.9)), -2)
 
 
-func _build_planetoid(feature: Dictionary) -> void:
+func _build_planetoid(feature: Dictionary, rng: RandomNumberGenerator) -> void:
 	var rect: Rect2i = feature["rect"]
 	_add_sprite("planetoid", feature["variant"],
 		(Vector2(rect.position) + Vector2(rect.size) * 0.5) * CELL,
-		CELL * 2.7, 0.0, Color.WHITE, 0)
+		CELL * 2.7, rng.randf_range(-PI, PI), Color.WHITE, 0)
 
 
 func _build_rift(feature: Dictionary, rng: RandomNumberGenerator) -> void:

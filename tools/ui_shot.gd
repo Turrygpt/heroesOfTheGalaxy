@@ -1,4 +1,7 @@
 ## Снимки настоящих экранов для проверки темы: godot --path . res://tools/UiShot.tscn -- settings tmp/settings.png
+## Режим "menu_clean" — тот же фон меню, но без панели кнопок и подписи версии
+## (для фотокадра/промо, где нужен только арт без UI).
+## Режим "menu_no_logo" — то же самое плюс без слоя логотипа.
 extends Node
 
 var shot_path := "user://ui.png"
@@ -54,7 +57,12 @@ func _ready() -> void:
 		map.open_tactical_when_run_directly = false
 		add_child(map)
 	else:
-		add_child(preload("res://scenes/MainMenu.tscn").instantiate())
+		var menu := preload("res://scenes/MainMenu.tscn").instantiate()
+		add_child(menu)
+		if mode in ["menu_clean", "menu_no_logo"]:
+			menu.set_menu_items_visible(false)
+		if mode == "menu_no_logo":
+			menu.set_logo_visible(false)
 		match mode:
 			"protocols":
 				var dialog := preload("res://scripts/protocol_book_hud.gd").new()
