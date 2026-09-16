@@ -191,12 +191,15 @@ const UNIT_BLUEPRINTS := [
 ## (по умолчанию, и при отладочном запуске сцены напрямую) сохраняют старое
 ## поведение — фиксированный состав UNIT_BLUEPRINTS.
 const SIDE1_CELLS := [
-	Vector2i(1, 1), Vector2i(2, 3), Vector2i(1, 5), Vector2i(2, 7),
-	Vector2i(1, 3), Vector2i(2, 5), Vector2i(1, 7),
+	# Все клетки стоят в одном столбце: эсминцы IV+ ранга занимают ещё
+	# соседнюю клетку по горизонтали, поэтому стартовые футпринты не должны
+	# пересекаться при полном временном составе из семи стеков эсминцев.
+	Vector2i(1, 1), Vector2i(1, 2), Vector2i(1, 3), Vector2i(1, 4),
+	Vector2i(1, 5), Vector2i(1, 6), Vector2i(1, 7),
 ]
 const SIDE2_CELLS := [
-	Vector2i(13, 1), Vector2i(12, 3), Vector2i(13, 5), Vector2i(12, 7),
-	Vector2i(13, 3), Vector2i(12, 5), Vector2i(13, 7),
+	Vector2i(13, 1), Vector2i(13, 2), Vector2i(13, 3), Vector2i(13, 4),
+	Vector2i(13, 5), Vector2i(13, 6), Vector2i(13, 7),
 ]
 
 var player_units_override: Array[Dictionary] = []

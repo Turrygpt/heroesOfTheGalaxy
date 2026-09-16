@@ -26,7 +26,16 @@ func reset_to_default() -> void:
 	# баланс статов) - меняется только личность героя: полковник Павлова,
 	# та же, что уходит в разведку в стартовом брифинге (intro_dialogue.gd).
 	var admiral := Hero.create("player_admiral", "Полковник Павлова", "admiral")
-	admiral.set_army_from_dict({"interceptor": 15, "gunship": 6, "corvette": 2})
+	# Временный усиленный старт для отладки: семь отдельных стеков по 50 эсминцев.
+	admiral.set_army_from_slots([
+		{"unit_id": "destroyer", "count": 50},
+		{"unit_id": "destroyer", "count": 50},
+		{"unit_id": "destroyer", "count": 50},
+		{"unit_id": "destroyer", "count": 50},
+		{"unit_id": "destroyer", "count": 50},
+		{"unit_id": "destroyer", "count": 50},
+		{"unit_id": "destroyer", "count": 50},
+	])
 	register(admiral)
 	# Вождь орков — герой стороны 2. Его army и есть флот ИИ на карте
 	# (см. orc_ai.gd), поэтому он живёт в общем ростере и сохраняется вместе

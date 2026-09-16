@@ -5,6 +5,8 @@ extends Node2D
 ## Сид фиксирует её трофеи; 0 оставлен для отдельной случайной карты.
 const STARTER_MAP_SEED := 160926
 const CampaignMissionMap := preload("res://scripts/campaign_mission_map.gd")
+const TACTICAL_BATTLE := preload("res://scenes/TacticalBattle.tscn")
+const BATTLE_REWARDS := preload("res://scripts/battle_rewards.gd")
 @export var map_seed := STARTER_MAP_SEED
 
 const CELL_SIZE := 96.0
@@ -1824,14 +1826,15 @@ func _start_player_attack_on_orcs(kind: String) -> void:
 		if choice < 0:
 			_decline_battle_before_start()
 			return
-		var battle = load("res://scenes/TacticalBattle.tscn").instantiate()
-		battle.auto_battle = choice == 1
-		battle.quick_battle = choice == 1
-		battle.player_units_override = player_fleet
-		battle.enemy_units_override = enemy_fleet
-		battle.orc_battle_kind = kind
-		battle.enemy_has_admiral = true
-		_swap_to_battle(battle)
+		if choice == 1:
+			_run_quick_battle(player_fleet, enemy_fleet, -1, kind)
+		else:
+			var battle = TACTICAL_BATTLE.instantiate()
+			battle.player_units_override = player_fleet
+			battle.enemy_units_override = enemy_fleet
+			battle.orc_battle_kind = kind
+			battle.enemy_has_admiral = true
+			_swap_to_battle(battle)
 	)
 
 
@@ -2357,6 +2360,53 @@ func _player_hero() -> Hero:
 	return roster.player_hero() if roster != null else null
 
 
+## Автобой с карты: прогоняет тактический движок скрыто и сразу применяет
+## потери, победу и награды, не открывая сцену боя игроку.
+func _run_quick_battle(player_fleet: Array[Dictionary], enemy_fleet: Array[Dictionary], guardian_index: int = -1, orc_battle_kind: String = "", fort_level: int = 0) -> void:
+	var battle = TACTICAL_BATTLE.instantiate()
+	battle.player_units_override = player_fleet
+	battle.enemy_units_override = enemy_fleet
+	battle.guardian_index = guardian_index
+	battle.guardian_fort_level = fort_level
+	battle.orc_battle_kind = orc_battle_kind
+	battle.enemy_has_admiral = not orc_battle_kind.is_empty()
+	battle.auto_battle = true
+	battle.quick_battle = true
+	add_child(battle)
+	battle.visible = false
+	battle.set_process(false)
+	# Опыт и окна результатов тактической сцены здесь не нужны: результат
+	# применит карта после завершения скрытого расчёта.
+	battle.experience_granted = true
+	var deadline_ms := Time.get_ticks_msec() + 45000
+	while not battle.battle_finished and Time.get_ticks_msec() < deadline_ms:
+		battle._process(0.016)
+	var battle_units: Array = battle.units.duplicate(true)
+	var player_won: bool = battle._side_alive(1) and not battle._side_alive(2)
+	battle.free()
+	_award_quick_battle_experience(battle_units, not orc_battle_kind.is_empty())
+	if guardian_index >= 0:
+		_resolve_guardian_battle(guardian_index, battle_units, player_won)
+	elif not orc_battle_kind.is_empty():
+		return
+	else:
+		_resolve_orc_battle(orc_battle_kind, battle_units, player_won)
+
+
+func _award_quick_battle_experience(battle_units: Array, enemy_commanded: bool) -> void:
+	var roster := get_node_or_null("/root/HeroRoster")
+	var hero := _player_hero()
+	if hero != null and roster != null:
+		var player_experience := BATTLE_REWARDS.experience_for_battle(battle_units, 1, true)
+		roster.award_experience(hero, player_experience)
+	if enemy_commanded and roster != null:
+		var enemy_hero := roster.enemy_hero()
+		var enemy_experience := BATTLE_REWARDS.experience_for_battle(battle_units, 2)
+		roster.award_experience(enemy_hero, enemy_experience)
+		BATTLE_REWARDS.auto_apply(enemy_hero)
+	_save_hero_roster()
+
+
 func _start_guardian_battle(index: int) -> void:
 	var hero := _player_hero()
 	var guardian: Dictionary = guardians[index]
@@ -2399,7 +2449,10 @@ func _start_guardian_battle(index: int) -> void:
 		if choice < 0:
 			_decline_battle_before_start()
 			return
-		_open_guardian_battle(player_fleet, enemy_fleet, index, choice == 1, fort_level)
+		if choice == 1:
+			_run_quick_battle(player_fleet, enemy_fleet, index, "", fort_level)
+		else:
+			_open_guardian_battle(player_fleet, enemy_fleet, index, false, fort_level)
 	)
 
 
