@@ -1,9 +1,11 @@
 extends Node2D
 
 @export var open_tactical_when_run_directly := true
-## Постоянная карта: один и тот же seed даёт одну и ту же раскладку зданий/
-## объектов при каждом запуске (0 = случайная карта каждый раз).
-@export var map_seed := 1001
+## Новая игра загружает авторскую миссию из data/campaign/mars_demo_v1.json.
+## Сид фиксирует её трофеи; 0 оставлен для отдельной случайной карты.
+const STARTER_MAP_SEED := 160926
+const CampaignMissionMap := preload("res://scripts/campaign_mission_map.gd")
+@export var map_seed := STARTER_MAP_SEED
 
 const CELL_SIZE := 96.0
 const MAP_SIZE := Vector2i(64, 64)
@@ -46,9 +48,36 @@ const LOCAL_PRODUCTION_MIN_DISTANCE := 10
 const LOCAL_PRODUCTION_MAX_DISTANCE := 15
 const PATROL_COUNT := 8
 const PATROL_RADIUS := 9
-## 3×3 клетки вокруг патрульного корабля: центр и по одному соседу с каждой
-## стороны. Диагонали также входят в зону агрессии.
-const PATROL_AGGRO_RADIUS := 1
+## Зона контроля обычного флота: 3×3 клетки вокруг корабля. Диагонали также
+## входят в зону перехвата. Это правило по умолчанию - пираты, охрана тайников
+## и стражи проходов.
+const GUARDIAN_CONTROL_RADIUS := 1
+## Рыскающий патрульный флот держит зону шире обычного стража - 5×5 клеток:
+## он именно патрулирует район, а не сторожит одну точку. Каждому стражу
+## радиус кладётся в поле "aggro_radius" при создании, а проверки перехвата и
+## обход маршрутом читают его оттуда, так что пираты остаются на 3×3.
+const PATROL_CONTROL_RADIUS := 2
+## Упрощённая стартовая карта намеренно оставляет только главные цели: первые
+## источники развития, несколько трофеев и достаточно открытого пространства
+## для знакомства с полётом и тактическими боями.
+const STARTER_OBSTACLE_COUNT := 28
+const STARTER_RARE_RESOURCE_COPIES := 1
+const STARTER_PASSAGE_GUARDIAN_COUNT := 1
+const STARTER_RESOURCE_CACHE_COUNT := 2
+const STARTER_WORMHOLE_PAIR_COUNT := 1
+const STARTER_OBJECT_COUNTS := {
+	"derelict_station": 1,
+	"pirate_base": 1,
+	"abandoned_shipyard": 1,
+	"training_ground": 1,
+	"upgrade_lab": 1,
+	"knowledge_relay": 1,
+	"obelisk": 2,
+	"cargo_container": 2,
+	"artifact_cache": 1,
+	"emergency_buoy": 1,
+	"archive_station": 1,
+}
 ## Отдельные ресурсные тайники делятся на охраняемые и безопасные, чтобы на
 ## карте были цели и для боевых вылазок, и для спокойного сбора добычи.
 const RESOURCE_PILE_COUNT_MIN := 8
@@ -74,6 +103,8 @@ const TradingPost := preload("res://scripts/trading_post.gd")
 const OrcAI := preload("res://scripts/orc_ai.gd")
 const HERO_PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 const PROTOCOL_BOOK_HUD := preload("res://scripts/protocol_book_hud.gd")
+const HERO_CARD_DIALOG := preload("res://scripts/hero_card_dialog.gd")
+const INTRO_DIALOGUE := preload("res://scripts/intro_dialogue.gd")
 const HERO_ENGINE_EXHAUST_OVERLAY := preload("res://scripts/hero_engine_exhaust_overlay.gd")
 const HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/human.png")
 ## Флагман вождя орков — настоящий арт (холст 702x1301, не квадратный, в
@@ -113,9 +144,29 @@ const RESOURCE_BUILDING_TEXTURES := {
 	"Топливо": preload("res://assets/buildings/production/fuel.png"),
 	"Радиоизотопы": preload("res://assets/buildings/production/isotopes.png"),
 }
+## Шахта — три слоя одного кадра (астероид/буровая/бур), а не покадровая
+## анимация: прошлая попытка на 4 кадрах видео визуально "раздувала" здание,
+## потому что дым и обломки на разных кадрах меняли силуэт целиком. Три
+## картинки сгенерированы на одном холсте и по умолчанию накладываются без
+## сдвига; позицию/масштаб/поворот каждого слоя (и значения из F4-редактора,
+## если он что-то сохранил) отдаёт BuildingVisualDefs.layers_for() - бур
+## ходит вглубь/наружу процедурно поверх статичной картинки (см.
+## _make_ore_mine_visual).
+const BuildingVisualDefs := preload("res://scripts/building_visual_defs.gd")
+## Смещение кончика бура и жерла шахты от центра холста (700×700) - считано
+## по самому нижнему непрозрачному пикселю drill.png при масштабе слоя 1.0.
+const ORE_DRILL_TIP_OFFSET := Vector2(0.0, 321.0)
+const ORE_SMOKE_OFFSET := Vector2(0.0, 181.0)
+const ORE_DRILL_BOB_RANGE := 24.0
+## Меньше общего множителя 0.85 у остальных построек - у готового трёхслойного
+## кадра почти нет прозрачных полей по краям холста (в отличие от отдельных
+## иконок), поэтому та же формула на глаз давала заметно более крупную шахту.
+const ORE_MINE_SCALE_FACTOR := 0.6
+const ORE_DRILL_BOB_SECONDS := 1.8
 ## Туман войны, как в HoMM: карта закрыта чёрным, герой открывает клетки в
 ## радиусе видимости корабля навсегда - однажды увиденное больше не гаснет.
-## Временно отключён для отладки расстановки объектов и баланса карты.
+## Туман работает и на случайной карте: разведка должна оставаться частью
+## игры независимо от способа генерации раскладки.
 const FOG_ENABLED := false
 const FOG_REVEAL_RADIUS := 4
 const FOG_COLOR := Color(0.0, 0.0, 0.0, 1.0)
@@ -194,6 +245,7 @@ const PRODUCTION_BLUEPRINTS := [
 @onready var movement_label: Label = $HUD/ResourceBar/Margin/HBox/TurnInfo/MovementLabel
 @onready var income_label: Label = $HUD/ResourceBar/Margin/HBox/TurnInfo/IncomeLabel
 @onready var end_day_button: Button = $HUD/ResourceBar/Margin/HBox/TurnInfo/EndDayButton
+@onready var ping_button: Button = $HUD/ResourceBar/Margin/HBox/TurnInfo/PingButton
 @onready var credits_label: Label = $HUD/ResourceBar/Margin/HBox/CreditsLabel
 @onready var products_value: Label = $HUD/ResourceBar/Margin/HBox/ProductsSlot/Value
 @onready var ore_value: Label = $HUD/ResourceBar/Margin/HBox/OreSlot/Value
@@ -211,6 +263,7 @@ const PRODUCTION_BLUEPRINTS := [
 @onready var skills_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/SkillsLabel
 @onready var skills_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/SkillsList
 @onready var protocols_button: Button = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ProtocolsButton
+@onready var hero_card_button: Button = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroCardButton
 @onready var army_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArmyList
 @onready var artifacts_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArtifactsList
 
@@ -250,6 +303,8 @@ var explored_cells := {}
 var fog_image: Image
 var fog_texture: ImageTexture
 var hovered_cell := Vector2i(-1, -1)
+## Координата, отмеченная режимом «Пеленг» на миникарте.
+var beacon_cell := Vector2i(-1, -1)
 var hovered_obstacle := -1
 var dragging_map := false
 var navigation_message := ""
@@ -280,6 +335,13 @@ var fog_enabled := FOG_ENABLED
 ## Истина только для карт, созданных кнопкой «Случайная карта». Значение
 ## восстанавливается по map_seed, поэтому старые сохранения не ломаются.
 var random_map_mode := false
+## Истина только для фиксированной простой карты новой кампании. Случайная
+## карта и старые сохранения продолжают использовать полную генерацию.
+var starter_map_mode := false
+## Версия авторской раскладки; пусто для случайных и прежних карт.
+var campaign_map_id := ""
+var story_state: Dictionary = {}
+var campaign_story: Node
 var human_planetary_council_level := 1
 var orc_planetary_council_level := 1
 var player_one_resources := {
@@ -296,10 +358,15 @@ func _ready() -> void:
 	if open_tactical_when_run_directly and get_tree().current_scene == self:
 		call_deferred("_open_tactical_battle")
 		return
-	if CampaignSave.random_map_requested:
+	# Флаг сбрасывается сразу после чтения (см. ниже), поэтому запоминаем его
+	# здесь - иначе проверка "не случайная карта" перед брифингом всегда
+	# видела бы уже сброшенное false и показывала вступление и на ней.
+	var was_random_map_request := CampaignSave.random_map_requested
+	if was_random_map_request:
 		map_seed = 0
 		CampaignSave.random_map_requested = false
 	random_map_mode = map_seed == 0
+	starter_map_mode = map_seed == STARTER_MAP_SEED
 	fog_enabled = FOG_ENABLED
 	if map_seed != 0:
 		map_random.seed = map_seed
@@ -312,16 +379,23 @@ func _ready() -> void:
 	_init_fog()
 	var snapshot := CampaignSave.take_map()
 	if snapshot.is_empty():
-		_generate_production_sites()
-		production_owners.resize(production_sites.size())
-		production_owners.fill(0)
-		_generate_obstacles()
-		_generate_guardians()
-		_generate_map_objects()
+		if starter_map_mode:
+			CampaignMissionMap.populate(self)
+		else:
+			_generate_production_sites()
+			production_owners.resize(production_sites.size())
+			production_owners.fill(0)
+			_generate_obstacles()
+			_generate_guardians()
+			_generate_map_objects()
 		current_cell = PLAYER_ONE_START_CELL
 	else:
 		for field in CampaignSave.MAP_FIELDS:
 			set(field, snapshot[field])
+		campaign_map_id = String(snapshot.get("campaign_map_id", ""))
+		story_state = snapshot.get("story_state", {}).duplicate(true)
+		random_map_mode = map_seed == 0
+		starter_map_mode = map_seed == STARTER_MAP_SEED
 		map_random.state = int(snapshot.get("random_state", map_random.state))
 		# Обновляем старые составы, сохраняя позиции, трофеи и побеждённых стражей.
 		_refresh_guardian_rosters(int(snapshot.get("pirate_balance_version", 0)))
@@ -371,6 +445,8 @@ func _ready() -> void:
 		call_deferred("_recenter_camera_after_layout")
 	far_planet_camera_origin = camera.position
 	end_day_button.pressed.connect(_end_day)
+	ping_button.gui_input.connect(_on_ping_button_input)
+	_style_ping_button()
 	human_planet_name_button.pressed.connect(_open_human_planet)
 	side_hero_portrait.gui_input.connect(_on_hero_portrait_input)
 	hero_card_portrait.gui_input.connect(_on_hero_portrait_input)
@@ -386,14 +462,41 @@ func _ready() -> void:
 	army_list.item_selected.connect(_clear_item_list_selection.bind(army_list))
 	skills_list.item_selected.connect(_clear_item_list_selection.bind(skills_list))
 	protocols_button.pressed.connect(_open_protocol_book)
+	hero_card_button.pressed.connect(_open_hero_card)
 	artifacts_list.item_selected.connect(_clear_item_list_selection.bind(artifacts_list))
+	$HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArtifactsSeparator.hide()
+	$HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArtifactsLabel.hide()
+	artifacts_list.hide()
 	_start_music()
 	_update_hud()
 	queue_redraw()
 	fog_overlay.queue_redraw()
+	if campaign_map_id == CampaignMissionMap.ID:
+		campaign_story = preload("res://scripts/campaign_story.gd").new()
+		add_child(campaign_story)
+		if campaign_outcome == "victory":
+			campaign_story.call_deferred("_show_ending" if story_state.has("ending") else "finish_mission")
 	if CampaignSave.save_on_start:
 		CampaignSave.save_on_start = false
 		_save_campaign()
+	if snapshot.is_empty() and not was_random_map_request:
+		_show_intro_briefing()
+
+
+## Брифинг адмирала с полковником Павловой поверх уже собранной карты - её
+## видно за приглушённым фоном, так что игрок сразу видит, о каком секторе
+## речь. Показывается только у настоящей новой кампании: у загруженного
+## сохранения snapshot не пуст, а "Случайная карта" - отладочный быстрый
+## старт, там вступление только мешает.
+func _show_intro_briefing() -> void:
+	set_process(false)
+	set_process_unhandled_input(false)
+	var briefing := INTRO_DIALOGUE.new()
+	briefing.finished.connect(func() -> void:
+		set_process(true)
+		set_process_unhandled_input(true)
+	)
+	add_child(briefing)
 
 
 ## Сохранение с карты между действиями (меню по Esc), чтобы не писать
@@ -406,7 +509,7 @@ func _save_campaign() -> bool:
 
 
 func can_use_campaign_menu() -> bool:
-	return visible and is_processing() and not is_moving
+	return visible and is_processing() and not is_moving and reward_dialog_count == 0
 
 
 func _create_hero_engine_exhaust_overlay() -> void:
@@ -544,12 +647,27 @@ func _process_camera_pan(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
+		if event.keycode == KEY_F10 and event.pressed and not event.echo:
+			_toggle_fog()
+			get_viewport().set_input_as_handled()
+			return
 		if event.keycode == KEY_F6 and event.pressed and not event.echo:
 			_open_tactical_battle()
 			get_viewport().set_input_as_handled()
 			return
 	if event is InputEventMouseButton:
-		if event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE]:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			dragging_map = event.pressed
+			get_viewport().set_input_as_handled()
+			return
+		if event.button_index == MOUSE_BUTTON_MIDDLE:
+			# СКМ по своему флоту/вождю орков/нейтральному стражу открывает
+			# просмотр состава, а не начинает драг — драг картой запускается
+			# только если под курсором ничего такого нет (см. ПКМ раньше).
+			if event.pressed and not is_moving \
+					and _try_open_fleet_inspection(_clamp_to_grid(_position_to_cell(get_global_mouse_position()))):
+				get_viewport().set_input_as_handled()
+				return
 			dragging_map = event.pressed
 			get_viewport().set_input_as_handled()
 			return
@@ -568,6 +686,53 @@ func _unhandled_input(event: InputEvent) -> void:
 		camera.position -= event.relative / camera.zoom
 		camera.position = _clamp_camera_position(camera.position)
 		get_viewport().set_input_as_handled()
+
+
+func _toggle_fog() -> void:
+	fog_enabled = not fog_enabled
+	if fog_enabled:
+		fog_image.fill(FOG_COLOR)
+		for cell in explored_cells:
+			fog_image.set_pixel(cell.x, cell.y, Color.TRANSPARENT)
+	else:
+		fog_image.fill(Color.TRANSPARENT)
+	fog_texture.update(fog_image)
+	fog_overlay.visible = fog_enabled
+	fog_overlay.queue_redraw()
+	$HUD/RightSidebar/Margin/VBox/MinimapFrame/Margin/Minimap.queue_redraw()
+	navigation_message = "Туман войны: %s (F10)" % ("включён" if fog_enabled else "выключен")
+
+
+func _try_open_fleet_inspection(cell: Vector2i) -> bool:
+	if cell == current_cell:
+		_open_hero_fleet_window()
+		return true
+	if orc_ai != null and orc_ai.hero_alive and cell == orc_ai.hero_cell and is_cell_explored(cell):
+		var warlord := orc_hero()
+		if warlord != null:
+			_show_fleet_roster("Флот орочьего вождя", OrcAI.army_entries(warlord.army))
+			return true
+	var guardian_index := int(guardian_at.get(cell, -1))
+	if guardian_index >= 0 and guardian_index < guardians.size():
+		var guardian: Dictionary = guardians[guardian_index]
+		if bool(guardian.get("alive", false)) and is_cell_explored(cell):
+			_show_fleet_roster("Состав нейтрального флота", guardian.get("fleet", []))
+			return true
+	return false
+
+
+func _show_fleet_roster(title: String, fleet: Array) -> void:
+	var lines: Array[String] = []
+	var items: Array[Dictionary] = []
+	for entry_variant in fleet:
+		var entry: Dictionary = entry_variant
+		var unit_id := String(entry.get("unit_id", ""))
+		var count := int(entry.get("count", 0))
+		if unit_id == "" or count <= 0:
+			continue
+		lines.append("%s — %d" % [UnitDefs.display_name(unit_id), count])
+		items.append({"icon": UnitDefs.get_unit(unit_id).get("texture"), "amount": count})
+	_show_object_reward_dialog(title, "\n".join(lines) if not lines.is_empty() else "Флот пуст.", null, items)
 
 
 func _open_tactical_battle() -> void:
@@ -761,6 +926,59 @@ func _draw() -> void:
 		var y := row * CELL_SIZE
 		draw_line(Vector2(0.0, y), Vector2(map_pixel_size.x, y), GRID_COLOR, 2.0)
 	_draw_production_owner_markers()
+	if beacon_cell != Vector2i(-1, -1):
+		var beacon_rect := Rect2(Vector2(beacon_cell) * CELL_SIZE, Vector2.ONE * CELL_SIZE)
+		draw_rect(beacon_rect, Color("ffd166"), false, 5.0)
+		draw_line(beacon_rect.position, beacon_rect.end, Color("ffd166", 0.55), 2.0)
+		draw_line(Vector2(beacon_rect.end.x, beacon_rect.position.y), Vector2(beacon_rect.position.x, beacon_rect.end.y), Color("ffd166", 0.55), 2.0)
+
+
+func set_beacon(cell: Vector2i) -> void:
+	if not _cell_is_inside_map(cell):
+		return
+	beacon_cell = cell
+	navigation_message = "Пеленг: клетка (%d, %d)" % [cell.x, cell.y]
+	camera.position = _camera_position_for(Vector2(cell) * CELL_SIZE)
+	queue_redraw()
+	$HUD/RightSidebar/Margin/VBox/MinimapFrame/Margin/Minimap.queue_redraw()
+
+
+func clear_beacon() -> void:
+	beacon_cell = Vector2i(-1, -1)
+	navigation_message = "Пеленг сброшен."
+	queue_redraw()
+	$HUD/RightSidebar/Margin/VBox/MinimapFrame/Margin/Minimap.queue_redraw()
+
+
+func _style_ping_button() -> void:
+	var base := StyleBoxFlat.new()
+	base.bg_color = Color("263b56")
+	base.border_color = Color("82c9c1")
+	base.set_border_width_all(2)
+	base.set_corner_radius_all(19)
+	base.content_margin_left = 4.0
+	base.content_margin_right = 4.0
+	base.content_margin_top = 4.0
+	base.content_margin_bottom = 4.0
+	var hover := base.duplicate()
+	hover.bg_color = Color("355778")
+	var pressed := base.duplicate()
+	pressed.bg_color = Color("1b2a3e")
+	ping_button.add_theme_stylebox_override("normal", base)
+	ping_button.add_theme_stylebox_override("hover", hover)
+	ping_button.add_theme_stylebox_override("pressed", pressed)
+	ping_button.add_theme_font_size_override("font_size", 25)
+
+
+func _on_ping_button_input(event: InputEvent) -> void:
+	if not event is InputEventMouseButton or not event.pressed:
+		return
+	if event.button_index == MOUSE_BUTTON_RIGHT:
+		clear_beacon()
+		ping_button.accept_event()
+	elif event.button_index == MOUSE_BUTTON_LEFT:
+		$HUD/RightSidebar/Margin/VBox/MinimapFrame/Margin/Minimap.open_ping_dialog()
+		ping_button.accept_event()
 
 
 ## Цветное кольцо показывает владельца захваченного месторождения прямо под
@@ -794,12 +1012,25 @@ func _build_path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
 		return result
 	var patrol_aggro_cells := _block_patrol_aggro_for_route(from_cell, to_cell)
 	var id_path := navigation_grid.get_id_path(from_cell, to_cell)
+	# Зона агро патруля иногда перекрывает единственный проход насквозь (узкий
+	# мост через разлом без объезда, см. _block_patrol_aggro_for_route) — тогда
+	# объезд невозможен в принципе, и лучше довести корабль до стража и принять
+	# бой, чем оставить игрока без маршрута вообще.
+	if id_path.is_empty() and not patrol_aggro_cells.is_empty():
+		for cell in patrol_aggro_cells:
+			navigation_grid.set_point_solid(cell, false)
+		patrol_aggro_cells.clear()
+		id_path = navigation_grid.get_id_path(from_cell, to_cell)
 	for cell in patrol_aggro_cells:
 		navigation_grid.set_point_solid(cell, false)
 	for index in range(1, id_path.size()):
 		var cell: Vector2i = id_path[index]
 		if not _cell_is_inside_map(cell):
 			return []
+		# Автопуть не должен самовольно входить во врата ради точки за ними.
+		# Врата срабатывают только при явном назначении этой клетки целью.
+		if map_object_at.has(cell) and String(map_objects[map_object_at[cell]].get("kind", "")) == "wormhole" and cell != to_cell:
+			break
 		result.append(cell)
 	return result
 
@@ -807,17 +1038,24 @@ func _build_path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
 func _block_patrol_aggro_for_route(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
 	## Автопилот обходит зону агро патрулей, а не только клетку самого флота.
 	## Старт и цель не блокируем: из зоны можно выйти, а подход к патрулю или
-	## охраняемому объекту должен завершиться столкновением.
+	## охраняемому объекту должен завершиться столкновением. Сам страж и его
+	## непосредственные соседи (Чебышёв ≤ 1) тоже не блокируются — на проходе
+	## разлома (единственная лазейка через него, см. _guard_passages) это ровно
+	## коридор подхода с обеих сторон; без этого запаса радиус агро запечатывал
+	## бы весь проход наглухо — единственная проходимая клетка зоны (сам страж)
+	## оставалась бы отрезанной кольцом блокированных соседей, и маршрут не мог
+	## бы дойти до неё вообще ни с одной стороны.
 	var blocked: Array[Vector2i] = []
 	for guardian in guardians:
-		if not bool(guardian.get("alive", false)) or not bool(guardian.get("patrol", false)):
+		var guardian_kind := String(guardian.get("kind", ""))
+		if not bool(guardian.get("alive", false)) or (not bool(guardian.get("patrol", false)) and guardian_kind != "patrol"):
 			continue
 		var center: Vector2i = guardian["cell"]
-		var radius := int(guardian.get("aggro_radius", 1))
+		var radius := int(guardian.get("aggro_radius", GUARDIAN_CONTROL_RADIUS))
 		for x in range(center.x - radius, center.x + radius + 1):
 			for y in range(center.y - radius, center.y + radius + 1):
 				var cell := Vector2i(x, y)
-				if cell == from_cell or cell == to_cell \
+				if cell == from_cell or cell == to_cell or _chebyshev_distance(cell, center) <= 1 \
 					or not _cell_is_inside_map(cell) or _cell_is_blocked(cell):
 					continue
 				if blocked.has(cell):
@@ -918,17 +1156,22 @@ func _update_navigation_hud() -> void:
 		terrain.text = ("≈ %s · движение ×2 · 2 очка за клетку" if kind_name == "nebula"
 			else "⊘ %s · непроходимо") % SpaceObstacles.title(kind_name)
 	if orc_ai != null and orc_ai.hero_alive and hovered_cell == orc_ai.hero_cell:
-		terrain.text = "⚔ Вождь орков · подойдите, чтобы завязать бой"
+		terrain.text = "⚔ Главарь бандитов · подойдите, чтобы завязать бой" if campaign_map_id != "" else "⚔ Вождь орков · подойдите, чтобы завязать бой"
 	elif _cell_is_in_planet(hovered_cell, ORC_PLANET_CENTER):
 		terrain.text = "⌂ База орков · захватите её, чтобы выиграть кампанию" if orc_planet_owner == 2 \
 			else "⌂ База орков · захвачена вами"
+	if campaign_map_id != "" and _cell_is_in_planet(hovered_cell, ORC_PLANET_CENTER):
+		terrain.text = "⌂ Марс · уничтожьте базу бандитов" if orc_planet_owner == 2 else "⌂ Марс освобождён"
 	if guardian_at.has(hovered_cell):
 		var guardian: Dictionary = guardians[guardian_at[hovered_cell]]
 		if guardian["alive"]:
 			var object_kind := String(guardian.get("object_kind", ""))
 			var label: String = String(MapObjectDefs.get_kind(object_kind).get("name", "")) if object_kind != "" \
 				else ("Пиратский флот" if guardian["kind"] == "pirate" else "Торговый конвой")
+			label = String(guardian.get("display_name", label))
 			terrain.text = "⚔ %s охраняет клетку · подойдите, чтобы завязать бой" % label
+			if guardian.get("mission_id", "") == "kowalski":
+				terrain.text = "◆ Маршал Ковальски · подойдите для переговоров"
 	var production_index := _production_index_at(hovered_cell)
 	if production_index >= 0 and not (guardian_at.has(hovered_cell) and guardians[guardian_at[hovered_cell]]["alive"]):
 		terrain.text = _production_hover_text(production_index)
@@ -984,9 +1227,10 @@ func _update_hero_card() -> void:
 			continue
 		var unit_data: Dictionary = UnitDefs.get_unit(unit_id)
 		var unit_name: String = unit_data.get("label", unit_id)
-		army_list.add_item("%s: %d" % [unit_name, count])
+		army_list.add_item("%s: %d" % [UnitDefs.display_name(unit_id), count])
 
 	artifacts_list.clear()
+	artifacts_list.visible = false
 	for artifact in hero.artifact_lines():
 		var item_index := artifacts_list.add_item("%s · %s" % [String(artifact["name"]), String(artifact["bonus"])])
 		artifacts_list.set_item_icon(item_index, artifact.get("texture") as Texture2D)
@@ -1121,6 +1365,15 @@ func _open_protocol_book() -> void:
 	book.setup(hero.to_battle_hero(1), 0, true)
 
 
+func _open_hero_card() -> void:
+	var hero := _player_hero()
+	if hero == null:
+		return
+	var card := HERO_CARD_DIALOG.new()
+	add_child(card)
+	card.setup(hero)
+
+
 func _update_right_menu_lists() -> void:
 	side_hero_list.clear()
 	var hero := _player_hero()
@@ -1215,6 +1468,8 @@ func _short_hero_name(full_name: String) -> String:
 		return full_name
 	if parts[0] == "Адмирал" and parts.size() > 1:
 		return parts[1]
+	if parts[0] == "Полковник" and parts.size() > 1:
+		return parts[1]
 	if parts[0] == "Вождь" and parts.size() > 1:
 		return parts[1]
 	return parts[0]
@@ -1258,6 +1513,8 @@ func _capture_production_at(cell: Vector2i) -> String:
 	production_overlay.queue_redraw()
 	queue_redraw()
 	var site: Dictionary = production_sites[index]
+	if campaign_story != null:
+		campaign_story.captured(String(site.get("mission_id", "")))
 	var resource_name: String = site["resource"]
 	var bonus_amount := map_random.randi_range(5, 10)
 	add_resource(resource_name, bonus_amount)
@@ -1394,7 +1651,8 @@ func _refresh_orc_planet_nameplate() -> void:
 	var label := orc_planet_nameplate.get_node_or_null("Name") as Label
 	if label == null:
 		return
-	label.text = "Орка • Игрок 2" if orc_planet_owner == 2 else "Орка • захвачена вами"
+	var planet_title := "Марс" if campaign_map_id == CampaignMissionMap.ID else "Орка"
+	label.text = planet_title + (" • Бандиты" if orc_planet_owner == 2 else " • захвачена вами")
 
 
 ## Маршрут для ИИ орков: те же правила, что у игрока (_build_path), плюс
@@ -1591,7 +1849,7 @@ func _resolve_orc_battle(kind: String, battle_units: Array, player_won: bool, re
 			else:
 				hero.set_army_from_slots(_surviving_player_slots(battle_units))
 		if warlord != null:
-			warlord.army = OrcAI.surviving_army(battle_units)
+			warlord.set_army_from_dict(OrcAI.surviving_army(battle_units))
 	if retreated:
 		_retreat_player_home("Герой сбежал в замок. Из флота уцелел 1 истребитель.")
 	elif player_won:
@@ -1612,8 +1870,12 @@ func _resolve_orc_victory(kind: String) -> void:
 			_refresh_orc_planet_nameplate()
 			campaign_outcome = "victory"
 			navigation_message = "База орков пала. Кампания выиграна!"
-			_show_campaign_outcome(true, "ПОБЕДА",
-				"Флот вождя разбит, логова орков захвачены. Человечество отстояло свой сектор галактики.")
+			if campaign_story != null:
+				navigation_message = "Марс освобождён!"
+				campaign_story.call_deferred("finish_mission")
+			else:
+				_show_campaign_outcome(true, "ПОБЕДА",
+					"Флот вождя разбит, логова орков захвачены. Человечество отстояло свой сектор галактики.")
 		"planet":
 			orc_ai.kill_hero(self)
 			navigation_message = "Штурм отбит: орда вождя уничтожена у вашей планеты."
@@ -1798,7 +2060,8 @@ func _guard_passages() -> void:
 			candidates.append(passage)
 	var picked := 0
 	var attempts := 0
-	while picked < GUARDIAN_PASSAGE_COUNT and not candidates.is_empty() and attempts < 200:
+	var wanted := STARTER_PASSAGE_GUARDIAN_COUNT if starter_map_mode else GUARDIAN_PASSAGE_COUNT
+	while picked < wanted and not candidates.is_empty() and attempts < 200:
 		attempts += 1
 		var pick_at := map_random.randi_range(0, candidates.size() - 1)
 		var passage: Dictionary = candidates[pick_at]
@@ -1851,7 +2114,7 @@ func _generate_patrols() -> void:
 			"cell": cell, "template": template, "fleet": GuardianDefs.fleet_for(template),
 			"kind": patrol_kind, "alive": true, "site_index": -1,
 			"patrol": true, "patrol_radius": PATROL_RADIUS,
-			"aggro_radius": PATROL_AGGRO_RADIUS, "patrol_id": placed,
+			"aggro_radius": PATROL_CONTROL_RADIUS, "patrol_id": placed,
 			"guarded_sites": guarded_sites,
 		}
 		if patrol_kind == "trader":
@@ -1973,6 +2236,9 @@ func _add_guardian(cell: Vector2i, template: String, site_index: int) -> void:
 			"resource_name": _random_resource_name(),
 			"amount": map_random.randi_range(3, 12),
 		}
+		# Патруль перехватывает в общей зоне 3×3, как и пиратский флот.
+		guardian["patrol"] = true
+		guardian["aggro_radius"] = GUARDIAN_CONTROL_RADIUS
 	guardians.append(guardian)
 
 
@@ -2029,11 +2295,14 @@ func _begin_move_to(cell: Vector2i) -> void:
 func _check_guardian_encounter(cell: Vector2i) -> bool:
 	var index: int = guardian_at.get(cell, -1)
 	if index < 0:
-		index = _patrol_guardian_in_aggro(cell)
+		index = _guardian_in_control_zone(cell)
 	if index < 0:
 		return false
 	var guardian: Dictionary = guardians[index]
 	if not guardian["alive"]:
+		if campaign_story != null and String(guardian.get("mission_id", "")) in ["side_reward_0", "side_reward_1", "side_reward_3"]:
+			# Если охрану снял ИИ, документы всё равно можно забрать на месте.
+			campaign_story.guardian_won(String(guardian.mission_id))
 		# Взятая пиратская твердыня или торговая планета (см. MapObjectDefs
 		# FORTIFIED_PLANET_KINDS) торгует кораблями III-V ранга — недоступно,
 		# пока страж жив, открывается сразу после победы. Остальные мёртвые
@@ -2046,17 +2315,24 @@ func _check_guardian_encounter(cell: Vector2i) -> bool:
 	if hero == null or hero.army_is_empty():
 		navigation_message = "Флот уничтожен — наймите корабли в замке."
 		return true
+	if campaign_story != null and campaign_story.contact_guardian(index):
+		return true
 	_start_guardian_battle(index)
 	return true
 
 
-func _patrol_guardian_in_aggro(cell: Vector2i) -> int:
+## Обычные пиратские и патрульные флоты контролируют квадрат 3×3 вокруг
+## себя. Стражи-объекты (станции, планеты, базы) остаются контактными: бой
+## начинается только при заходе в их футпринт.
+func _guardian_in_control_zone(cell: Vector2i) -> int:
 	for index in range(guardians.size()):
 		var guardian: Dictionary = guardians[index]
-		if not bool(guardian.get("alive", false)) or not bool(guardian.get("patrol", false)):
+		if not bool(guardian.get("alive", false)) or guardian.has("object_kind"):
 			continue
-		var radius := int(guardian.get("aggro_radius", PATROL_AGGRO_RADIUS))
-		if _chebyshev_distance(cell, guardian["cell"]) <= radius:
+		var kind := String(guardian.get("kind", ""))
+		if kind not in ["pirate", "patrol"]:
+			continue
+		if _chebyshev_distance(cell, guardian["cell"]) <= int(guardian.get("aggro_radius", GUARDIAN_CONTROL_RADIUS)):
 			return index
 	return -1
 
@@ -2068,11 +2344,24 @@ func _player_hero() -> Hero:
 
 func _start_guardian_battle(index: int) -> void:
 	var hero := _player_hero()
-	var diplomacy_chance := float(hero.skill_value("diplomacy")) / 100.0 if hero != null else 0.0
+	var guardian: Dictionary = guardians[index]
+	# Дипломатия действует только на живые полевые пиратские/торговые флоты.
+	# Базы, планеты, орки и гарнизоны зданий всегда требуют боя/осады.
+	var can_diplomacy := not guardian.has("object_kind") and String(guardian.get("kind", "")) in ["pirate", "trader"]
+	var player_fleet: Array[Dictionary] = _player_battle_fleet(false)
+	var enemy_fleet_for_diplomacy: Array[Dictionary] = []
+	for entry in guardian.get("fleet", []):
+		enemy_fleet_for_diplomacy.append((entry as Dictionary).duplicate())
+	var diplomacy_chance := 0.0
+	if can_diplomacy and hero != null:
+		var base_chance := hero.diplomacy_chance()
+		var own_power := maxf(1.0, FleetPower.fleet_strength(player_fleet))
+		var enemy_power := maxf(1.0, FleetPower.fleet_strength(enemy_fleet_for_diplomacy))
+		# Слабый противник приручается легче, сильный получает штраф.
+		diplomacy_chance = clampf(base_chance * clampf(pow(own_power / enemy_power, 0.5), 0.35, 1.8), 0.0, 0.9)
 	if diplomacy_chance > 0.0 and randf() < diplomacy_chance:
 		_diplomacy_recruit_guardian(index)
 		return
-	var player_fleet: Array[Dictionary] = _player_battle_fleet(false)
 	var enemy_fleet: Array[Dictionary] = []
 	for entry in (guardians[index]["fleet"] as Array):
 		enemy_fleet.append((entry as Dictionary).duplicate())
@@ -2107,23 +2396,27 @@ func _diplomacy_recruit_guardian(index: int) -> void:
 	var hero := _player_hero()
 	if hero == null:
 		return
-	for entry in guardian.get("fleet", []):
-		hero.add_to_army(String(entry.get("unit_id", "")), int(entry.get("count", 0)))
-	guardian["alive"] = false
-	current_cell = guardian["cell"]
-	next_cell = current_cell
-	var captured := _capture_production_at(current_cell) if int(guardian.get("site_index", -1)) >= 0 else ""
-	var carried := _grant_guardian_artifacts(guardian, hero)
-	_save_hero_roster()
-	guardian_overlay.queue_redraw()
-	navigation_message = "Дипломатия сработала — нейтральный флот присоединился."
-	if captured != "":
-		navigation_message += " " + captured
-	if carried != "":
-		navigation_message += " " + carried
-	_show_object_reward_dialog("Мирное присоединение", navigation_message)
-	_update_hud()
-	queue_redraw()
+	_join_fleet_with_capacity(hero, guardian.get("fleet", []), func(joined: bool) -> void:
+		if not joined:
+			navigation_message = "Мирное присоединение отклонено."
+			_update_hud()
+			return
+		guardian["alive"] = false
+		current_cell = guardian["cell"]
+		next_cell = current_cell
+		var captured := _capture_production_at(current_cell) if int(guardian.get("site_index", -1)) >= 0 else ""
+		var carried := _grant_guardian_artifacts(guardian, hero)
+		_save_hero_roster()
+		guardian_overlay.queue_redraw()
+		navigation_message = "Дипломатия сработала — нейтральный флот присоединился."
+		if captured != "":
+			navigation_message += " " + captured
+		if carried != "":
+			navigation_message += " " + carried
+		_show_object_reward_dialog("Мирное присоединение", navigation_message)
+		_update_hud()
+		queue_redraw()
+	)
 
 
 ## Вызывается сценой боя (см. tactical_battle.gd::_return_to_map) после того,
@@ -2149,6 +2442,8 @@ func _resolve_guardian_battle(index: int, battle_units: Array, player_won: bool,
 		queue_redraw()
 		return
 	guardian["alive"] = false
+	if campaign_story != null:
+		campaign_story.guardian_won(String(guardian.get("mission_id", "")))
 	guardian_overlay.queue_redraw()
 	current_cell = guardian["cell"]
 	next_cell = current_cell
@@ -2191,7 +2486,7 @@ func _generate_map_objects() -> void:
 		if kind == "wormhole":
 			continue
 		var family := MapObjectDefs.family(kind)
-		var count := int(MapObjectDefs.SPAWN_COUNT.get(kind, 0))
+		var count := _map_object_spawn_count(kind)
 		var size := MapObjectDefs.size(kind)
 		for _index in range(count):
 			var cell := Vector2i(-1, -1)
@@ -2207,13 +2502,22 @@ func _generate_map_objects() -> void:
 				_add_object_guardian(cell, kind, size)
 			else:
 				_add_map_object(cell, kind, size)
-	_generate_corner_objects()
+	if not starter_map_mode:
+		_generate_corner_objects()
 	_generate_trading_posts()
 	_generate_wormhole_pairs()
 	_generate_guarded_resource_caches()
 	_generate_unguarded_resource_caches()
 	_place_neutral_planets()
 	map_object_overlay.queue_redraw()
+
+
+## Обычная кампания использует полный каталог приключений. Стартовая карта
+## хранит компактный набор, чтобы первые цели читались без визуального шума.
+func _map_object_spawn_count(kind: String) -> int:
+	if starter_map_mode:
+		return int(STARTER_OBJECT_COUNTS.get(kind, 0))
+	return int(MapObjectDefs.SPAWN_COUNT.get(kind, 0))
 
 
 ## Две нейтральные планеты в углах, не занятых родными планетами игрока и
@@ -2257,7 +2561,8 @@ func _clear_footprint_for_new_object(cells: Array[Vector2i]) -> void:
 ## Видимые ресурсные точки: один значок ресурса и один флот рядом.
 ## Это отдельные тайники, а не здания, чтобы цель читалась сразу.
 func _generate_guarded_resource_caches() -> void:
-	var pile_count := map_random.randi_range(RESOURCE_PILE_COUNT_MIN, RESOURCE_PILE_COUNT_MAX)
+	var pile_count := STARTER_RESOURCE_CACHE_COUNT if starter_map_mode \
+		else map_random.randi_range(RESOURCE_PILE_COUNT_MIN, RESOURCE_PILE_COUNT_MAX)
 	for _index in range(pile_count):
 		var cell := _find_free_object_cell(12, 1)
 		if cell.x < 0:
@@ -2285,7 +2590,8 @@ func _generate_guarded_resource_caches() -> void:
 ## Обычные ресурсные тайники без стража. Размещаются отдельно от охраняемых,
 ## чтобы безопасные находки не превращались в обязательные бои.
 func _generate_unguarded_resource_caches() -> void:
-	var pile_count := map_random.randi_range(RESOURCE_PILE_COUNT_MIN, RESOURCE_PILE_COUNT_MAX)
+	var pile_count := STARTER_RESOURCE_CACHE_COUNT if starter_map_mode \
+		else map_random.randi_range(RESOURCE_PILE_COUNT_MIN, RESOURCE_PILE_COUNT_MAX)
 	for _index in range(pile_count):
 		var cell := _find_free_object_cell(12, 1)
 		if cell.x < 0:
@@ -2302,7 +2608,7 @@ func _add_resource_cache_guardian(cell: Vector2i, template: String) -> void:
 	guardians.append({
 		"cell": cell, "template": template, "fleet": GuardianDefs.fleet_for(template),
 		"kind": "pirate", "alive": true, "site_index": -1,
-		"patrol": true, "aggro_radius": PATROL_AGGRO_RADIUS,
+		"patrol": true, "aggro_radius": GUARDIAN_CONTROL_RADIUS,
 		"resource_cache_guard": true,
 	})
 	guardian_at[cell] = index
@@ -2437,7 +2743,8 @@ func _find_free_object_cell_in_box(box_min: Vector2i, box_max: Vector2i, footpri
 
 
 func _generate_wormhole_pairs() -> void:
-	for _index in range(MapObjectDefs.WORMHOLE_PAIR_COUNT):
+	var pair_count := STARTER_WORMHOLE_PAIR_COUNT if starter_map_mode else MapObjectDefs.WORMHOLE_PAIR_COUNT
+	for _index in range(pair_count):
 		var cell_a := _find_free_object_cell()
 		if cell_a.x < 0:
 			continue
@@ -2494,7 +2801,9 @@ func _add_object_guardian(cell: Vector2i, kind: String, size: int) -> void:
 		"size": size,
 		"template": template,
 		"fleet": GuardianDefs.fleet_for(template),
-		"kind": "pirate",
+		# Гарнизон нейтральной планеты следует её тематике: вольную торговую
+		# станцию охраняют торговцы, пиратскую твердыню — пираты.
+		"kind": GuardianDefs.kind_for(template),
 		"object_kind": kind,
 		"reward": _roll_object_reward(def, cell),
 		"alive": true,
@@ -2771,7 +3080,7 @@ func _grant_object_reward(reward: Dictionary) -> String:
 			var unit_id := String(reward["unit_id"])
 			var count := int(reward["count"])
 			hero.add_to_army(unit_id, count)
-			var unit_label := String(UnitDefs.get_unit(unit_id).get("label", unit_id))
+			var unit_label := UnitDefs.display_name(unit_id)
 			return "К флоту присоединились наёмники: %s ×%d." % [unit_label, count]
 		"ships":
 			var hero := _player_hero()
@@ -2782,7 +3091,7 @@ func _grant_object_reward(reward: Dictionary) -> String:
 			if not _hero_can_accept_unit(hero, unit_id):
 				return "Нет свободного слота флота: корабли остались на дрейфующем корабле."
 			hero.add_to_army(unit_id, count)
-			var unit_label := String(UnitDefs.get_unit(unit_id).get("label", unit_id))
+			var unit_label := UnitDefs.display_name(unit_id)
 			_save_hero_roster()
 			return "К флоту присоединились: %s ×%d." % [unit_label, count]
 		"treasure":
@@ -2808,7 +3117,7 @@ func _grant_object_reward(reward: Dictionary) -> String:
 				unlocked.append(unit_id)
 			state["unlocked_dwellings"] = unlocked
 			HumanPlanetState.save_state(state)
-			var unit_label := String(UnitDefs.get_unit(unit_id).get("label", unit_id))
+			var unit_label := UnitDefs.display_name(unit_id)
 			return "Верфь захвачена: «%s» теперь доступен к найму каждую неделю (см. «Гарнизон»)." % unit_label
 	return ""
 
@@ -2844,11 +3153,52 @@ func _reward_items_for_reward(reward: Dictionary) -> Array[Dictionary]:
 
 
 func _hero_can_accept_unit(hero: Hero, unit_id: String) -> bool:
+	return hero.can_add_to_army(unit_id)
+
+
+func _join_fleet_with_capacity(hero: Hero, fleet: Array, callback: Callable) -> void:
 	hero._ensure_army_slots()
+	var existing := {}
+	var free_slots := 0
 	for slot in hero.army_slots:
-		if slot.is_empty() or String(slot.get("unit_id", "")) == unit_id:
-			return true
-	return false
+		if slot.is_empty():
+			free_slots += 1
+		else:
+			existing[String(slot.get("unit_id", ""))] = true
+	var needed := 0
+	for entry in fleet:
+		var unit_id := String((entry as Dictionary).get("unit_id", ""))
+		if unit_id != "" and not existing.has(unit_id):
+			existing[unit_id] = true
+			needed += 1
+	if needed <= free_slots:
+		for entry in fleet:
+			hero.add_to_army(String((entry as Dictionary).get("unit_id", "")), int((entry as Dictionary).get("count", 0)))
+		callback.call(true)
+		return
+	var choices: Array[Dictionary] = []
+	for index in range(hero.army_slots.size()):
+		var slot: Dictionary = hero.army_slots[index]
+		if slot.is_empty():
+			continue
+		choices.append({"id": "slot_%d" % index, "label": "Распустить %s ×%d" % [UnitDefs.display_name(String(slot["unit_id"])), int(slot["count"])]})
+	choices.append({"id": "decline", "label": "Отказаться от присоединения"})
+	_show_object_choice_dialog(
+		"Флот переполнен",
+		"Для новых кораблей нет свободного слота. Распустите один из своих отрядов или откажитесь.",
+		choices,
+		null,
+		func(choice_id: String) -> void:
+			if choice_id == "decline":
+				callback.call(false)
+				return
+			var slot_index := int(choice_id.trim_prefix("slot_"))
+			if slot_index >= 0 and slot_index < hero.army_slots.size():
+				hero.army_slots[slot_index] = {}
+				hero._sync_army_from_slots()
+				_save_hero_roster()
+				_join_fleet_with_capacity(hero, fleet, callback)
+	)
 
 
 func _resource_reward_item(resource_name: String, amount: int) -> Dictionary:
@@ -2939,6 +3289,8 @@ func _check_map_object_encounter(cell: Vector2i) -> bool:
 	var object: Dictionary = map_objects[index]
 	if object.get("consumed", false):
 		return false
+	if campaign_story != null and campaign_story.visit(String(object.get("mission_id", ""))):
+		return true
 	match MapObjectDefs.family(object["kind"]):
 		"teleport":
 			_trigger_teleport(index)
@@ -3295,7 +3647,7 @@ func _trigger_distress_signal(index: int) -> void:
 	# Явные списки не дают вывести технический id и добавить несуществующий тип.
 	var unit_ids := ["raider", "pirate_gunship", "pirate_corvette"] if faction == "pirate" else ["trader_fighter", "trader_gunship", "trader_corvette"]
 	var unit_id := String(unit_ids[tier - 1])
-	var unit_label := String(UnitDefs.get_unit(unit_id).get("label", unit_id))
+	var unit_label := UnitDefs.display_name(unit_id)
 	var description := "На сигнал откликнулся отряд: %s ×%d. Принять их во флот?" % [unit_label, count]
 	var choices: Array[Dictionary] = [
 		{"id": "accept", "label": "Принять", "icon": UnitDefs.get_unit(unit_id).get("texture")},
@@ -3307,31 +3659,38 @@ func _trigger_distress_signal(index: int) -> void:
 		choices,
 		object_def.get("texture"),
 		func(choice_id: String) -> void:
-			map_objects[index]["consumed"] = true
-			var joined := choice_id == "accept" and _hero_can_accept_unit(hero, unit_id)
-			if joined:
-				hero.add_to_army(unit_id, count)
-				_save_hero_roster()
-				navigation_message = "К флоту присоединились: %s ×%d." % [unit_label, count]
+			if choice_id == "accept":
+				_join_fleet_with_capacity(hero, [{"unit_id": unit_id, "count": count}], func(joined: bool) -> void:
+					map_objects[index]["consumed"] = true
+					if joined:
+						_save_hero_roster()
+						navigation_message = "К флоту присоединились: %s ×%d." % [unit_label, count]
+					else:
+						navigation_message = "Присоединение отклонено."
+					_update_hud()
+				)
 			else:
+				map_objects[index]["consumed"] = true
 				var resource_name := _random_resource_name()
 				var amount := _distance_loot_amount(map_objects[index]["cell"], 4, 8, 10, 16)
 				add_resource(resource_name, amount)
-				var reason := "Во флоте нет свободного слота" if choice_id == "accept" else "Сигнал отклонён"
-				navigation_message = "%s. Получено: %d %s." % [reason, amount, resource_name]
+				navigation_message = "Сигнал отклонён. Получено: %d %s." % [amount, resource_name]
 				_show_object_reward_dialog(
 					"Сигнал бедствия",
 					navigation_message,
 					object_def.get("texture"),
 					[_resource_reward_item(resource_name, amount)]
 				)
-			_update_hud()
+				_update_hud()
 	)
 
 
 func _trigger_info(index: int) -> void:
 	var kind := String(map_objects[index]["kind"])
 	var def := MapObjectDefs.get_kind(kind)
+	if kind in ["mission_trader_base", "mission_pirate_base"]:
+		_show_object_reward_dialog(String(def.name), String(def.description), load(String(def.portrait)))
+		return
 	if kind == "emergency_buoy":
 		_trigger_emergency_buoy(index)
 		return
@@ -3434,7 +3793,7 @@ func _generate_production_sites() -> void:
 	var occupied_cells: Array[Vector2i] = []
 	_add_random_production_cluster(HUMAN_PLANET_CENTER, map_random, occupied_cells)
 	_add_random_production_cluster(ORC_PLANET_CENTER, map_random, occupied_cells)
-	_add_distant_production_sites(occupied_cells)
+	_add_distant_production_sites(occupied_cells, STARTER_RARE_RESOURCE_COPIES if starter_map_mode else 3)
 
 
 func _make_production_nameplate(text: String) -> PanelContainer:
@@ -3497,17 +3856,16 @@ func _create_production_sprites() -> void:
 	production_nameplates.clear()
 	for index in range(production_sites.size()):
 		var site: Dictionary = production_sites[index]
-		var texture: Texture2D = RESOURCE_BUILDING_TEXTURES[site["resource"]]
 		var visual := Node2D.new()
 		visual.position = _footprint_center(site["cell"])
 		production_sprites.add_child(visual)
-		var building_sprite := Sprite2D.new()
-		building_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-		building_sprite.texture = texture
 		var footprint_pixels := CELL_SIZE * PRODUCTION_FOOTPRINT.x
-		var tex_size := texture.get_size()
-		building_sprite.scale = Vector2.ONE * (footprint_pixels * 0.85 / max(tex_size.x, tex_size.y))
-		visual.add_child(building_sprite)
+		var building_visual: Node2D
+		if String(site["resource"]) == "Руда":
+			building_visual = _make_ore_mine_visual(footprint_pixels)
+		else:
+			building_visual = _make_static_production_sprite(String(site["resource"]), footprint_pixels)
+		visual.add_child(building_visual)
 		var nameplate := _make_production_nameplate(String(site["name"]))
 		visual.add_child(nameplate)
 		production_nameplates.append(nameplate)
@@ -3516,6 +3874,108 @@ func _create_production_sprites() -> void:
 			-nameplate.size.x * 0.5,
 			footprint_pixels * 0.42
 		)
+
+
+func _make_static_production_sprite(resource_name: String, footprint_pixels: float) -> Sprite2D:
+	var building_sprite := Sprite2D.new()
+	building_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	building_sprite.texture = RESOURCE_BUILDING_TEXTURES[resource_name]
+	var tex_size := building_sprite.texture.get_size()
+	building_sprite.scale = Vector2.ONE * (footprint_pixels * 0.85 / max(tex_size.x, tex_size.y))
+	return building_sprite
+
+
+## Астероид и буровая — неподвижные слои, бур поверх них крутится вокруг своей
+## оси и мерно ходит вглубь/наружу твином (не кадрами - см. комментарий у
+## BuildingVisualDefs). Позиция/масштаб/поворот/z_index каждого слоя приходят
+## из BuildingVisualDefs.layers_for("ore_mine") - по умолчанию все три
+## совмещены без сдвига (картинки сгенерированы на одном холсте), но
+## F4-редактор может это переопределить.
+func _make_ore_mine_visual(footprint_pixels: float) -> Node2D:
+	var mine := Node2D.new()
+	var layers := BuildingVisualDefs.layers_for("ore_mine")
+	var canvas_size: Vector2 = (layers[0]["texture"] as Texture2D).get_size()
+	mine.scale = Vector2.ONE * (footprint_pixels * ORE_MINE_SCALE_FACTOR / max(canvas_size.x, canvas_size.y))
+
+	var drill_sprite: Sprite2D = null
+	for layer in layers:
+		var layer_sprite := Sprite2D.new()
+		layer_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		layer_sprite.texture = layer["texture"]
+		layer_sprite.position = Vector2(layer["x"], layer["y"])
+		layer_sprite.scale = Vector2.ONE * float(layer["scale"])
+		layer_sprite.rotation_degrees = float(layer["rotation_deg"])
+		layer_sprite.z_index = int(layer["z_index"])
+		mine.add_child(layer_sprite)
+		if String(layer["id"]) == "drill":
+			drill_sprite = layer_sprite
+
+	# Вращение убрано: изометрический рендер бура при повороте вокруг своего
+	# центра не читается как "ввинчивание", а выглядит как чужеродное вращение
+	# картинки на месте (тени/блики жёстко привязаны к кадру рендера). Бур
+	# только ходит по вертикали, как поршень.
+	# Твин вешается на карту (self), а не на mine/drill_sprite - у последних
+	# на этот момент ещё нет дерева сцены (add_child в _create_production_sprites
+	# происходит уже ПОСЛЕ возврата из этой функции), а create_tween() требует
+	# живое дерево.
+	var bob_tween := create_tween().set_loops()
+	bob_tween.tween_property(drill_sprite, "position:y", ORE_DRILL_BOB_RANGE, ORE_DRILL_BOB_SECONDS) \
+		.as_relative().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	bob_tween.tween_property(drill_sprite, "position:y", -ORE_DRILL_BOB_RANGE, ORE_DRILL_BOB_SECONDS) \
+		.as_relative().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+	drill_sprite.add_child(_make_ore_spark_particles())
+	mine.add_child(_make_ore_smoke_particles())
+	return mine
+
+
+## Искры на кончике бура - дочерний узел drill_sprite, но local_coords = false,
+## поэтому уже вылетевшая искра не едет вместе с буром при его ходе по
+## вертикали, только точка вылета (см. ORE_DRILL_TIP_OFFSET).
+func _make_ore_spark_particles() -> CPUParticles2D:
+	var sparks := CPUParticles2D.new()
+	sparks.position = ORE_DRILL_TIP_OFFSET
+	sparks.emitting = true
+	sparks.amount = 10
+	sparks.lifetime = 0.45
+	sparks.explosiveness = 0.75
+	sparks.local_coords = false
+	sparks.direction = Vector2.UP
+	sparks.spread = 80.0
+	sparks.gravity = Vector2(0.0, 260.0)
+	sparks.initial_velocity_min = 40.0
+	sparks.initial_velocity_max = 110.0
+	sparks.scale_amount_min = 2.0
+	sparks.scale_amount_max = 4.0
+	sparks.color = Color(1.0, 0.75, 0.25, 1.0)
+	var spark_ramp := Gradient.new()
+	spark_ramp.set_color(0, Color(1.0, 0.9, 0.5, 1.0))
+	spark_ramp.set_color(1, Color(0.9, 0.25, 0.05, 0.0))
+	sparks.color_ramp = spark_ramp
+	return sparks
+
+
+## Дым у жерла шахты - на mine, а не на буре: клубится над кратером, не должен
+## семенить вслед за буровым ходом на несколько пикселей туда-сюда.
+func _make_ore_smoke_particles() -> CPUParticles2D:
+	var smoke := CPUParticles2D.new()
+	smoke.position = ORE_SMOKE_OFFSET
+	smoke.emitting = true
+	smoke.amount = 6
+	smoke.lifetime = 2.2
+	smoke.explosiveness = 0.0
+	smoke.direction = Vector2.UP
+	smoke.spread = 14.0
+	smoke.gravity = Vector2(0.0, -22.0)
+	smoke.initial_velocity_min = 8.0
+	smoke.initial_velocity_max = 18.0
+	smoke.scale_amount_min = 6.0
+	smoke.scale_amount_max = 11.0
+	var smoke_ramp := Gradient.new()
+	smoke_ramp.set_color(0, Color(0.55, 0.55, 0.58, 0.55))
+	smoke_ramp.set_color(1, Color(0.4, 0.4, 0.45, 0.0))
+	smoke.color_ramp = smoke_ramp
+	return smoke
 
 
 ## Космический аналог лесов и скал с карты приключений HoMM3: астероидные
@@ -3531,7 +3991,7 @@ func _generate_obstacles() -> void:
 		_build_reserved_cells(),
 		PLAYER_ONE_START_CELL,
 		must_reach_cells,
-		OBSTACLE_COUNT
+		STARTER_OBSTACLE_COUNT if starter_map_mode else OBSTACLE_COUNT
 	)
 	blocked_cells.clear()
 	slow_cells.clear()
@@ -3595,7 +4055,10 @@ func _reserve_corridor(reserved: Dictionary, from_cell: Vector2i, to_cell: Vecto
 
 
 func _create_obstacle_sprites() -> void:
-	obstacle_sprites = preload("res://scripts/space_obstacle_renderer.gd").new()
+	if campaign_map_id == CampaignMissionMap.ID:
+		obstacle_sprites = preload("res://scripts/campaign_terrain_renderer.gd").new()
+	else:
+		obstacle_sprites = preload("res://scripts/space_obstacle_renderer.gd").new()
 	obstacle_sprites.name = "ObstacleSprites"
 	add_child(obstacle_sprites)
 
@@ -3642,9 +4105,9 @@ func _add_random_production_cluster(
 
 ## Редкие ресурсы распределяются по секторам, а не кучкуются вокруг планет.
 ## Каждый из четырёх дальних типов встречается по три раза на карте.
-func _add_distant_production_sites(occupied_cells: Array[Vector2i]) -> void:
+func _add_distant_production_sites(occupied_cells: Array[Vector2i], copies_per_resource: int) -> void:
 	var sector_counts := {}
-	for resource_copy in range(3):
+	for resource_copy in range(copies_per_resource):
 		for blueprint_index in range(4, PRODUCTION_BLUEPRINTS.size()):
 			var blueprint: Dictionary = PRODUCTION_BLUEPRINTS[blueprint_index]
 			var sector_order: Array[Vector2i] = []

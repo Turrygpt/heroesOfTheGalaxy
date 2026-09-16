@@ -77,7 +77,7 @@ const BUILDING_CATALOG := [
 ## costs[i] — цена постройки уровня (i+1). Townhall уже стоит на I уровне
 ## с начала игры (см. HumanPlanetState.default_state), поэтому его costs[0]
 ## пустой - платить нужно только за апгрейды.
-const BUILDING_DEFS := {
+var BUILDING_DEFS := {
 	"townhall": {
 		"name": "Планетарный совет", "max_level": 4, "level_names": ["I", "II", "III", "IV"],
 		"costs": [
@@ -319,6 +319,7 @@ var buy_all_button: Button
 
 
 func _ready() -> void:
+	_cap_building_resource_costs()
 	var buttons_root := $Root/BuildingEditor/Margin/VBox/BuildingButtonsScroll/BuildingButtons
 	building_buttons = [
 		buttons_root.get_node("TownHall1"),
@@ -381,6 +382,16 @@ func _ready() -> void:
 		_open_garrison_screen()
 	if not space_modal_mode:
 		_start_music()
+
+
+func _cap_building_resource_costs() -> void:
+	# Высокие уровни не должны съедать редкие ресурсы сотнями: максимум
+	# двадцать единиц каждого ресурса за одну постройку.
+	for kind in BUILDING_DEFS:
+		for cost in BUILDING_DEFS[kind].get("costs", []):
+			for resource_name in cost:
+				if resource_name != "credits":
+					cost[resource_name] = mini(20, int(cost[resource_name]))
 
 
 func _start_music() -> void:
@@ -1009,7 +1020,7 @@ func _building_hint(kind: String, level: int, unit_id: String) -> String:
 		var unit := UnitDefs.get_unit(unit_id)
 		var state := HumanPlanetState.load_state()
 		var available := int((state.get("available_growth", {}) as Dictionary).get(unit_id, 0))
-		return "Производит «%s». Недельный прирост: %d. В гарнизоне доступно: %d.\nНанимайте корабли этой верфи прямо здесь." % [String(unit["label"]), HumanPlanetState.scaled_weekly_growth(unit_id, built_levels), available]
+		return "Производит «%s». Недельный прирост: %d. В гарнизоне доступно: %d.\nНанимайте корабли этой верфи прямо здесь." % [UnitDefs.display_name(unit_id), HumanPlanetState.scaled_weekly_growth(unit_id, built_levels), available]
 	return String(hints.get(kind, "Здание обеспечивает развитие и работу планеты."))
 
 
@@ -1048,12 +1059,17 @@ func _open_university_screen() -> void:
 	_sync_university_protocols()
 	university_screen = UNIVERSITY_DIALOG.new()
 	university_screen.closed.connect(_on_university_screen_closed)
+	university_screen.learned.connect(_on_university_protocol_learned)
 	add_child(university_screen)
 	university_screen.setup(_player_hero(), HumanPlanetState.load_state(), int(built_levels.get("mage_guild", 0)))
 
 
 func _on_university_screen_closed() -> void:
 	university_screen = null
+
+
+func _on_university_protocol_learned(_protocol_id: String) -> void:
+	_save_hero_roster()
 
 
 func _close_construction_menu() -> void:
@@ -1087,6 +1103,7 @@ func _apply_fleet_only_mode() -> void:
 		terrain_foreground.hide()
 		moon.hide()
 		top_bar.hide()
+		building_layer.hide()
 	else:
 		back_button.text = "НАЗАД НА КАРТУ"
 	bottom_bar.hide()
@@ -1103,6 +1120,7 @@ func _apply_space_modal_exchange_mode() -> void:
 		terrain_foreground.hide()
 		moon.hide()
 		top_bar.hide()
+		building_layer.hide()
 	bottom_bar.hide()
 	planet_info.hide()
 	resource_bar.hide()
@@ -1246,7 +1264,7 @@ func _build_recruitment_row(unit_id: String) -> Control:
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_child(text)
-	text.add_child(_trading_label("%s · %d ранг" % [String(unit["label"]), int(unit["tier"])], 15, Color(0.9, 0.92, 0.95, 1)))
+	text.add_child(_trading_label(UnitDefs.display_name(unit_id), 15, Color(0.9, 0.92, 0.95, 1)))
 	text.add_child(_trading_label(_trading_post_cost_text(unit_id), 12, Color(0.6, 0.63, 0.68, 1)))
 	var stock := _trading_label("", 14, Color(1, 0.85, 0.35, 1))
 	stock.custom_minimum_size = Vector2(96, 0)
@@ -1728,7 +1746,7 @@ func _build_production_row(unit_id: String, weekly: int, available: int) -> Cont
 	var name_label := Label.new()
 	name_label.add_theme_font_size_override("font_size", 15)
 	name_label.add_theme_color_override("font_color", Color(0.88, 0.97, 1, 1))
-	name_label.text = String(unit["label"])
+	name_label.text = UnitDefs.display_name(unit_id)
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	text_box.add_child(name_label)
 
@@ -1916,7 +1934,8 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_inde
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(count_label)
 	var target_id := UnitDefs.upgrade_target(unit_id)
-	if enabled and not target_id.is_empty() and UnitDefs.upgrade_available(unit_id, levels):
+	var can_upgrade_here: bool = strategy_map != null and strategy_map.player_fleet_at_home_planet()
+	if enabled and can_upgrade_here and not target_id.is_empty() and UnitDefs.upgrade_available(unit_id, levels):
 		var upgrade_cost := _scaled_cost(UnitDefs.upgrade_cost(unit_id), count)
 		var upgrade_button := Button.new()
 		upgrade_button.custom_minimum_size = Vector2(0, 23)
@@ -1924,7 +1943,7 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_inde
 		upgrade_button.add_theme_font_size_override("font_size", 11)
 		upgrade_button.text = "АПГРЕЙД"
 		upgrade_button.tooltip_text = "Улучшить весь стек до «%s»\nЦена: %s" % [
-			String(UnitDefs.get_unit(target_id).get("label", target_id)),
+			UnitDefs.display_name(target_id),
 			_format_cost(upgrade_cost),
 		]
 		upgrade_button.disabled = strategy_map == null or not strategy_map.can_afford(upgrade_cost)
@@ -1941,7 +1960,26 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_inde
 		_style_action_button(split_button)
 		split_button.pressed.connect(_split_stack.bind(source_id, slot_index))
 		box.add_child(split_button)
+	if enabled:
+		var disband_button := Button.new()
+		disband_button.custom_minimum_size = Vector2(0, 23)
+		disband_button.text = "РАСПУСТИТЬ"
+		disband_button.tooltip_text = "Навсегда удалить этот отряд из флота."
+		disband_button.add_theme_font_size_override("font_size", 10)
+		_style_action_button(disband_button)
+		disband_button.pressed.connect(_disband_stack.bind(source_id, slot_index))
+		box.add_child(disband_button)
 	return card
+
+
+func _disband_stack(source_id: String, slot_index: int) -> void:
+	var state := HumanPlanetState.load_state()
+	var slots := _slots_for_side(source_id, state)
+	if slot_index < 0 or slot_index >= slots.size():
+		return
+	slots[slot_index] = {}
+	_store_slots_for_side(source_id, slots, state)
+	_update_garrison_screen()
 
 
 ## Базовые параметры в подсказке всегда белые. Голубая часть — только тот
@@ -1962,7 +2000,7 @@ func _fleet_card_combat_tooltip(unit: Dictionary, count: int, hero: Hero = null)
 	var lines: Array[String] = [
 		"[color=%s][b]%s · %s ранг · %d кораблей[/b][/color]" % [BASE_COLOR, String(unit.get("label", "Корабль")), TIER_ROMAN[clampi(int(unit.get("tier", 1)), 1, TIER_ROMAN.size() - 1)], count],
 		"[color=%s]Корпус: %d[/color]" % [BASE_COLOR, hull],
-		"[color=%s]Атака: %d · Защита: %d[/color]" % [BASE_COLOR, attack, defense],
+		"[color=%s]Пробитие: %d · Броня: %d[/color]" % [BASE_COLOR, attack, defense],
 		"[color=%s]Урон: %d–%d[/color]" % [BASE_COLOR, damage_min, damage_max],
 		"[color=%s]Манёвр: %d · Дальность: %d · Инициатива: %d[/color]" % [BASE_COLOR, move, attack_range, initiative],
 		"[color=%s]Мораль: %d%% · Удача (крит): %d%%[/color]" % [BASE_COLOR, morale_percent, crit_percent],
@@ -2343,7 +2381,7 @@ func _construction_action_state(kind: String) -> Dictionary:
 	elif level >= max_level:
 		state["label"] = "построено %s" % level_names[level - 1]
 		state["tooltip"] = "Максимальный уровень."
-		state["color"] = Color(0.16, 0.58, 0.18, 1)
+		state["color"] = Color(0.95, 0.72, 0.12, 1)
 	elif construction_used:
 		state["label"] = "доступно завтра"
 		state["tooltip"] = "В этот сол уже велось строительство."
@@ -2641,7 +2679,6 @@ func _sync_university_protocols() -> void:
 	var state := HumanPlanetState.load_state()
 	if UNIVERSITY_DEFS.ensure_offers(state, level):
 		HumanPlanetState.save_state(state)
-	_teach_university_protocols(state)
 
 
 func _teach_university_protocols(state: Dictionary) -> void:

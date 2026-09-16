@@ -4,9 +4,11 @@ extends CanvasLayer
 ## уровнями университета, и отмечает те, что уже загружены командующему.
 
 signal closed
+signal learned(protocol_id: String)
 
 const UNIVERSITY_DEFS := preload("res://scripts/university_defs.gd")
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
+const DEFS := preload("res://scripts/hero_defs.gd")
 const UI_STYLE := preload("res://scripts/ui_style.gd")
 const GOLD := UI_STYLE.GOLD
 const CYAN := UI_STYLE.CYAN
@@ -76,7 +78,7 @@ func _build_protocol_list(list: VBoxContainer) -> void:
 	if available.is_empty():
 		list.add_child(_label("Набор протоколов ещё не сформирован.", 16, MUTED, true))
 		return
-	var learned: Array = hero.protocol_book() if hero != null else []
+	var learned_ids: Array = hero.learned_protocols if hero != null else []
 	for level in range(1, university_level + 1):
 		var level_ids := UNIVERSITY_DEFS.level_protocols(planet_state, level)
 		if level_ids.is_empty():
@@ -85,7 +87,7 @@ func _build_protocol_list(list: VBoxContainer) -> void:
 		for protocol_id in level_ids:
 			if not available.has(protocol_id):
 				continue
-			list.add_child(_protocol_card(protocol_id, learned.has(protocol_id)))
+			list.add_child(_protocol_card(protocol_id, learned_ids.has(protocol_id)))
 
 
 func _protocol_card(protocol_id: String, is_learned: bool) -> Control:
@@ -108,11 +110,29 @@ func _protocol_card(protocol_id: String, is_learned: bool) -> Control:
 	info.add_child(_label(String(protocol.get("name", protocol_id)), 17, INK, false))
 	info.add_child(_label(school, 11, color, false))
 	info.add_child(_label(String(protocol.get("hint", "")), 12, MUTED, false))
-	var status := _label("ЗАГРУЖЕН" if is_learned else "ДОСТУПЕН", 12, CYAN if is_learned else GOLD, true)
-	status.custom_minimum_size.x = 130
-	status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(status)
+	var allowed := hero != null and DEFS.protocol_rank(protocol_id) <= hero.max_ability_rank()
+	if is_learned:
+		var status := _label("ИЗУЧЕН", 12, CYAN, true)
+		status.custom_minimum_size.x = 130
+		status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(status)
+	else:
+		var learn_button := Button.new()
+		learn_button.text = "ИЗУЧИТЬ" if allowed else "НУЖЕН РАНГ %d" % DEFS.protocol_rank(protocol_id)
+		learn_button.disabled = not allowed
+		learn_button.custom_minimum_size.x = 150
+		UI_STYLE.apply_button(learn_button)
+		learn_button.pressed.connect(_learn_protocol.bind(protocol_id))
+		row.add_child(learn_button)
 	return card
+
+
+func _learn_protocol(protocol_id: String) -> void:
+	if hero == null or not hero.learn_protocols([protocol_id]).has(protocol_id):
+		return
+	learned.emit(protocol_id)
+	closed.emit()
+	queue_free()
 
 
 func _label(text: String, font_size: int, color: Color, centered := false) -> Label:

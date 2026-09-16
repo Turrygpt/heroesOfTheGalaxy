@@ -4,6 +4,10 @@ const MAP_SIZE := Vector2(64.0, 64.0)
 const CELL_SIZE := 96.0
 const PLAYER_ONE_COLOR := Color("3ca5ff")
 const PLAYER_TWO_COLOR := Color("ef5350")
+const COORDINATE_COLOR := Color("8fa5bd")
+const PING_COLOR := Color("ffd166")
+
+var ping_dialog: ConfirmationDialog
 
 
 func _ready() -> void:
@@ -57,7 +61,13 @@ func _draw() -> void:
 	for index in range(strategy_map.production_sites.size()):
 		var site: Dictionary = strategy_map.production_sites[index]
 		var point := _cell_to_minimap(site["cell"])
-		draw_circle(point, 3.5, Color(site["color"]))
+		var owner := int(strategy_map.production_owners[index]) if index < strategy_map.production_owners.size() else 0
+		var site_color := Color(site["color"])
+		if owner == 1:
+			site_color = PLAYER_ONE_COLOR
+		elif owner == 2:
+			site_color = PLAYER_TWO_COLOR
+		draw_circle(point, 3.5, site_color)
 
 	# Туман войны: те же самые открытые клетки, что и на основной карте (см.
 	# space_strategy_map.gd:_reveal_around) - миникарта не должна выдавать
@@ -65,8 +75,26 @@ func _draw() -> void:
 	if strategy_map.fog_texture != null:
 		draw_texture_rect(strategy_map.fog_texture, Rect2(Vector2.ZERO, size), false)
 
+	# Подписи рисуются поверх тумана войны: координатная сетка доступна всегда.
+	var font := ThemeDB.fallback_font
 	var world_size := MAP_SIZE * CELL_SIZE
+	for coordinate in range(0, 65, 8):
+		var x := coordinate / MAP_SIZE.x * size.x
+		var y := coordinate / MAP_SIZE.y * size.y
+		# Крайние подписи чуть сдвигаются внутрь, чтобы «0» и «64» не
+		# обрезались рамкой миникарты.
+		var horizontal_x := x + 2.0 if coordinate == 0 else x - 16.0 if coordinate == 64 else x - 5.0
+		var vertical_y := 14.0 if coordinate == 0 else y - 2.0
+		draw_string(font, Vector2(horizontal_x, 14.0), str(coordinate), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, COORDINATE_COLOR)
+		draw_string(font, Vector2(2.0, vertical_y), str(coordinate), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, COORDINATE_COLOR)
+
+	# Координаты своего корабля читаются прямо на миникарте, рядом с его
+	# маркером, а не поверх большой стратегической карты.
 	var ship_point: Vector2 = strategy_map.ship_position / world_size * size
+	var ship_coords := "(%d, %d)" % [strategy_map.current_cell.x, strategy_map.current_cell.y]
+	draw_string(font, ship_point + Vector2(7.0, -7.0), ship_coords,
+		HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, Color(0.78, 0.9, 1.0, 0.95))
+
 	draw_circle(ship_point, 5.0, Color.WHITE)
 	draw_circle(ship_point, 3.0, PLAYER_ONE_COLOR)
 
@@ -77,6 +105,12 @@ func _draw() -> void:
 		var orc_point: Vector2 = strategy_map.orc_ship_sprite.position / world_size * size
 		draw_circle(orc_point, 5.0, Color.WHITE)
 		draw_circle(orc_point, 3.0, PLAYER_TWO_COLOR)
+
+	if strategy_map.beacon_cell != Vector2i(-1, -1):
+		var ping_point := _cell_to_minimap(strategy_map.beacon_cell)
+		var ping_size := size / MAP_SIZE
+		draw_rect(Rect2(ping_point - ping_size * 0.7, ping_size * 1.4), PING_COLOR, false, 2.0)
+		draw_circle(ping_point, 2.5, PING_COLOR)
 
 	# Рамка обзора показывает ту часть карты, которую игрок действительно видит:
 	# HUD непрозрачен, поэтому полосы под верхней панелью и под правым сайдбаром
@@ -117,3 +151,61 @@ func _strategy_map() -> Node:
 			return node
 		node = node.get_parent()
 	return null
+
+
+func open_ping_dialog() -> void:
+	var strategy_map := _strategy_map()
+	if strategy_map == null or strategy_map.is_moving:
+		return
+	if is_instance_valid(ping_dialog):
+		ping_dialog.popup_centered()
+		return
+	ping_dialog = ConfirmationDialog.new()
+	ping_dialog.title = "Пеленг координат"
+	ping_dialog.ok_button_text = "Показать на карте"
+	ping_dialog.custom_minimum_size = Vector2(420.0, 250.0)
+	var margins := MarginContainer.new()
+	margins.add_theme_constant_override("margin_left", 12)
+	margins.add_theme_constant_override("margin_top", 14)
+	margins.add_theme_constant_override("margin_right", 12)
+	margins.add_theme_constant_override("margin_bottom", 22)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 14)
+	var hint := Label.new()
+	hint.text = "Введите координаты клетки от 0 до 63"
+	hint.custom_minimum_size.y = 30
+	column.add_child(hint)
+	var x_edit := LineEdit.new()
+	x_edit.name = "X"
+	x_edit.placeholder_text = "X (столбец)"
+	x_edit.text = str(strategy_map.current_cell.x)
+	column.add_child(x_edit)
+	var y_edit := LineEdit.new()
+	y_edit.name = "Y"
+	y_edit.placeholder_text = "Y (строка)"
+	y_edit.text = str(strategy_map.current_cell.y)
+	column.add_child(y_edit)
+	margins.add_child(column)
+	ping_dialog.add_child(margins)
+	add_child(ping_dialog)
+	ping_dialog.confirmed.connect(_apply_ping.bind(x_edit, y_edit))
+	ping_dialog.canceled.connect(_close_ping_dialog)
+	ping_dialog.popup_centered(Vector2(420, 250))
+	x_edit.grab_focus()
+	x_edit.select_all()
+
+
+func _apply_ping(x_edit: LineEdit, y_edit: LineEdit) -> void:
+	var strategy_map := _strategy_map()
+	if strategy_map == null:
+		return
+	var x := clampi(int(x_edit.text), 0, 63)
+	var y := clampi(int(y_edit.text), 0, 63)
+	strategy_map.set_beacon(Vector2i(x, y))
+	_close_ping_dialog()
+
+
+func _close_ping_dialog() -> void:
+	if is_instance_valid(ping_dialog):
+		ping_dialog.queue_free()
+	ping_dialog = null

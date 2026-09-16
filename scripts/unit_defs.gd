@@ -65,7 +65,7 @@ const UNITS := {
 		"move": 5, "range": 3, "initiative": 8, "sprite_width": 140.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/frigate.png"), "region": Rect2(60, 304, 1602, 466),
 		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 1,
-		"cost": {"credits": 400}, "weekly_growth": 4,
+		"cost": {"credits": 400, "Топливо": 3}, "weekly_growth": 4,
 	},
 	"elite_corvette": {
 		"label": "Элитный корвет", "role": "элитный корвет 3 ранга (дальнобойный)", "tier": 3,
@@ -73,7 +73,7 @@ const UNITS := {
 		"move": 5, "range": 4, "initiative": 8, "sprite_width": 150.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/elite_frigate.png"), "region": Rect2(62, 304, 1598, 468),
 		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 2,
-		"cost": {"credits": 650}, "weekly_growth": 3,
+		"cost": {"credits": 650, "Топливо": 5, "Радиоизотопы": 2}, "weekly_growth": 3,
 	},
 	"frigate": {
 		"label": "Фрегат", "role": "обычный фрегат 4 ранга (дальнобойный)", "tier": 4,
@@ -81,7 +81,7 @@ const UNITS := {
 		"move": 4, "range": 3, "initiative": 6, "sprite_width": 155.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/cruiser.png"), "region": Rect2(34, 200, 1712, 514),
 		"kind": "dwelling", "dwelling": "frigate_yard", "dwelling_level": 1,
-		"cost": {"credits": 900}, "weekly_growth": 2,
+		"cost": {"credits": 900, "Топливо": 8, "Радиоизотопы": 3}, "weekly_growth": 2,
 	},
 	"elite_frigate": {
 		"label": "Элитный фрегат", "role": "элитный фрегат 4 ранга (дальнобойный)", "tier": 4,
@@ -89,7 +89,7 @@ const UNITS := {
 		"move": 4, "range": 4, "initiative": 6, "sprite_width": 165.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/elite_cruiser.png"), "region": Rect2(30, 194, 1722, 526),
 		"kind": "dwelling", "dwelling": "frigate_yard", "dwelling_level": 2,
-		"cost": {"credits": 1600}, "weekly_growth": 1,
+		"cost": {"credits": 1600, "Топливо": 12, "Радиоизотопы": 6}, "weekly_growth": 1,
 	},
 	"destroyer": {
 		"label": "Эсминец", "role": "обычный эсминец 5 ранга (дальнобойный)", "tier": 5,
@@ -97,7 +97,7 @@ const UNITS := {
 		"move": 3, "range": 4, "initiative": 5, "sprite_width": 170.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/destroyer.png"), "region": Rect2(36, 44, 1734, 788),
 		"kind": "dwelling", "dwelling": "destroyer_yard", "dwelling_level": 1,
-		"cost": {"credits": 1800, "Руда": 35, "Топливо": 20, "Энергокристаллы": 15, "Радиоизотопы": 10}, "weekly_growth": 1,
+		"cost": {"credits": 1800, "Руда": 35, "Топливо": 24, "Энергокристаллы": 15, "Радиоизотопы": 16}, "weekly_growth": 1,
 	},
 	"elite_destroyer": {
 		"label": "Элитный эсминец", "role": "элитный эсминец 5 ранга (дальнобойный)", "tier": 5,
@@ -105,7 +105,7 @@ const UNITS := {
 		"move": 4, "range": 5, "initiative": 6, "sprite_width": 180.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/elite_destroyer.png"), "region": Rect2(34, 42, 1740, 792),
 		"kind": "dwelling", "dwelling": "destroyer_yard", "dwelling_level": 2,
-		"cost": {"credits": 2600, "Руда": 45, "Топливо": 28, "Энергокристаллы": 20, "Радиоизотопы": 14}, "weekly_growth": 1,
+		"cost": {"credits": 2600, "Руда": 45, "Топливо": 36, "Энергокристаллы": 20, "Радиоизотопы": 22}, "weekly_growth": 1,
 	},
 	# --- Стражи (только для составов нейтралов на карте) ---------------------
 	"raider": {
@@ -325,7 +325,7 @@ const UNITS := {
 		# range=18 — это и есть "весь экран": ровно наибольшее расстояние между
 		# двумя клетками поля 15x9 (см. tactical_battle.gd:GRID_COLUMNS/ROWS),
 		# измерено напрямую через _hex_distance, а не взято с запасом на глаз.
-		"move": 0, "range": 18, "initiative": 8, "sprite_width": 150.0, "weapon_type": "cannon",
+		"move": 0, "range": 18, "initiative": 8, "sprite_width": 150.0, "weapon_type": "cannon", "unlimited_range": true,
 		"texture": preload("res://assets/ships/human_new/orbital_platform.png"),
 		"region": Rect2(0, 0, 1408, 1408), "kind": "guardian",
 	},
@@ -347,6 +347,21 @@ const UNITS := {
 
 static func get_unit(unit_id: String) -> Dictionary:
 	return UNITS.get(unit_id, ORC_DEFS.UNITS.get(unit_id, {}))
+
+
+static func display_name(unit_id: String) -> String:
+	var unit := get_unit(unit_id)
+	var tier := int(unit.get("tier", 0))
+	var ranks := ["", "I", "II", "III", "IV", "V", "VI", "VII"]
+	var rank: String = ranks[tier] if tier >= 1 and tier < ranks.size() else str(tier)
+	return "%s %s" % [String(unit.get("label", unit_id)), rank]
+
+
+static func display_name_from_unit(unit: Dictionary) -> String:
+	var tier := int(unit.get("tier", 0))
+	var ranks := ["", "I", "II", "III", "IV", "V", "VI", "VII"]
+	var rank: String = ranks[tier] if tier >= 1 and tier < ranks.size() else str(tier)
+	return "%s %s" % [String(unit.get("base_label", unit.get("label", "Корабль"))), rank]
 
 
 ## Юниты, доступные к найму в ангарах игрока (kind == "dwelling"). Орочьи
@@ -449,4 +464,7 @@ static func make_blueprint(unit_id: String, count: int, cell: Vector2i, side: in
 	unit["side"] = side
 	unit["count"] = count
 	unit["unit_id"] = unit_id
+	if not bool(unit.get("unlimited_range", false)):
+		var tier := int(unit.get("tier", 1))
+		unit["range"] = mini(4, maxi(1, int(ceil(float(tier) / 2.0))))
 	return unit

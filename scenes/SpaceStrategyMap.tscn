@@ -403,6 +403,12 @@ layout_mode = 2
 layout_mode = 2
 theme_override_constants/separation = 12
 
+[node name="PingButton" type="Button" parent="HUD/ResourceBar/Margin/HBox/TurnInfo"]
+custom_minimum_size = Vector2(38, 38)
+layout_mode = 2
+tooltip_text = "Пеленг координат"
+text = "⌖"
+
 [node name="DayLabel" type="Label" parent="HUD/ResourceBar/Margin/HBox/TurnInfo"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.78, 0.9, 1, 1)
@@ -695,6 +701,13 @@ focus_mode = 0
 mouse_filter = 1
 item_0/text = "Артиллерия (I)"
 item_1/text = "Лидерство (I)"
+
+[node name="HeroCardButton" type="Button" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.54, 0.85, 0.9, 1)
+theme_override_font_sizes/font_size = 15
+text = "УМЕНИЯ И АРТЕФАКТЫ"
 
 [node name="ProtocolsSeparator" type="HSeparator" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2

@@ -134,16 +134,11 @@ func _check_defence(map: Node2D) -> void:
 		"Ушедший в поход вождь базу не обороняет")
 
 
-## Обе стороны возвращаются в строй с одним кораблём I ранга: вождь орков —
-## после отсчёта возрождения, герой игрока — сразу после проигранного боя.
+## Обе стороны возвращаются в строй с одним кораблём I ранга сразу же, без
+## паузы: вождь орков — тем же ходом, что и герой игрока после поражения.
 func _check_respawn_symmetry(map: Node2D, roster) -> void:
 	var warlord: Hero = map.orc_hero()
-	for _day in range(OrcAI.HERO_RESPAWN_DAYS):
-		map.current_day += 1
-		map.orc_ai.take_turn(map)
-		if map.orc_ai.hero_alive:
-			break
-	_check(map.orc_ai.hero_alive, "Вождь возрождается за HERO_RESPAWN_DAYS солов")
+	_check(map.orc_ai.hero_alive, "Вождь возрождается сразу, без отсчёта солов")
 	_check(int(warlord.army.get("ork_fighter", 0)) >= 1,
 		"Вождь возвращается с истребителем I ранга, а не с пустым флотом: %s" % str(warlord.army))
 	var player: Hero = roster.player_hero()
@@ -181,8 +176,6 @@ func _run() -> void:
 	player.army = {"interceptor": 20}
 	map.orc_ai.hero_alive = true
 	map._resolve_orc_battle("hero", [], true, false)
-	_check(not map.orc_ai.hero_alive, "Победа над вождём снимает его с карты")
-	_check(map.orc_ai.respawn_countdown > 0, "Вождь возрождается не сразу")
 	_check_respawn_symmetry(map, roster)
 	map.movement_points = 6
 	map._resolve_orc_battle("hero", [], false, true)

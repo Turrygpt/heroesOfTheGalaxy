@@ -21,6 +21,20 @@ extends RefCounted
 ## PRODUCTION_FOOTPRINT в space_strategy_map.gd); мелкие объекты (ящики,
 ## маяки, капсулы...) — одну клетку.
 const KINDS := {
+	"mission_trader_base": {
+		"family": "info", "name": "База Лорда Штайна", "size": 4, "repeatable": true,
+		"color": "55d6c2", "glyph": "₡",
+		"texture": preload("res://assets/planets/trading.png"),
+		"portrait": "res://assets/persons/Trader/portrait.png",
+		"description": "Вольная гавань торговцев. Лорд Штайн контролирует северный торговый коридор. Здесь сходятся караванные маршруты сектора.",
+	},
+	"mission_pirate_base": {
+		"family": "info", "name": "База капитана Ридуса", "size": 4, "repeatable": true,
+		"color": "efaa45", "glyph": "☠",
+		"texture": preload("res://assets/planets/pirate.png"),
+		"portrait": "res://assets/persons/Pirate/portrait.png",
+		"description": "Убежище пиратов в южном рукаве. Капитан Ридус принимает гостей на своей базе. Его люди знают тайные фарватеры среди астероидных поясов.",
+	},
 	# --- Стражи с наградой (регистрируются в guardians, не в map_objects) ---
 	"derelict_station": {
 		"family": "guardian_reward", "name": "Заброшенная станция", "glyph": "◈", "size": 2,
@@ -128,7 +142,7 @@ const KINDS := {
 		"family": "loot", "name": "Ресурсный тайник", "glyph": "◆", "color": "55d6c2",
 	},
 	"flotsam_wreck": {
-		"family": "loot", "name": "Плавучие обломки", "glyph": "▤", "color": "b9bdc7",
+		"family": "loot", "name": "Дрейфующие обломки", "glyph": "▤", "color": "b9bdc7",
 		"texture": preload("res://assets/map_objects/flotsam_wreck.png"),
 	},
 	"distress_signal": {
@@ -167,7 +181,7 @@ const KINDS := {
 	## проверяет оба object_kind.
 	"trading_planet": {
 		"family": "guardian_reward", "name": "Вольная торговая станция", "glyph": "₡", "color": "55d6c2",
-		"size": 4, "guard_template": "flagship", "fixed_guard": true,
+		"size": 4, "guard_template": "trader_flagship", "fixed_guard": true,
 		"reward_pool": ["resources"],
 		"texture": preload("res://assets/planets/trading.png"),
 	},

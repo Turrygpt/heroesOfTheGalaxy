@@ -84,7 +84,7 @@ func _fleet(parent: Node, title: String, fleet: Array[Dictionary]) -> void:
 		if int(entry["count"]) <= 0:
 			continue
 		var unit: Dictionary = UNIT_DEFS.get_unit(String(entry["unit_id"]))
-		_label(column, "%s × %d" % [unit["label"], entry["count"]], 18)
+		_label(column, "%s × %d" % [UNIT_DEFS.display_name(String(entry["unit_id"])), entry["count"]], 18)
 
 
 func _label(parent: Node, text: String, size: int) -> void:

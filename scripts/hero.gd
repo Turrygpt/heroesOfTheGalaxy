@@ -7,7 +7,7 @@ extends RefCounted
 ## одного из двух предложенных навыков.
 
 const DEFS := preload("res://scripts/hero_defs.gd")
-const STARTING_PROTOCOL_COUNT := 2
+const STARTING_PROTOCOL_COUNT := 0
 
 var id := "hero"
 var hero_name := "Безымянный"
@@ -97,9 +97,14 @@ func has_pending_level_up() -> bool:
 func roll_level_up() -> Dictionary:
 	var next_level := level + 1
 	_rng.seed = hash("%s:%d" % [id, next_level])
+	var primary_stat := _roll_primary_stat(next_level)
+	if next_level % 5 == 0:
+		primary_stat = "wisdom"
+	elif next_level % 4 == 0:
+		primary_stat = "power"
 	return {
 		"level": next_level,
-		"stat": _roll_primary_stat(next_level),
+		"stat": primary_stat,
 		"skills": _roll_skill_options(),
 	}
 
@@ -337,6 +342,8 @@ func to_battle_hero(side: int) -> Dictionary:
 		"regen": energy_regen(),
 		"damage_bonus_percent": damage_bonus_percent(),
 		"hp_bonus_percent": hp_bonus_percent(),
+		"attack_bonus": stat("attack"),
+		"defense_bonus": stat("defense"),
 		"range_bonus": range_bonus(),
 		"luck_chance": luck_chance(),
 		"leadership_chance": morale_chance(),
@@ -377,6 +384,10 @@ func morale_chance() -> float:
 	return float(skill_value("leadership") + DEFS.artifact_bonus(artifacts, "morale_percent")) / 100.0
 
 
+func diplomacy_chance() -> float:
+	return float(skill_value("diplomacy") + DEFS.artifact_bonus(artifacts, "diplomacy_percent")) / 100.0
+
+
 func map_movement_multiplier() -> float:
 	return 1.0 + float(skill_value("navigation")) / 100.0
 
@@ -391,21 +402,29 @@ func army_is_empty() -> bool:
 	return true
 
 
-func add_to_army(unit_id: String, count: int) -> void:
+func can_add_to_army(unit_id: String) -> bool:
+	_ensure_army_slots()
+	for slot in army_slots:
+		if _slot_is_empty(slot) or String(slot.get("unit_id", "")) == unit_id:
+			return true
+	return false
+
+
+func add_to_army(unit_id: String, count: int) -> bool:
 	if count <= 0:
-		return
+		return false
 	_ensure_army_slots()
 	for slot in army_slots:
 		if String(slot.get("unit_id", "")) == unit_id:
 			slot["count"] = int(slot.get("count", 0)) + count
 			_sync_army_from_slots()
-			return
+			return true
 	for index in range(army_slots.size()):
 		if _slot_is_empty(army_slots[index]):
 			army_slots[index] = {"unit_id": unit_id, "count": count}
 			_sync_army_from_slots()
-			return
-	army[unit_id] = int(army.get(unit_id, 0)) + count
+			return true
+	return false
 
 
 ## Убирает из флота до count кораблей, возвращает, сколько реально убрано.

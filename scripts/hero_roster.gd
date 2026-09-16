@@ -22,7 +22,10 @@ func _ready() -> void:
 
 func reset_to_default() -> void:
 	heroes.clear()
-	var admiral := Hero.create("player_admiral", "Адмирал Ковальски", "admiral")
+	# Внутренний id/класс "admiral" остаётся прежним (от него зависят сейвы и
+	# баланс статов) - меняется только личность героя: полковник Павлова,
+	# та же, что уходит в разведку в стартовом брифинге (intro_dialogue.gd).
+	var admiral := Hero.create("player_admiral", "Полковник Павлова", "admiral")
 	admiral.set_army_from_dict({"interceptor": 15, "gunship": 6, "corvette": 2})
 	register(admiral)
 	# Вождь орков — герой стороны 2. Его army и есть флот ИИ на карте

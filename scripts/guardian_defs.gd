@@ -49,6 +49,12 @@ const TEMPLATES := {
 		{"unit_id": "patrol_flagship", "count": 5},
 		{"unit_id": "patrol_command", "count": 2},
 	],
+	## Центральный заслон: линкоры, крейсеры и эсминцы патруля.
+	"central_patrol": [
+		{"unit_id": "patrol_flagship", "count": 3},
+		{"unit_id": "patrol_cruiser", "count": 6},
+		{"unit_id": "patrol_warden", "count": 25},
+	],
 	## Стражи Древних — редкий нейтральный противник, не привязан к поясам
 	## угрозы (не входит в DISTANCE_TEMPLATES), ставится точечно самим
 	## генератором карты (см. "ancient_relic" в map_object_defs.gd). Малые

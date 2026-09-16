@@ -192,8 +192,8 @@ const HEROES := {
 }
 
 const MOD_LABELS := {
-	"attack": "атака",
-	"defense": "защита",
+	"attack": "пробитие",
+	"defense": "броня",
 	"damage_min": "мин. урон",
 	"damage_max": "макс. урон",
 	"move": "скорость",

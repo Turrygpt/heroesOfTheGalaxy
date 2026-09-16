@@ -1,5 +1,13 @@
 # Heroes of the Galaxy — карта проекта для ИИ-агентов
 
+**Первая миссия кампании (16.09.2026):** кнопка «Новая игра» загружает фиксированную
+карту `data/campaign/mars_demo_v1.json` через `scripts/campaign_mission_map.gd`.
+Замысел, квестовые идентификаторы и ограничения — `data/campaign/README.md`.
+Сид этой миссии — `160926`; геометрия задана явно в JSON. Рендер опасных областей —
+`scripts/campaign_terrain_renderer.gd`, проверка — `tools/test_campaign_map.gd`,
+снимок — `tools/campaign_map_shot.gd`. Старое описание процедурной генерации ниже
+относится к случайным и прежним картам. Новые квесты привязывать к `mission_id`.
+
 Космическая стратегия в духе HoMM3: глобальная карта с героем-командующим,
 пошаговый гексовый бой, экран планеты со стройкой и наймом.
 **Godot 4.7 / GDScript, весь код и комментарии — на русском.**
@@ -246,7 +254,7 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 | Красный курс, если маршрут упирается в стража | `route_overlay.gd:_first_guardian_index / _draw_danger_marker` — хвост пути после первой живой охраняемой клетки красный и пунктирный, сама клетка обведена кольцом; источник опасности тот же `guardian_at`, что и в `space_strategy_map.gd:_check_guardian_encounter` |
 | Баланс орочьих кораблей | `orc_defs.gd:UNITS` — множители фракции в шапке файла |
 | Постройки и цены базы орков | `orc_defs.gd:BUILDING_DEFS` + порядок стройки `orc_ai.gd:BUILD_PRIORITY` |
-| Агрессивность и осторожность ИИ | `orc_ai.gd` — `ASSAULT_POWER_RATIO`, `GUARDIAN_ATTACK_RATIO`, `AUTO_BATTLE_ATTRITION`, `REGROUP_GARRISON_RATIO` |
+| Агрессивность и осторожность ИИ | `orc_ai.gd` — `ASSAULT_POWER_RATIO`, `HUNT_POWER_RATIO`/`HUNT_RANGE`, `GUARDIAN_ATTACK_RATIO`, `AUTO_BATTLE_ATTRITION`, `REGROUP_GARRISON_RATIO` |
 | Ход компьютера, бои с орками, конец кампании | `space_strategy_map.gd:_run_orc_turn / _resolve_orc_battle / campaign_outcome` |
 | Оценка силы флота (прогноз и пороги ИИ) | `fleet_power.gd` — НЕ `battle_rewards.gd:ship_value`, тот только про опыт |
 | Объекты в углах карты и их трофей | `map_object_defs.gd:CORNER_LAYOUT` + `_generate_corner_objects` и `TREASURE_*` в `space_strategy_map.gd` |
@@ -375,11 +383,11 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 * **Прирост от форта** — `HumanPlanetState.FORT_GROWTH_BONUS_BY_LEVEL`
   (`+25/+50/+100%` по уровням I/II/III). Орочий ИИ считает свой прирост этой
   же функцией `scaled_weekly_growth`, отдельной таблицы у него нет.
-* **Флот после поражения** — один корабль I ранга у обеих сторон:
-  `space_strategy_map.gd:RETREAT_ARMY` (`interceptor`) и
-  `orc_ai.gd:RESPAWN_ARMY` (`ork_fighter`). Разница только в сроке: герой
-  игрока доступен сразу, вождь орков возвращается через
-  `OrcAI.HERO_RESPAWN_DAYS` солов, зато сразу забирает гарнизон логов.
+* **Флот после поражения** — один корабль I ранга у обеих сторон, сразу же,
+  без паузы: `space_strategy_map.gd:RETREAT_ARMY` (`interceptor`) и
+  `orc_ai.gd:RESPAWN_ARMY` (`ork_fighter`, см. `kill_hero`). Вождь орков
+  забирает накопленный гарнизон логов на следующем ходу ИИ, как обычно —
+  через `_reinforce_hero`, а не разовым бонусом при возрождении.
 * **Оценка силы флота** — `FleetPower`, а не `BattleRewards.ship_value`.
 
 ---

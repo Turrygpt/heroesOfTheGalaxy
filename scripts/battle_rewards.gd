@@ -43,10 +43,14 @@ static func ships_destroyed(unit: Dictionary) -> int:
 
 
 ## Сводка потерь одной стороны: сколько кораблей было, сколько осталось.
+## Сегменты стены форта (is_wall) не входят - это преграда, а не флот (то же
+## правило, что у _stack_count в tactical_battle.gd), и их может быть до
+## девяти на сторону: без фильтра список потерь раздувался настолько, что
+## кнопка закрытия окна итогов уезжала за пределы фиксированной панели.
 static func side_casualties(units: Array, side: int) -> Array:
 	var rows: Array = []
 	for unit in units:
-		if int(unit.get("side", 0)) != side:
+		if int(unit.get("side", 0)) != side or bool(unit.get("is_wall", false)):
 			continue
 		var hull := int(unit.get("hull", 1))
 		var start := int(unit.get("start_count", unit.get("count", 0)))
@@ -72,11 +76,17 @@ static func ships_lost(units: Array, side: int) -> int:
 
 
 ## Опыт за нанесённые потери. Уничтоженная сторона не получает опыта.
+## Стены форта (is_wall) не считаются ни во флот, ни в опыт - иначе снос
+## сегментов стены сам по себе давал бы награду, а уцелевший сегмент на
+## стороне противника мог бы вечно держать enemies_left > 0 и не давать
+## бонус за победу, даже когда весь настоящий флот уже уничтожен.
 static func experience_for_battle(units: Array, hero_side: int, automated: bool = false) -> int:
 	var total := 0
 	var enemies_left := 0
 	var allies_left := 0
 	for unit in units:
+		if bool(unit.get("is_wall", false)):
+			continue
 		if int(unit.get("side", 0)) == hero_side:
 			if int(unit.get("hp", 0)) > 0:
 				allies_left += 1

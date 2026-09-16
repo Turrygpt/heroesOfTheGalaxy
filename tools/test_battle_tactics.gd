@@ -34,6 +34,41 @@ func _make_battle(player_id: String = "corvette", player_count: int = 12,
 	return battle
 
 
+## Орбитальная стена — не декоративный бонус: пока её сегмент жив, батарея
+## за ним не может прострелить поле. После уничтожения ровно этого сегмента
+## появляется проход для линии огня. Непосредственный вызов _attack_unit здесь
+## нужен, чтобы проверить именно прочность стены, а не очередь ходов.
+func _test_orbital_wall_blocks_and_breaks() -> void:
+	var battle = load("res://scenes/TacticalBattle.tscn").instantiate()
+	battle.quick_battle = true
+	battle.guardian_fort_level = 1
+	battle.player_units_override = [{"unit_id": "interceptor", "count": 1}] as Array[Dictionary]
+	battle.enemy_units_override = [{"unit_id": "orbital_platform", "count": 1}] as Array[Dictionary]
+	root.add_child(battle)
+	battle.set_process(false)
+	battle.experience_granted = true
+	var player_index := 0
+	var platform_index := 1
+	var wall_cell := Vector2i(battle.WALL_COLUMN_SIDE2, 4)
+	var wall_index: int = int(battle.wall_at[wall_cell])
+	battle.units[player_index]["cell"] = Vector2i(5, 4)
+	battle.units[platform_index]["cell"] = Vector2i(13, 4)
+	battle.active_unit_index = platform_index
+	_check(int(battle.units[wall_index]["max_hp"]) == 130,
+		"Сегмент орбитальной стены обязан иметь 130 прочности")
+	_check(battle._can_shoot_unit(player_index),
+		"Орбитальная батарея должна стрелять через собственную стену")
+	while battle.units[wall_index]["hp"] > 0:
+		battle.units[platform_index]["shot"] = false
+		battle._attack_unit(platform_index, wall_index, false)
+	_check(battle.units[wall_index]["hp"] <= 0,
+		"Сегмент стены должен разрушаться от урона")
+	battle.units[platform_index]["shot"] = false
+	_check(battle._can_shoot_unit(player_index),
+		"После разрушения сегмента должен открываться прострел через брешь")
+	battle.free()
+
+
 ## Ответный залп срабатывает синхронно внутри _attack_unit и может убить
 ## самого стрелка раньше, чем он успел походить (moved остаётся false) —
 ## раньше в этом случае ход зависал, потому что _maybe_finish_active_turn
@@ -146,6 +181,7 @@ func _run() -> void:
 	_test_leaves_only_encirclement()
 	_test_ai_repositions_before_shot()
 	_test_defensive_ignores_mid_round_approach()
+	_test_orbital_wall_blocks_and_breaks()
 	if failures == 0:
-		print("PASS: гибель активного отряда от ответки не вешает ход, выход из окружения, защитный автобой держит строй до начала-раунда угрозы")
+		print("PASS: гибель активного отряда от ответки не вешает ход, выход из окружения, защитный автобой держит строй до начала-раунда угрозы, орбитальная стена блокирует огонь и разрушается")
 	quit(1 if failures else 0)

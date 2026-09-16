@@ -16,6 +16,7 @@ const MUSIC_FADED_VOLUME_DB := -40.0
 const MENU_LAYERS_DIR := "res://assets/ui/main_menu_layers"
 const MENU_BACKGROUNDS_DIR := "res://assets/ui/main_menu_backgrounds"
 const GAME_VERSION := "0.1.0"
+const IntroVideoPlayer := preload("res://scripts/intro_video_player.gd")
 
 var status: Label
 var menu_font: Font
@@ -23,6 +24,10 @@ var music_player: AudioStreamPlayer
 var transition_started := false
 var loading_scene := ""
 var requested_load := false
+## Пока интро-ролик играет, загруженную сцену придерживаем здесь вместо
+## немедленной смены - см. _new_game/_process/_finish_scene_change.
+var intro_active := false
+var pending_packed_scene: PackedScene = null
 var menu_buttons: Array[Button] = []
 var safe_area: MarginContainer
 var version_label: Label
@@ -282,11 +287,38 @@ func _button(parent: Node, text: String, action: Callable) -> Button:
 	return button
 
 
+## Интро-трейлер перед стартом обычной новой кампании - пропускается любой
+## клавишей/кликом. "Случайная карта" и загрузка сохранения ролик не
+## показывают: это либо отладочный быстрый старт, либо продолжение уже идущей
+## партии, а не её начало. Брифинг адмирала с Павловой идёт уже НА КАРТЕ,
+## поверх неё (см. space_strategy_map.gd:_show_intro_briefing), а не здесь.
+## Загрузка карты запускается СРАЗУ, параллельно ролику (а не после него),
+## поэтому к концу трейлера сцена обычно уже готова и переход мгновенный.
+## Если ролик кончится раньше загрузки, смена сцены просто ждёт её
+## (см. _process/_finish_scene_change).
 func _new_game() -> void:
 	if transition_started:
 		return
 	requested_load = false
+	intro_active = true
+	_fade_music()
+	var intro := IntroVideoPlayer.new()
+	intro.finished.connect(_on_intro_finished)
+	add_child(intro)
 	_fade_out_and_change_scene("res://scenes/StrategicMain.tscn")
+
+
+func _on_intro_finished() -> void:
+	intro_active = false
+	_try_apply_pending_scene()
+
+
+func _try_apply_pending_scene() -> void:
+	if intro_active or pending_packed_scene == null:
+		return
+	var packed := pending_packed_scene
+	pending_packed_scene = null
+	_finish_scene_change(packed)
 
 
 func _random_game() -> void:
@@ -314,7 +346,22 @@ func _fade_out_and_change_scene(scene_path: String, random_map: bool = false) ->
 		_loading_failed()
 
 
+func _finish_scene_change(packed: PackedScene) -> void:
+	if requested_load:
+		if not CampaignSave.prepare_load():
+			_loading_failed()
+			status.text = CampaignSave.error_message
+			return
+	else:
+		CampaignSave.prepare_new_game(CampaignSave.random_map_requested)
+	_fade_music()
+	if packed == null or get_tree().change_scene_to_packed(packed) != OK:
+		_loading_failed()
+
+
 ## Фоновая загрузка сохраняет отзывчивость меню и показывает реальный прогресс.
+## Пока играет интро (intro_active), готовая сцена не применяется сразу -
+## ждёт _on_intro_finished, иначе смена сцены оборвала бы видео на середине.
 func _process(_delta: float) -> void:
 	if loading_scene.is_empty():
 		return
@@ -323,16 +370,10 @@ func _process(_delta: float) -> void:
 	if state == ResourceLoader.THREAD_LOAD_LOADED:
 		var packed := ResourceLoader.load_threaded_get(loading_scene) as PackedScene
 		loading_scene = ""
-		if requested_load:
-			if not CampaignSave.prepare_load():
-				_loading_failed()
-				status.text = CampaignSave.error_message
-				return
+		if intro_active:
+			pending_packed_scene = packed
 		else:
-			CampaignSave.prepare_new_game(CampaignSave.random_map_requested)
-		_fade_music()
-		if packed == null or get_tree().change_scene_to_packed(packed) != OK:
-			_loading_failed()
+			_finish_scene_change(packed)
 	elif state == ResourceLoader.THREAD_LOAD_FAILED or state == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
 		_loading_failed()
 	elif not progress.is_empty():
@@ -343,6 +384,7 @@ func _process(_delta: float) -> void:
 
 func _loading_failed() -> void:
 	loading_scene = ""
+	pending_packed_scene = null
 	transition_started = false
 	status.text = "Не удалось загрузить галактику. Попробуйте ещё раз."
 	for button in menu_buttons:

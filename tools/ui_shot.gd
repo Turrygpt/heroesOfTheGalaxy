@@ -107,6 +107,15 @@ func _ready() -> void:
 				add_child(dialog)
 				var fleet: Array[Dictionary] = [{"unit_id": "interceptor", "count": 24}]
 				dialog.setup(fleet, fleet)
+			"herocard":
+				hero.skills["gunnery"] = 2
+				hero.skills["leadership"] = 1
+				hero.skills["diplomacy"] = 3
+				hero.add_artifact("flagship_standard")
+				hero.add_artifact("corsair_talisman")
+				var dialog := preload("res://scripts/hero_card_dialog.gd").new()
+				add_child(dialog)
+				dialog.setup(hero)
 	for frame in range(30):
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw

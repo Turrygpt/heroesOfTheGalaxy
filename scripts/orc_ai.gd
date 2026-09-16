@@ -81,6 +81,15 @@ const RETREAT_POWER_RATIO := 0.55
 ## пришлось поднять после появления захода с тыла и выхода из окружения —
 ## манёвренный бой стал резче, и прежние ×1,3 уже не хватало.
 const GUARDIAN_ATTACK_RATIO := 1.6
+## Порог для локальной охоты на флот игрока, если он подвернулся поблизости —
+## ниже, чем ASSAULT_POWER_RATIO, потому что это не поход на столицу, а
+## добивание случайно подвернувшейся слабой цели: заметный перевес уже
+## оправдывает риск, ждать полуторакратного превосходства незачем.
+const HUNT_POWER_RATIO := 1.15
+## Дальность, на которой вождь замечает флот игрока и бросает текущее дело
+## ради погони. Чуть больше суточного хода (MOVEMENT_POINTS_PER_DAY), чтобы
+## орда реагировала на цель в паре солов пути, а не гонялась через всю карту.
+const HUNT_RANGE := 12
 ## Доля боевой силы побеждённого противника, которую атакующий теряет
 ## кораблями. 0,55 — тоже из замера: столько в среднем стоит победа на своём
 ## пороге атаки.
@@ -91,8 +100,6 @@ const REGROUP_GARRISON_RATIO := 0.3
 ## Штраф к «дальности» месторождения, чей ресурс сейчас не нужен стройке.
 ## В клетках: ИИ готов слетать на 10 клеток дальше за нужным ресурсом.
 const NEEDED_RESOURCE_PREFERENCE := 10
-## Сколько солов вождь собирает новый флот после гибели.
-const HERO_RESPAWN_DAYS := 7
 ## С чем вождь возвращается в строй. Ровно то же, что остаётся у героя игрока
 ## после проигранного боя (см. space_strategy_map.gd:RETREAT_ARMY): один
 ## корабль I ранга и накопленный в логовах гарнизон, который он тут же
@@ -110,8 +117,7 @@ var available_growth := {}
 var hero_cell := Vector2i.ZERO
 var home_cell := Vector2i.ZERO
 var hero_alive := true
-var respawn_countdown := 0
-## Куда идёт вождь и зачем: "capture" | "assault" | "regroup" | "".
+## Куда идёт вождь и зачем: "capture" | "assault" | "hunt" | "regroup" | "".
 var goal_cell := Vector2i(-1, -1)
 var goal_kind := ""
 ## Строки отчёта за последний ход — карта показывает их игроку.
@@ -141,7 +147,6 @@ func take_turn(map: Node2D) -> Dictionary:
 		_apply_weekly_growth()
 	_build()
 	_recruit()
-	_update_hero_state(map)
 	if hero_alive:
 		_reinforce_hero(map)
 		_move_hero(map)
@@ -304,34 +309,21 @@ func hero(map: Node2D) -> Hero:
 	return map.orc_hero()
 
 
-## Возрождение вождя после гибели: он «собирает новую орду» несколько солов,
-## потом появляется на базе и забирает весь накопленный гарнизон.
-func _update_hero_state(map: Node2D) -> void:
-	if hero_alive:
-		return
-	respawn_countdown -= 1
-	if respawn_countdown > 0:
-		return
+## Возрождение вождя после гибели — сразу, тем же ходом, ровно как у героя
+## игрока (см. space_strategy_map.gd:RETREAT_ARMY/_retreat_player_home): один
+## корабль I ранга и назад на базу, без паузы. Раньше вождь неделю "собирал
+## новую орду" за кулисами — это давало игроку слишком длинную безопасную
+## передышку и не симметрично правилу для его собственного героя (§6a).
+func kill_hero(map: Node2D) -> void:
 	hero_alive = true
 	hero_cell = home_cell
 	goal_cell = Vector2i(-1, -1)
 	goal_kind = ""
 	var warlord := hero(map)
 	if warlord != null:
-		warlord.army = RESPAWN_ARMY.duplicate()
+		warlord.set_army_from_dict(RESPAWN_ARMY)
 		warlord.energy = warlord.max_energy()
-	last_report.append("Вождь орков вернулся на базу с новой ордой.")
-
-
-func kill_hero(map: Node2D) -> void:
-	hero_alive = false
-	respawn_countdown = HERO_RESPAWN_DAYS
-	hero_cell = home_cell
-	goal_cell = Vector2i(-1, -1)
-	goal_kind = ""
-	var warlord := hero(map)
-	if warlord != null:
-		warlord.army = {}
+	last_report.append("Флот вождя разбит, но он сразу вернулся на базу с одним истребителем.")
 
 
 ## Гарнизон вливается во флот вождя, только когда он физически на базе —
@@ -342,15 +334,17 @@ func _reinforce_hero(map: Node2D) -> void:
 	var warlord := hero(map)
 	if warlord == null:
 		return
+	var reinforced := warlord.army.duplicate()
 	var taken := 0
 	for unit_id in garrison:
 		var count := int(garrison[unit_id])
 		if count <= 0:
 			continue
-		warlord.army[unit_id] = int(warlord.army.get(unit_id, 0)) + count
+		reinforced[unit_id] = int(reinforced.get(unit_id, 0)) + count
 		taken += count
 	garrison.clear()
 	if taken > 0:
+		warlord.set_army_from_dict(reinforced)
 		last_report.append("Вождь принял из логов %d кораблей." % taken)
 
 
@@ -402,8 +396,10 @@ func _player_power(map: Node2D) -> float:
 	return army_power(player.army) if player != null else 0.0
 
 
-## Выбор цели на сол. Порядок: подавляющее превосходство — в наступление;
-## иначе ближайшее чужое месторождение; если флот совсем слаб — домой.
+## Выбор цели на сол. Порядок: подавляющее превосходство и настал срок —
+## поход на столицу; заметный перевес и слабый флот игрока подвернулся рядом —
+## охота на него; иначе ближайшее чужое месторождение; если флот совсем слаб —
+## домой.
 func _choose_goal(map: Node2D) -> void:
 	var warlord := hero(map)
 	if warlord == null:
@@ -422,6 +418,14 @@ func _choose_goal(map: Node2D) -> void:
 		goal_cell = map.current_cell if player_distance <= planet_distance else map.HUMAN_PLANET_CENTER
 		goal_kind = "assault"
 		return
+	# Локальная охота: полномасштабного перевеса для похода на столицу ещё нет
+	# (или не настал ASSAULT_EARLIEST_DAY), но флот игрока подвернулся рядом и
+	# заметно слабее — вождь бросает стройку/захват и добивает его на месте.
+	if player_power > 0.0 and own_power >= player_power * HUNT_POWER_RATIO \
+			and _distance(hero_cell, map.current_cell) <= HUNT_RANGE:
+		goal_cell = map.current_cell
+		goal_kind = "hunt"
+		return
 	# За накопленным в логовах флотом стоит слетать домой, если он заметен на
 	# фоне текущей орды, — иначе корабли лежат в гарнизоне всю партию.
 	var garrison_power := army_power(garrison)
@@ -434,6 +438,15 @@ func _choose_goal(map: Node2D) -> void:
 	if site_cell.x >= 0:
 		goal_cell = site_cell
 		goal_kind = "capture"
+		return
+	# Все окрестные месторождения уже разобраны или слишком далеко/охраняются
+	# не по зубам — орда не паркуется дома до конца партии, а идёт грабить
+	# стражей по силам ради опыта вождю (экономика тем временем не стоит:
+	# казна и найм из уже построенных логов продолжают идти каждый сол).
+	var loot_cell := _best_loot_target(map, own_power)
+	if loot_cell.x >= 0:
+		goal_cell = loot_cell
+		goal_kind = "loot"
 		return
 	goal_cell = home_cell
 	goal_kind = "regroup"
@@ -462,6 +475,27 @@ func _best_capture_target(map: Node2D, own_power: float) -> Vector2i:
 			var guard_power := fleet_power(map.guardians[guard_index]["fleet"])
 			if own_power < guard_power * GUARDIAN_ATTACK_RATIO:
 				continue
+		best_cell = cell
+		best_score = score
+	return best_cell
+
+
+## Нейтральный страж без привязки к месторождению (тайники, патрули,
+## дрейфующие обломки) — резервная цель, когда захватывать больше нечего.
+## Стражи месторождений сюда не попадают: их разбирает _best_capture_target.
+func _best_loot_target(map: Node2D, own_power: float) -> Vector2i:
+	var best_cell := Vector2i(-1, -1)
+	var best_score := 1 << 30
+	for guardian in map.guardians:
+		if not bool(guardian.get("alive", false)) or int(guardian.get("site_index", -1)) >= 0:
+			continue
+		var guard_power := fleet_power(guardian.get("fleet", []))
+		if guard_power <= 0.0 or own_power < guard_power * GUARDIAN_ATTACK_RATIO:
+			continue
+		var cell: Vector2i = guardian["cell"]
+		var score := _distance(hero_cell, cell)
+		if score >= best_score:
+			continue
 		best_cell = cell
 		best_score = score
 	return best_cell
@@ -568,7 +602,7 @@ func _fight_guardian(map: Node2D, guard_index: int) -> bool:
 		return false
 	var guardian: Dictionary = map.guardians[guard_index]
 	var outcome := resolve_auto_battle(warlord.army, guardian["fleet"])
-	warlord.army = outcome["army"]
+	warlord.set_army_from_dict(outcome["army"])
 	if not bool(outcome["won"]):
 		last_report.append("Флот вождя разбит стражами.")
 		kill_hero(map)
@@ -665,7 +699,6 @@ func to_dict() -> Dictionary:
 		"hero_cell": hero_cell,
 		"home_cell": home_cell,
 		"hero_alive": hero_alive,
-		"respawn_countdown": respawn_countdown,
 		"goal_cell": goal_cell,
 		"goal_kind": goal_kind,
 	}
@@ -683,7 +716,6 @@ static func from_dict(data: Dictionary, fallback_home: Vector2i) -> OrcAI:
 	ai.home_cell = data.get("home_cell", fallback_home)
 	ai.hero_cell = data.get("hero_cell", ai.home_cell)
 	ai.hero_alive = bool(data.get("hero_alive", true))
-	ai.respawn_countdown = int(data.get("respawn_countdown", 0))
 	ai.goal_cell = data.get("goal_cell", Vector2i(-1, -1))
 	ai.goal_kind = String(data.get("goal_kind", ""))
 	return ai

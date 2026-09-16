@@ -203,7 +203,7 @@ func _turn_order_chip(unit: Dictionary, is_active: bool) -> Control:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2.ONE * TURN_ORDER_ICON_SIZE
 	panel.add_theme_stylebox_override("panel", _style(GOLD if is_active else color, Color(0.03, 0.05, 0.08, 0.9)))
-	panel.tooltip_text = "%s ×%d" % [String(unit.get("label", "")), int(unit.get("count", 0))]
+	panel.tooltip_text = "%s ×%d" % [UnitDefs.display_name_from_unit(unit), int(unit.get("count", 0))]
 	var icon := TextureRect.new()
 	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

@@ -69,6 +69,16 @@ func _draw_danger_marker(center: Vector2) -> void:
 
 func _draw_terrain_boundaries(strategy_map: Node2D) -> void:
 	var highlighted := {}
+	# Опасный фронт миссии занимает целый сектор: обводим лишь ближайший
+	# участок, иначе наведение на один камень подсвечивает половину карты.
+	var local_cells := {}
+	if strategy_map.campaign_map_id != "":
+		var centers: Array = [strategy_map.hovered_cell]
+		centers.append_array(strategy_map.planned_path)
+		for center: Vector2i in centers:
+			for x in range(center.x - 3, center.x + 4):
+				for y in range(center.y - 3, center.y + 4):
+					local_cells[Vector2i(x, y)] = true
 	if strategy_map.hovered_obstacle >= 0:
 		highlighted[strategy_map.hovered_obstacle] = true
 	# Показываем только препятствия рядом с выбранным маршрутом.
@@ -87,6 +97,8 @@ func _draw_terrain_boundaries(strategy_map: Node2D) -> void:
 		for cell in obstacle["cells"]:
 			mask[cell] = true
 		for cell in obstacle["cells"]:
+			if strategy_map.campaign_map_id != "" and not local_cells.has(cell):
+				continue
 			var corner: Vector2 = Vector2(cell) * strategy_map.CELL_SIZE
 			if hovered:
 				draw_rect(Rect2(corner, Vector2.ONE * strategy_map.CELL_SIZE), Color(color, 0.07))

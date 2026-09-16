@@ -4,6 +4,8 @@ extends RefCounted
 ## cells — общая геометрия для карты, навигации и миникарты.
 ## rect используется только как охватывающая рамка.
 const KINDS := {
+	"radiation_front": {"title": "Газовая туманность — пролёт невозможен", "passable": false, "move_cost": 0,
+		"sheet": "res://assets/space/obstacle_nebula.png", "minimap_color": "73558c"},
 	"asteroid_field": {"title": "Астероидный пояс", "passable": false, "move_cost": 0,
 		"sheet": "res://assets/space/obstacle_asteroid_field.png", "minimap_color": "788793"},
 	"planetoid": {"title": "Обломок мира", "passable": false, "move_cost": 0,

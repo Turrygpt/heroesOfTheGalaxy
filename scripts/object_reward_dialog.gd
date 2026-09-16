@@ -68,7 +68,7 @@ func setup(title: String, description: String, texture: Texture2D = null, choice
 		body.add_child(close_button)
 		close_button.grab_focus()
 	else:
-		var row := HBoxContainer.new()
+		var row: BoxContainer = VBoxContainer.new() if choices.size() > 2 else HBoxContainer.new()
 		row.add_theme_constant_override("separation", 12)
 		body.add_child(row)
 		var first_button: Button

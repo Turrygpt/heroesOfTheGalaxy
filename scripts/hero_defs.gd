@@ -39,13 +39,13 @@ const ENERGY_PER_WISDOM := 10
 
 # Совокупный опыт для уровня; индекс массива — уровень героя.
 const EXPERIENCE_TABLE := [0, 0, 1000, 2000, 3200, 4600, 6200, 8000, 10000, 12200, 14700, 17500, 20600]
-const EXPERIENCE_GROWTH := 1.2
+const EXPERIENCE_GROWTH := 1.38
 
 ## Классы. Веса роста первичных статов меняются после 10 уровня — ветераны
 ## чаще растут в «технических» характеристиках, как в HoMM.
 const CLASSES := {
 	"admiral": {
-		"name": "Адмирал",
+		"name": "Полковник",
 		"faction": "Земной флот",
 		"blurb": "Линейная тактика, залповый огонь, дисциплина строя",
 		"base_stats": {"attack": 2, "defense": 2, "power": 1, "wisdom": 1},
@@ -222,7 +222,7 @@ const SKILLS := {
 		"name": "Дипломатия",
 		"category": "strategy",
 		"desc": "%s%% шанс, что нейтральный флот присоединится вместо боя",
-		"tiers": [20, 35, 50],
+		"tiers": [10, 20, 30],
 		"weights": {"admiral": 5, "engineer": 4, "warlord": 4, "shaman": 4, "corsair": 6},
 	},
 	"learning": {
@@ -269,13 +269,13 @@ const ARTIFACTS := {
 	"corsair_talisman": {
 		"name": "Талисман капера",
 		"description": "Потрёпанный амулет с пиратского фрегата — говорят, он ещё никого не подводил.",
-		"effect": {"type": "luck_percent", "value": 15},
+		"effect": {"type": "diplomacy_percent", "value": 10},
 		"texture": preload("res://assets/artifacts/corsair_talisman.png"),
 	},
 	"flagship_standard": {
 		"name": "Штандарт флагмана",
 		"description": "Боевое знамя поднимает дух экипажей — те чаще проявляют инициативу.",
-		"effect": {"type": "morale_percent", "value": 15},
+		"effect": {"type": "morale_percent", "value": 10},
 		"texture": preload("res://assets/artifacts/flagship_standard.png"),
 	},
 	"singularity_core": {
@@ -364,6 +364,8 @@ static func artifact_bonus_text(artifact: Dictionary) -> String:
 			return "Удача +%d%%" % value
 		"morale_percent":
 			return "Мораль +%d%%" % value
+		"diplomacy_percent":
+			return "Дипломатия +%d%%" % value
 		"energy_regen_percent":
 			return "Восстановление энергии +%d%%" % value
 	return "Бонус +%d" % value

@@ -47,6 +47,8 @@ func save_campaign(map: Node, path: String = SAVE_PATH) -> bool:
 	var snapshot := {}
 	for field in MAP_FIELDS:
 		snapshot[field] = map.get(field)
+	snapshot["campaign_map_id"] = map.campaign_map_id
+	snapshot["story_state"] = map.story_state
 	snapshot["random_state"] = map.map_random.state
 	snapshot["pirate_balance_version"] = 4
 	snapshot["camera_position"] = map.camera.position
