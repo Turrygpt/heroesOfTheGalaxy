@@ -73,6 +73,24 @@ func _run() -> void:
 	story.visit("ridus_base")
 	check(not map.guardians[guardian_index(map, "trade_patrol")].alive, "Конвой не пропускает союзника")
 	check(not map.guardians[guardian_index(map, "pirate_patrol")].alive, "Дозор не пропускает союзника")
+	var cruiser_index := guardian_index(map, "pirate_quest_cruiser")
+	check(cruiser_index >= 0, "После контракта Ридуса не появился пиратский крейсер")
+	if cruiser_index >= 0:
+		var fleet: Array = map.guardians[cruiser_index].fleet
+		check(fleet.any(func(entry: Dictionary) -> bool: return entry.unit_id == "pirate_battleship"),
+			"В квестовом флоте нет пиратского крейсера")
+		check(fleet.any(func(entry: Dictionary) -> bool: return entry.unit_id == "raider") \
+				and fleet.any(func(entry: Dictionary) -> bool: return entry.unit_id == "pirate_gunship"),
+			"Крейсер должен иметь прикрытие I–II ранга")
+	for convoy_id in ["ridus_trader_convoy_1", "ridus_trader_convoy_2"]:
+		var convoy_index := guardian_index(map, convoy_id)
+		check(convoy_index >= 0, "После контракта Ридуса не появился торговый конвой")
+		if convoy_index >= 0:
+			var flagships := 0
+			for entry in map.guardians[convoy_index].fleet:
+				if String(entry.unit_id) == "trader_destroyer":
+					flagships += int(entry.count)
+			check(flagships == 0, "В торговом конвое не должно быть флагмана")
 	story.captured("production_2_2")
 	story.captured("production_2_5")
 	story.guardian_won("side_reward_3")

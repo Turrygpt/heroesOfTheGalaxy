@@ -128,7 +128,12 @@ func _draw_object_guardian(center: Vector2, object_kind: String, size: int) -> v
 func _draw_object_name(center: Vector2, object_name: String, size: int, has_texture: bool) -> void:
 	var font := ThemeDB.fallback_font
 	var font_size := 14 if size <= 1 else 15
-	var width := 210.0 if size <= 1 else 260.0
+	var base_width := 210.0 if size <= 1 else 260.0
+	# Квестовые флоты имеют длинные собственные имена. Ширина подписи должна
+	# учитывать реальный размер строки, иначе CanvasItem обрезает её по границе
+	# стандартного блока и на карте остаётся только начало названия.
+	var text_width := font.get_string_size(object_name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+	var width := clampf(text_width + 18.0, base_width, 420.0)
 	var object_radius := CELL_SIZE_FOR_FOOTPRINT * size * FOOTPRINT_ICON_MARGIN * 0.5 if has_texture or size > 1 else ICON_DIAMETER * 0.5
 	var position := center + Vector2(-width * 0.5, object_radius + font_size + 8.0)
 	draw_string(font, position + Vector2(2, 2), object_name, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, Color(0.01, 0.02, 0.035, 0.98))

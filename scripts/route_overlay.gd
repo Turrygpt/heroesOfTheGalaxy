@@ -57,6 +57,8 @@ func _first_guardian_index(strategy_map: Node2D) -> int:
 	for index in range(strategy_map.planned_path.size()):
 		var cell: Vector2i = strategy_map.planned_path[index]
 		var guardian_index: int = strategy_map.guardian_at.get(cell, -1)
+		if guardian_index < 0:
+			guardian_index = strategy_map._guardian_in_control_zone(cell)
 		if guardian_index >= 0 and strategy_map.guardians[guardian_index]["alive"]:
 			return index
 	return -1

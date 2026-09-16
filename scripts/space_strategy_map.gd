@@ -926,11 +926,29 @@ func _draw() -> void:
 		var y := row * CELL_SIZE
 		draw_line(Vector2(0.0, y), Vector2(map_pixel_size.x, y), GRID_COLOR, 2.0)
 	_draw_production_owner_markers()
+	if campaign_story != null and campaign_story.has_seen("pirate_complete"):
+		_draw_secret_passage_marker(Vector2i(22, 40), "Секретный фарватер")
+	if campaign_story != null and campaign_story.has_seen("trader_complete"):
+		_draw_secret_passage_marker(Vector2i(29, 18), "Секретный фарватер")
 	if beacon_cell != Vector2i(-1, -1):
 		var beacon_rect := Rect2(Vector2(beacon_cell) * CELL_SIZE, Vector2.ONE * CELL_SIZE)
 		draw_rect(beacon_rect, Color("ffd166"), false, 5.0)
 		draw_line(beacon_rect.position, beacon_rect.end, Color("ffd166", 0.55), 2.0)
 		draw_line(Vector2(beacon_rect.end.x, beacon_rect.position.y), Vector2(beacon_rect.position.x, beacon_rect.end.y), Color("ffd166", 0.55), 2.0)
+
+
+func _draw_secret_passage_marker(cell: Vector2i, label: String) -> void:
+	var center := _cell_center(cell)
+	var font := ThemeDB.fallback_font
+	var font_size := 16
+	var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	var text_position := center + Vector2(16.0, -18.0)
+	draw_circle(center, 8.0, Color("ffd166", 0.22))
+	draw_arc(center, 8.0, 0.0, TAU, 24, Color("ffd166"), 2.0, true)
+	draw_rect(Rect2(text_position - Vector2(5.0, text_size.y), text_size + Vector2(10.0, 7.0)),
+		Color(0.02, 0.04, 0.08, 0.82), true)
+	draw_string(font, text_position, label, HORIZONTAL_ALIGNMENT_LEFT, -1.0,
+		font_size, Color("ffd166"))
 
 
 func set_beacon(cell: Vector2i) -> void:
@@ -1037,14 +1055,10 @@ func _build_path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
 
 func _block_patrol_aggro_for_route(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
 	## Автопилот обходит зону агро патрулей, а не только клетку самого флота.
-	## Старт и цель не блокируем: из зоны можно выйти, а подход к патрулю или
-	## охраняемому объекту должен завершиться столкновением. Сам страж и его
-	## непосредственные соседи (Чебышёв ≤ 1) тоже не блокируются — на проходе
-	## разлома (единственная лазейка через него, см. _guard_passages) это ровно
-	## коридор подхода с обеих сторон; без этого запаса радиус агро запечатывал
-	## бы весь проход наглухо — единственная проходимая клетка зоны (сам страж)
-	## оставалась бы отрезанной кольцом блокированных соседей, и маршрут не мог
-	## бы дойти до неё вообще ни с одной стороны.
+	## Если старт или назначенная игроком цель уже находятся внутри конкретной
+	## зоны, её не блокируем: из неё нужно позволить выйти, а явный приказ лететь
+	## к патрулю должен приводить к контакту. Во всех остальных случаях закрываем
+	## квадрат целиком: радиус 1 даёт 3×3, радиус 2 — 5×5.
 	var blocked: Array[Vector2i] = []
 	for guardian in guardians:
 		var guardian_kind := String(guardian.get("kind", ""))
@@ -1052,11 +1066,12 @@ func _block_patrol_aggro_for_route(from_cell: Vector2i, to_cell: Vector2i) -> Ar
 			continue
 		var center: Vector2i = guardian["cell"]
 		var radius := int(guardian.get("aggro_radius", GUARDIAN_CONTROL_RADIUS))
+		if _chebyshev_distance(from_cell, center) <= radius or _chebyshev_distance(to_cell, center) <= radius:
+			continue
 		for x in range(center.x - radius, center.x + radius + 1):
 			for y in range(center.y - radius, center.y + radius + 1):
 				var cell := Vector2i(x, y)
-				if cell == from_cell or cell == to_cell or _chebyshev_distance(cell, center) <= 1 \
-					or not _cell_is_inside_map(cell) or _cell_is_blocked(cell):
+				if not _cell_is_inside_map(cell) or _cell_is_blocked(cell):
 					continue
 				if blocked.has(cell):
 					continue

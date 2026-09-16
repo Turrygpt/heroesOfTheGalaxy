@@ -14,6 +14,25 @@ var active_quests_label: Label
 var journal_layer: CanvasLayer
 ## Точка рандеву уже за центральной туманностью, ближе к марсианскому сектору.
 const MARSHAL_RENDEZVOUS := Vector2i(37, 35)
+## Крейсер из контракта появляется на старом пиратском рубеже между базой
+## Ридуса и входом в секретный фарватер.
+const PIRATE_CRUISER_CELL := Vector2i(18, 40)
+## Два конвоя из контракта стоят на северном торговом маршруте. Первый
+## везёт кредитные чипы, второй — топливо для марсианских бандитов.
+const PIRATE_CONTRACT_CONVOYS := [
+	{
+		"mission_id": "ridus_trader_convoy_1",
+		"cell": Vector2i(24, 16),
+		"name": "Торговый конвой «Золотой путь»",
+		"reward": {"type": "credits", "amount": 2500},
+	},
+	{
+		"mission_id": "ridus_trader_convoy_2",
+		"cell": Vector2i(40, 12),
+		"name": "Торговый конвой «Северный караван»",
+		"reward": {"type": "resources", "resource_name": "Топливо", "amount": 8},
+	},
+]
 
 
 func _ready() -> void:
@@ -25,6 +44,10 @@ func _ready() -> void:
 		map.story_state["pirate_line"] = {"active": false, "traders": 0, "frigates": false, "cruiser": false}
 	if not map.story_state.has("trader_line"):
 		map.story_state["trader_line"] = {"active": false, "pirates": 0, "paid": false, "base": false, "artifact": false}
+	if map.story_state.pirate_line.active and not map.story_state.pirate_line.cruiser:
+		_spawn_pirate_quest_cruiser()
+	if map.story_state.pirate_line.active and map.story_state.pirate_line.traders < 2:
+		_spawn_pirate_contract_convoys()
 	journal_button = Button.new()
 	journal_button.text = "Журнал миссии"
 	journal_button.position = Vector2(18, 70)
@@ -115,6 +138,12 @@ func update_progress() -> void:
 		if hero != null and not hero.artifacts.is_empty():
 			hero.artifacts.erase(String(hero.artifacts.keys()[0]))
 			map.story_state.trader_line.artifact = true
+	if map.story_state.trader_line.active \
+			and map.story_state.trader_line.pirates >= 2 \
+			and map.story_state.trader_line.paid \
+			and map.story_state.trader_line.artifact \
+			and not has_seen("trader_complete"):
+		enqueue("trader_complete")
 	if map.story_state.pirate_line.active \
 			and map.story_state.pirate_line.traders >= 2 \
 			and map.story_state.pirate_line.frigates \
@@ -198,6 +227,8 @@ func visit(id: String) -> bool:
 		map.story_state.pirate_line.active = true
 		if first_visit:
 			enqueue("pirate_contract")
+			_spawn_pirate_quest_cruiser()
+			_spawn_pirate_contract_convoys()
 		open_passage("pirate_patrol")
 		_refresh_active_quests()
 		# Передаём прибытие штатному окну базы, чтобы карта не оставалась
@@ -248,6 +279,47 @@ func contact_guardian(index: int) -> bool:
 		map.route_overlay.queue_redraw()
 		enqueue("gate")
 	return true
+
+
+func _spawn_pirate_quest_cruiser() -> void:
+	for guardian in map.guardians:
+		if String(guardian.get("mission_id", "")) == "pirate_quest_cruiser":
+			return
+	if map.guardian_at.has(PIRATE_CRUISER_CELL) or map.map_object_at.has(PIRATE_CRUISER_CELL) \
+			or map.obstacle_at.has(PIRATE_CRUISER_CELL):
+		push_warning("Не удалось разместить квестовый пиратский крейсер в точке %s" % PIRATE_CRUISER_CELL)
+		return
+	map._add_guardian(PIRATE_CRUISER_CELL, "pirate_quest_cruiser", -1)
+	var guardian: Dictionary = map.guardians[-1]
+	guardian["mission_id"] = "pirate_quest_cruiser"
+	guardian["display_name"] = "Пиратский крейсер «Чёрный рубеж»"
+	guardian["aggro_radius"] = 1
+	map.guardian_overlay.queue_redraw()
+	map.route_overlay.queue_redraw()
+
+
+func _spawn_pirate_contract_convoys() -> void:
+	for convoy in PIRATE_CONTRACT_CONVOYS:
+		var mission_id := String(convoy.mission_id)
+		var already_exists := false
+		for guardian in map.guardians:
+			if String(guardian.get("mission_id", "")) == mission_id:
+				already_exists = true
+				break
+		if already_exists:
+			continue
+		var cell: Vector2i = convoy.cell
+		if map.guardian_at.has(cell) or map.map_object_at.has(cell) or map.obstacle_at.has(cell):
+			push_warning("Не удалось разместить квестовый торговый конвой в точке %s" % cell)
+			continue
+		map._add_guardian(cell, "trader_quest_convoy", -1)
+		var guardian: Dictionary = map.guardians[-1]
+		guardian["mission_id"] = mission_id
+		guardian["display_name"] = String(convoy.name)
+		guardian["reward"] = Dictionary(convoy.reward).duplicate(true)
+		guardian["aggro_radius"] = 1
+	map.guardian_overlay.queue_redraw()
+	map.route_overlay.queue_redraw()
 
 
 func open_passage(id: String) -> void:
@@ -326,6 +398,11 @@ func play(id: String, after: Callable = Callable()) -> void:
 		if id == "gate" and not map.story_state.has("passage"):
 			map.story_state["passage"] = "briefing"
 			enqueue("marshal_rendezvous")
+		if id == "kowalski_ambush" and not bool(map.story_state.get("kowalski_ambush_started", false)):
+			map.story_state["kowalski_ambush_started"] = true
+			# Запускаем бой непосредственно после закрытия диалога, чтобы он не
+			# зависел от следующего тика обновления сюжетного менеджера.
+			call_deferred("_fight_gate")
 		busy = false
 		map.set_process(resume_process)
 		map.set_process_unhandled_input(resume_input)

@@ -21,9 +21,21 @@ const TEMPLATES := {
 		{"unit_id": "pirate_corvette", "count": 3},
 		{"unit_id": "pirate_frigate", "count": 1},
 	],
+	## Цель контракта Ридуса: один тяжёлый крейсер под прикрытием кораблей
+	## только I–II ранга, чтобы флагман оставался главным противником боя.
+	"pirate_quest_cruiser": [
+		{"unit_id": "pirate_battleship", "count": 1},
+		{"unit_id": "raider", "count": 12},
+		{"unit_id": "pirate_gunship", "count": 6},
+	],
 	"trader_weak": [{"unit_id": "trader_fighter", "count": 10}],
 	"trader_basic_resource": [{"unit_id": "trader_fighter", "count": 12}, {"unit_id": "trader_gunship", "count": 2}],
 	"trader_medium": [{"unit_id": "trader_fighter", "count": 12}, {"unit_id": "trader_gunship", "count": 4}],
+	## Контрактные торговые конвои: только лёгкое прикрытие, без флагмана.
+	"trader_quest_convoy": [
+		{"unit_id": "trader_fighter", "count": 10},
+		{"unit_id": "trader_gunship", "count": 4},
+	],
 	"trader_strong": [{"unit_id": "trader_gunship", "count": 8}, {"unit_id": "trader_corvette", "count": 3}],
 	"trader_heavy": [{"unit_id": "trader_corvette", "count": 8}, {"unit_id": "trader_frigate", "count": 3}],
 	"trader_elite": [{"unit_id": "trader_frigate", "count": 6}, {"unit_id": "trader_destroyer", "count": 2}],
