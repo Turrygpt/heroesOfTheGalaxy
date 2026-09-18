@@ -187,6 +187,7 @@ func _run() -> void:
 	_check_unit_upgrade(screen)
 	_check_unit_recruit_spends_credits(screen)
 	_check_ship_resource_cap()
+	_check_building_resource_cap(screen)
 	_check_fort_growth()
 	_check_fleet_slots_split_merge()
 	print("SHIP_BUILDINGS_REGRESSION_OK")
@@ -218,6 +219,23 @@ func _check_ship_resource_cap() -> void:
 			if int(cost[resource_name]) > tier:
 				_fail("Цена поста %s: %s %d — больше ранга %d" % [unit_id, resource_name, int(cost[resource_name]), tier])
 				return
+
+
+## Ресурсная цена постройки живёт по шкале HoMM (см. комментарий к
+## BUILDING_DEFS): 20 единиц базового ресурса и 10 единиц редкого — потолок
+## на один уровень постройки, всё остальное берут кредиты.
+func _check_building_resource_cap(screen: Node) -> void:
+	var basic_resources := ["Продукты", "Руда"]
+	for kind in screen.BUILDING_DEFS:
+		for cost in screen.BUILDING_DEFS[kind].get("costs", []):
+			for resource_name in cost:
+				if resource_name == "credits":
+					continue
+				var amount := int(cost[resource_name])
+				var limit := 20 if basic_resources.has(resource_name) else 10
+				if amount > limit:
+					_fail("Цена %s: %s %d — больше потолка %d" % [kind, resource_name, amount, limit])
+					return
 
 
 ## Форт добавляет к недельному приросту всех ангаров +25/+50/+100% по своим
