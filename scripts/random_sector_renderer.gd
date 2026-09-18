@@ -41,7 +41,7 @@ var accent_cells: Array[Vector2i] = []
 
 func _ready() -> void:
 	var map: Node2D = get_parent().get_parent()
-	var forbidden: Dictionary = map._build_reserved_cells().duplicate()
+	var forbidden: Dictionary = map.map_generation.build_reserved_cells().duplicate()
 	for source: Dictionary in [map.map_object_at, map.guardian_at, map.passage_at]:
 		for cell: Vector2i in source:
 			for x in range(-2, 3):

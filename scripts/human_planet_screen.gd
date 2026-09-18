@@ -519,7 +519,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if is_instance_valid(exchange_screen):
-			_close_exchange_screen()
+			_dismiss_exchange_screen()
 			get_viewport().set_input_as_handled()
 			return
 		if garrison_screen.visible:
@@ -531,8 +531,12 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		# Иначе Esc открывает меню настроек (GameSettings).
+	# Редактор слотов правит планету, а не окно карты: в режиме модалки
+	# (флот героя, торговый пост) вся разметка планеты скрыта, и F8 оставил бы
+	# игрока в пустом экране без единственной кнопки выхода.
 	if event is InputEventKey and event.keycode == KEY_F8 and event.pressed and not event.echo:
-		_toggle_building_editor()
+		if not space_modal_mode:
+			_toggle_building_editor()
 		get_viewport().set_input_as_handled()
 		return
 	if not editor_panel.visible:
@@ -1149,6 +1153,19 @@ func _close_exchange_screen() -> void:
 	exchange_credits_label = null
 
 
+## Закрытие биржи по воле игрока - кнопкой "ЗАКРЫТЬ" или Esc. У торгового
+## поста биржа и есть весь экран: остальная разметка скрыта
+## (см. _apply_space_modal_exchange_mode), выхода на карту в ней нет, а
+## полноэкранный Root продолжает перехватывать мышь. Поэтому вместе с биржей
+## закрывается и сам экран - иначе карта навсегда остаётся в set_process(false)
+## (см. _open_trading_post), флот не двигается и игра не сохраняется.
+## Так же ведёт себя окно флота героя (см. _close_garrison_screen).
+func _dismiss_exchange_screen() -> void:
+	_close_exchange_screen()
+	if trading_post_mode:
+		_request_close()
+
+
 ## Биржа: продажа/покупка ресурсов за кредиты. Строится целиком в коде - для одного экрана без
 ## сохраняемого состояния это проще, чем размечать ещё один узел в сцене.
 func _build_exchange_screen() -> PanelContainer:
@@ -1199,7 +1216,7 @@ func _build_exchange_screen() -> PanelContainer:
 	close_button.custom_minimum_size = Vector2(0, 38)
 	close_button.text = "ЗАКРЫТЬ"
 	close_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	close_button.pressed.connect(_close_exchange_screen)
+	close_button.pressed.connect(_dismiss_exchange_screen)
 	vbox.add_child(close_button)
 
 	return panel
