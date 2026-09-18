@@ -84,6 +84,7 @@ sh tools/run_tests.sh orc battle   # только те, чьё имя содер
 | `tools/test_planet_turn_persistence.gd` | недельное сохранение не стирает здания |
 | `tools/test_trading_post.gd` | склад торгового поста: запас, списание, недельный прирост |
 | `tools/test_trading_posts.gd` | фиксированная нейтральная расстановка торговых постов |
+| `tools/test_trading_post_modal.gd` | окно торгового поста на карте: закрытие биржи возвращает управление |
 | `tools/ship_buildings_regression.gd` | каталог верфей, цены, отрисовка и недельный прирост |
 | `tools/test_game_settings.gd` | шины громкости, mute на нуле, сохранение настроек |
 | `tools/test_main_menu.gd` | меню в отдельном профиле: редактор, настройки, переход и возврат |
