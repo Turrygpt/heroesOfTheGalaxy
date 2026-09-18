@@ -405,7 +405,7 @@ func _spawn_pirate_quest_cruiser() -> void:
 	if cell == Vector2i(-1, -1):
 		push_warning("Не удалось разместить квестовый пиратский крейсер вдали от игрока")
 		return
-	map._add_guardian(cell, "pirate_quest_cruiser", -1)
+	map.map_generation.add_guardian(cell, "pirate_quest_cruiser", -1)
 	var guardian: Dictionary = map.guardians[-1]
 	guardian["mission_id"] = "pirate_quest_cruiser"
 	guardian["display_name"] = "Пиратский крейсер «Чёрный рубеж»"
@@ -430,7 +430,7 @@ func _spawn_pirate_contract_convoys() -> void:
 		if cell == Vector2i(-1, -1):
 			push_warning("Не удалось разместить квестовый торговый конвой вдали от игрока")
 			continue
-		map._add_guardian(cell, "trader_quest_convoy", -1)
+		map.map_generation.add_guardian(cell, "trader_quest_convoy", -1)
 		var guardian: Dictionary = map.guardians[-1]
 		guardian["mission_id"] = mission_id
 		guardian["display_name"] = String(convoy.name)
@@ -456,7 +456,7 @@ func _spawn_trader_contract_pirates() -> void:
 		if cell == Vector2i(-1, -1):
 			push_warning("Не удалось разместить квестовый пиратский флот вдали от игрока")
 			continue
-		map._add_guardian(cell, "medium", -1)
+		map.map_generation.add_guardian(cell, "medium", -1)
 		var guardian: Dictionary = map.guardians[-1]
 		guardian["mission_id"] = mission_id
 		guardian["display_name"] = "Пиратский рейдер «Контракт Штайна»"
@@ -479,7 +479,7 @@ func _spawn_trader_contract_base() -> void:
 			or map.obstacle_at.has(cell + Vector2i.ONE):
 		push_warning("Не удалось разместить старую пиратскую базу в точке %s" % cell)
 		return
-	map._add_object_guardian(cell, "pirate_base", size)
+	map.map_generation.add_object_guardian(cell, "pirate_base", size)
 	var guardian: Dictionary = map.guardians[-1]
 	guardian["mission_id"] = "pirate_base_quest"
 	guardian["display_name"] = "Старая пиратская база"

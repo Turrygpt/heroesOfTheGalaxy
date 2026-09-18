@@ -32,6 +32,17 @@ GODOT_BIN=$(find_godot) || {
 
 echo "Движок: $GODOT_BIN"
 
+# Ограничение времени на один тест: timeout, если он есть, иначе без него.
+TEST_TIMEOUT="${TEST_TIMEOUT:-300}"
+if command -v timeout >/dev/null 2>&1; then
+	_run_with_timeout() { timeout "$TEST_TIMEOUT" "$@"; }
+else
+	_run_with_timeout() { "$@"; }
+fi
+
+
+FILTERS="$*"
+
 passed=0
 failed=0
 failed_names=""
@@ -40,24 +51,58 @@ for script in tools/test_*.gd tools/*_regression.gd; do
 	[ -f "$script" ] || continue
 	name=$(basename "$script" .gd)
 
-	if [ "$#" -gt 0 ]; then
+	if [ -n "$FILTERS" ]; then
 		match=0
-		for filter in "$@"; do
+		for filter in $FILTERS; do
 			case "$name" in *"$filter"*) match=1 ;; esac
 		done
 		[ "$match" -eq 1 ] || continue
 	fi
 
 	printf '  %-34s ' "$name"
-	if output=$("$GODOT_BIN" --headless --path . --script "res://$script" 2>&1); then
+
+	# Два теста не запускаются обычным --script:
+	#   test_planet_turn_persistence — это Node, а не SceneTree, нужна сцена;
+	#   test_main_menu — выходит с кодом 2, пока в пути профиля нет test_profile.
+	cleanup_override=0
+	case "$name" in
+	test_planet_turn_persistence)
+		set -- --headless --path . res://tools/PlanetTurnPersistence.tscn
+		;;
+	test_main_menu)
+		if [ ! -f override.cfg ]; then
+			{
+				echo '[application]'
+				echo 'config/use_custom_user_dir=true'
+				echo 'config/custom_user_dir_name="heroes_test_profile"'
+			} > override.cfg
+			cleanup_override=1
+		fi
+		set -- --headless --path . --script "res://$script"
+		;;
+	*)
+		set -- --headless --path . --script "res://$script"
+		;;
+	esac
+
+	# Таймаут на тест: зависший прогон иначе держит весь набор. Зависание тут
+	# обычно означает ошибку разбора — SceneTree не доходит до quit().
+	if output=$(_run_with_timeout "$GODOT_BIN" "$@" 2>&1); then
 		echo "ok"
 		passed=$((passed + 1))
 	else
-		echo "ПАДАЕТ"
+		status=$?
+		if [ "$status" -eq 124 ]; then
+			echo "ЗАВИС (> ${TEST_TIMEOUT}s)"
+		else
+			echo "ПАДАЕТ"
+		fi
 		printf '%s\n' "$output" | tail -20 | sed 's/^/      /'
 		failed=$((failed + 1))
 		failed_names="$failed_names $name"
 	fi
+
+	[ "$cleanup_override" -eq 1 ] && rm -f override.cfg
 done
 
 echo
