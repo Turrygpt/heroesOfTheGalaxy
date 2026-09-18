@@ -2388,8 +2388,8 @@ func _run_quick_battle(player_fleet: Array[Dictionary], enemy_fleet: Array[Dicti
 	if guardian_index >= 0:
 		_resolve_guardian_battle(guardian_index, battle_units, player_won)
 	elif not orc_battle_kind.is_empty():
-		return
-	else:
+		# Ветки были перепутаны: быстрый расчёт против орков уходил в return,
+		# и штурм базы не давал ни потерь, ни победы, ни конца кампании.
 		_resolve_orc_battle(orc_battle_kind, battle_units, player_won)
 
 
@@ -2400,7 +2400,7 @@ func _award_quick_battle_experience(battle_units: Array, enemy_commanded: bool) 
 		var player_experience := BATTLE_REWARDS.experience_for_battle(battle_units, 1, true)
 		roster.award_experience(hero, player_experience)
 	if enemy_commanded and roster != null:
-		var enemy_hero := roster.enemy_hero()
+		var enemy_hero: Hero = roster.enemy_hero()
 		var enemy_experience := BATTLE_REWARDS.experience_for_battle(battle_units, 2)
 		roster.award_experience(enemy_hero, enemy_experience)
 		BATTLE_REWARDS.auto_apply(enemy_hero)

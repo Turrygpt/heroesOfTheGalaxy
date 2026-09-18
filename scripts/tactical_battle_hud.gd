@@ -153,7 +153,7 @@ const ENEMY_FACTION_NAMES := {"orc": "ОРКИ", "trader": "ТОРГОВЦЫ", "
 
 
 static func _enemy_faction_name(units: Array[Dictionary]) -> String:
-	return String(ENEMY_FACTION_NAMES[enemy_faction(units)])
+	return String(ENEMY_FACTION_NAMES.get(enemy_faction(units), "ПРОТИВНИК"))
 
 
 func update_state(units: Array[Dictionary], active_index: int, round_number: int, event_text: String, finished: bool, locked: bool, _hint: String, auto_mode_label: String = "СБАЛАНСИРОВАННЫЙ", turn_order: Array[int] = []) -> void:

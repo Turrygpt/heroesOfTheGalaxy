@@ -20,6 +20,10 @@ func _run() -> void:
 	var campaign := root.get_node("CampaignSave")
 	campaign.prepare_new_game()
 	campaign.save_on_start = false
+	# Симметричная пара постов — правило СЛУЧАЙНОЙ карты (TRADING_POST_CELLS).
+	# С 16.09.2026 «Новая игра» открывает фиксированную миссию, где пост один
+	# и стоит там, где велит mars_demo_v1.json, поэтому просим случайную карту.
+	campaign.random_map_requested = true
 	var host := (load("res://scenes/StrategicMain.tscn") as PackedScene).instantiate()
 	root.add_child(host)
 	var map := host.get_node("SpaceStrategyMap")

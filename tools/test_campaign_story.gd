@@ -162,6 +162,16 @@ func _run() -> void:
 		check(not defs.lines(id).is_empty(), "Пустой диалог")
 		for line in defs.lines(id):
 			check(DIALOGUE.PORTRAITS.has(line.speaker), "Нет портрета для говорящего")
+	# Обратная проверка: всё, что campaign_story.gd умеет ПОКАЗАТЬ, должно
+	# иметь реплики. Раньше её не было, и пять сценариев марсианского сектора
+	# уехали из справочника вместе с правкой сюжета: enqueue отмечал их
+	# показанными, а intro_dialogue падал на пустом списке и навсегда оставлял
+	# карту в set_process(false).
+	for id in ["supply", "gate", "bribe", "force", "pass", "ridus", "pirate_contract",
+			"pirate_complete", "ridus_after", "refugees", "stein", "trader_contract",
+			"trader_complete", "stein_after", "ledger", "kowalski_ambush",
+			"archive", "relay", "approach", "mars_evidence", "ending"]:
+		check(not defs.lines(id).is_empty(), "Сценарий «%s» проигрывается, но реплик нет" % id)
 	for instance in [map, restored, legacy, paid, force, ending_map]:
 		instance.queue_free()
 	await process_frame

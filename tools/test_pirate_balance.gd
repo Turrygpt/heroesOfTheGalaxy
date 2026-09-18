@@ -47,6 +47,12 @@ func _run() -> void:
 		_check(power > previous_power, "Сила флотов растёт с удалением от старта")
 		previous_power = power
 		print(template, ": ", power)
+	# Раскладка стражей у месторождений — правило СЛУЧАЙНОЙ карты: там редкие
+	# производства прикрывают торговые конвои (_production_guard_template).
+	# С 16.09.2026 «Новая игра» открывает фиксированную миссию, где охрана
+	# задана полем guard_template в mars_demo_v1.json, поэтому для этой
+	# проверки карту нужно просить явно случайную.
+	root.get_node("CampaignSave").random_map_requested = true
 	var host := load("res://scenes/StrategicMain.tscn").instantiate() as Node
 	root.add_child(host)
 	var map := host.get_node("SpaceStrategyMap")

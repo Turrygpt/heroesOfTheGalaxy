@@ -1666,16 +1666,20 @@ func _on_battle_results_closed(player_hero: Hero, _player_won: bool) -> void:
 
 ## Как звать противника в подписях боя. Фракцию определяет HUD по самим
 ## пачкам (см. tactical_battle_hud.enemy_faction), чтобы источник был один.
-const ENEMY_TITLE_BY_FACTION := {"orc": "Орки", "trader": "Торговцы", "pirate": "Пираты", "ancient": "Стражи Древних"}
-const ENEMY_GENITIVE_BY_FACTION := {"orc": "ОРКОВ", "trader": "ТОРГОВЦЕВ", "pirate": "ПИРАТОВ", "ancient": "СТРАЖЕЙ ДРЕВНИХ"}
+## Ключи обязаны покрывать все фракции из tactical_battle_hud.ENEMY_TITLES,
+## иначе подпись противника роняет бой: так было с "patrol" — флот Ковальски
+## валил _update_hud на каждом тике засады. Обращение всё равно через get()
+## с запасным значением, чтобы новая фракция ломала текст, а не бой.
+const ENEMY_TITLE_BY_FACTION := {"orc": "Орки", "trader": "Торговцы", "pirate": "Пираты", "ancient": "Стражи Древних", "patrol": "Патруль"}
+const ENEMY_GENITIVE_BY_FACTION := {"orc": "ОРКОВ", "trader": "ТОРГОВЦЕВ", "pirate": "ПИРАТОВ", "ancient": "СТРАЖЕЙ ДРЕВНИХ", "patrol": "ПАТРУЛЯ"}
 
 
 func _enemy_faction_title() -> String:
-	return String(ENEMY_TITLE_BY_FACTION[BATTLE_HUD.enemy_faction(units)])
+	return String(ENEMY_TITLE_BY_FACTION.get(BATTLE_HUD.enemy_faction(units), "Противник"))
 
 
 func _enemy_faction_genitive() -> String:
-	return String(ENEMY_GENITIVE_BY_FACTION[BATTLE_HUD.enemy_faction(units)])
+	return String(ENEMY_GENITIVE_BY_FACTION.get(BATTLE_HUD.enemy_faction(units), "ПРОТИВНИКА"))
 
 
 ## Стена (is_wall) в этот подсчёт не входит: она преграда, а не флот —

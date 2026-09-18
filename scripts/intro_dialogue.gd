@@ -81,6 +81,13 @@ var _done := false
 func _ready() -> void:
 	layer = 90
 	_build_ui()
+	# Сценарий без реплик раньше ронял _show_line и навсегда оставлял карту
+	# в set_process(false): сигнал finished не приходил, и игра зависала.
+	# Теперь пустой диалог просто закрывается, а в логе остаётся причина.
+	if dialogue_lines.is_empty():
+		push_error("Пустой диалог: реплики не заданы, брифинг закрыт сразу.")
+		call_deferred("_finish")
+		return
 	for line in dialogue_lines:
 		if line.speaker != "pavlova":
 			left_portrait.texture = PORTRAITS[line.speaker]

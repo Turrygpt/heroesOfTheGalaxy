@@ -286,6 +286,12 @@ func _test_battle_integration() -> void:
 			unit["hp"] = 0
 	battle._check_battle_end()
 	_check(battle.battle_finished, "Уничтожение пиратов должно завершать бой")
+	# Опыт и окно итогов теперь ждут, пока догорят взрывы (results_pending,
+	# см. tactical_battle.gd:_process), поэтому прокручиваем кадры вручную.
+	for tick in range(240):
+		if battle.experience_granted:
+			break
+		battle._process(0.05)
 	_check(battle.experience_granted, "Флаг начисления опыта должен взводиться")
 	_check(player_hero.experience > experience_before, "Победа должна начислять герою опыт")
 	_check(battle.last_experience_gained == player_hero.experience - experience_before, "Итоги боя показывают фактически начисленный опыт")
@@ -316,6 +322,12 @@ func _test_battle_integration() -> void:
 	var expected_before := expected_hero.experience
 	expected_hero.gain_experience(expected)
 	battle._check_battle_end()
+	# _toggle_auto_battle гасит quick_battle, поэтому опыт снова уходит в
+	# отложенный results_pending — прокручиваем кадры, как выше.
+	for tick in range(240):
+		if battle.experience_granted:
+			break
+		battle._process(0.05)
 	_check(battle.last_experience_gained == expected_hero.experience - expected_before, "Начисление и итоги учитывают скидку автобоя и навык героя")
 	var awarded := player_hero.experience
 	battle._check_battle_end()

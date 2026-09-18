@@ -244,9 +244,14 @@ func visit(id: String) -> bool:
 		var first_visit := not has_seen("pirate_contract")
 		map.story_state.pirate_line.active = true
 		if first_visit:
+			# Знакомство идёт перед условиями: очередь показывает реплики
+			# в порядке постановки, по одному диалогу за тик.
+			enqueue(contact)
 			enqueue("pirate_contract")
 			_spawn_pirate_quest_cruiser()
 			_spawn_pirate_contract_convoys()
+		elif has_seen("pirate_complete"):
+			enqueue(contact + "_after")
 		open_passage("pirate_patrol")
 		_refresh_active_quests()
 		# Передаём прибытие штатному окну базы, чтобы карта не оставалась
@@ -256,22 +261,15 @@ func visit(id: String) -> bool:
 		var first_visit := not has_seen("trader_contract")
 		map.story_state.trader_line.active = true
 		if first_visit:
+			enqueue(contact)
 			enqueue("trader_contract")
 			_spawn_trader_contract_pirates()
 			_spawn_trader_contract_base()
+		elif has_seen("trader_complete"):
+			enqueue(contact + "_after")
 		open_passage("trade_patrol")
 		_refresh_active_quests()
 		return not first_visit
-	if has_seen(contact):
-		call_deferred("show_journal")
-	else:
-		var completed := has_seen("ledger" if contact == "stein" else "refugees")
-		if completed:
-			map.story_state.seen.append(contact)
-			enqueue(contact + "_after")
-		else:
-			enqueue(contact)
-		open_passage("trade_patrol" if contact == "stein" else "pirate_patrol")
 	return true
 
 
@@ -285,7 +283,11 @@ func contact_guardian(index: int) -> bool:
 	if has_seen("gate") and map.guardians[index].get("cell", Vector2i(-1, -1)) == MARSHAL_RENDEZVOUS:
 		if not has_seen("kowalski_ambush"):
 			enqueue("kowalski_ambush")
-		return true
+			return true
+		# Засада уже отыграна. Раньше здесь тоже стоял return true, и после
+		# проигранного боя рубеж превращался в тупик: заход на клетку маршала
+		# не запускал ни диалог, ни бой. Отдаём ход обычному стражу.
+		return false
 	if not has_seen("supply"):
 		map.navigation_message = "Сначала восстановите снабжение: ферма и шахта."
 		return true
