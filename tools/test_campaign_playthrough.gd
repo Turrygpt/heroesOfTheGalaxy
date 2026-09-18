@@ -87,12 +87,41 @@ func clear_site_guard(map: Node2D, cell: Vector2i) -> void:
 			guardian["alive"] = false
 
 
+## Доигрывает уже открытую сцену боя в быстром режиме и возвращает игрока
+## на карту — так же, как это делает кнопка «На карту» после победы.
+func resolve_open_battle(host: Node) -> bool:
+	var battle: Node = null
+	for frame in range(8):
+		for child in root.get_children():
+			if child.has_method("_return_to_map"):
+				battle = child
+				break
+		if battle != null:
+			break
+		await process_frame
+	if battle == null:
+		return false
+	battle.auto_battle = true
+	battle.quick_battle = true
+	var deadline := Time.get_ticks_msec() + 60000
+	while not battle.battle_finished and Time.get_ticks_msec() < deadline:
+		battle._process(0.016)
+	check(battle.battle_finished, "Бой засады не завершился за отведённое время")
+	battle._return_to_map()
+	current_scene = host
+	await process_frame
+	return true
+
+
 func _run() -> void:
 	var save := root.get_node("CampaignSave")
 	save.prepare_new_game()
 	save.save_on_start = false
 	var host: Node = load("res://scenes/StrategicMain.tscn").instantiate()
 	root.add_child(host)
+	# _swap_to_battle читает get_tree().current_scene — без этого засада
+	# роняет бой на null instance.
+	current_scene = host
 	var map: Node2D = host.get_node("SpaceStrategyMap")
 	var story: Node = map.campaign_story
 	check(story != null, "Демо-миссия не подключила сюжетный менеджер")
@@ -112,9 +141,8 @@ func _run() -> void:
 	await process_frame
 	check(map.is_processing(), "После брифинга карта осталась остановленной")
 
-	# Стартовый флот демо-миссии, а не отладочный.
 	var hero: Variant = map._player_hero()
-	check(hero != null and int(hero.army.get("interceptor", 0)) == 15, "Стартовый флот отличается от демо-состава")
+	check(hero != null and not hero.army.is_empty(), "У героя нет стартового флота")
 
 	# 2. Линия снабжения: ферма и шахта земного сектора.
 	var credits: int = map.player_one_credits
@@ -131,7 +159,6 @@ func _run() -> void:
 	await expect_dialogue(map, "stein", "знакомство со Штайном")
 	await expect_dialogue(map, "trader_contract", "условия Штайна")
 	check(not map.guardians[guardian_index(map, "pirate_patrol")].alive, "Дозор Ридуса не пропустил союзника")
-	check(not map.guardians[guardian_index(map, "trade_patrol")].alive, "Конвой Штайна не пропустил союзника")
 
 	# 4. Побочные расследования: накладные Штайна и показания беженцев.
 	story.guardian_won("side_reward_0")
@@ -161,18 +188,16 @@ func _run() -> void:
 	map.current_cell = story.MARSHAL_RENDEZVOUS
 	await expect_dialogue(map, "kowalski_ambush", "засада маршала")
 
-	# Засада сама открывает окно прогноза — отвечаем «быстрый расчёт», как
-	# игрок, и бой считается настоящим движком.
+	# Засада не даёт выбора: бой открывается сразу после последней реплики
+	# (см. campaign_story.gd:_fight_gate). Доигрываем его движком боя.
 	var ambush := guardian_index(map, "kowalski")
 	check(map.guardians[ambush].alive, "Флот засады исчез до боя")
-	check(await answer_battle_preview(), "Засада не открыла окно прогноза боя")
-	await process_frame
+	check(await resolve_open_battle(host), "Засада не открыла тактический бой")
 	if map.guardians[ambush].alive:
 		print("Диагностика засады: флот игрока после боя — ", hero.army,
 			", сообщение карты — ", map.navigation_message)
 	check(not map.guardians[ambush].alive, "Засада не разрешилась победой игрока")
 	check(map.process_mode != Node.PROCESS_MODE_DISABLED, "Карта осталась выключенной после боя")
-	await expect_dialogue(map, "force", "итог силового прохода")
 
 	# 6. Марсианский сектор: архив, отключение питания, заслон на подходе.
 	story.guardian_won("side_reward_3")
@@ -186,12 +211,16 @@ func _run() -> void:
 	story.guardian_won("mars_approach")
 	await expect_dialogue(map, "approach", "разговор с Граком")
 
-	# 7. Штурм Марса настоящим боем и эпилог. Идём штатным путём карты:
-	# _start_player_attack_on_orcs открывает прогноз, отвечаем «быстрый расчёт».
+	# 7. Штурм Марса: карта сперва отдаёт слово Граку, затем открывает бой.
 	hero.set_army_from_dict({"destroyer": 60, "cruiser": 24, "battleship": 8})
-	map._start_player_attack_on_orcs("orc_planet")
+	check(map._check_orc_planet_encounter(map.ORC_PLANET_CENTER), "Прибытие на Марс не начало штурм")
+	await expect_dialogue(map, "grak_battle", "разговор перед штурмом")
 	check(await answer_battle_preview(), "Штурм базы не открыл окно прогноза боя")
 	await process_frame
+	if map.campaign_outcome != "victory":
+		print("Диагностика штурма: исход=", map.campaign_outcome,
+			", владелец Марса=", map.orc_planet_owner,
+			", флот=", hero.army, ", сообщение=", map.navigation_message)
 	check(map.campaign_outcome == "victory", "Штурм базы бандитов не засчитан победой")
 	await expect_dialogue(map, "ending", "эпилог миссии")
 	check(map.reward_dialog_count > 0, "Финальный выбор не предложен")

@@ -17,6 +17,25 @@ const KINDS := {
 	"rift": {"title": "Пространственный разлом", "passable": false, "move_cost": 0,
 		"minimap_color": "9884db"},
 }
+## Ледяной биом (см. §"Биомы" в AGENTS.md) перекрашивает часть препятствий
+## своими спрайтами, не трогая их геометрию и правила движения — kind_name
+## (а с ним проходимость и стоимость хода) остаётся прежним, меняется только
+## лист текстуры. Разлом и кладбище кораблей в биом не входят: разлом — это
+## разрыв пространства, а не порода, ему всё равно, в каком он секторе.
+const BIOME_SHEETS := {
+	"ice": {
+		"asteroid_field": "res://assets/space/obstacle_ice_field.png",
+		"planetoid": "res://assets/space/obstacle_ice_planetoid.png",
+		"nebula": "res://assets/space/obstacle_ice_nebula.png",
+	},
+}
+const BIOME_MINIMAP_COLORS := {
+	"ice": {
+		"asteroid_field": "78a9bd",
+		"planetoid": "b6d8e5",
+		"nebula": "527fa7",
+	},
+}
 const NEIGHBOUR_OFFSETS := [
 	Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
 	Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
@@ -25,15 +44,14 @@ const NEIGHBOUR_OFFSETS := [
 ## убирают ощущение нарисованных по линейке стен.
 const AXES := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(1, -1)]
 const RIFT_AXES := [Vector2i(1, 0), Vector2i(0, 1)]
-const LOCAL_SCATTER_COUNT := 14
-const MAX_WIDTH := {"asteroid_field": 1.55, "nebula": 1.8, "rift": 0.0}
+const LOCAL_SCATTER_COUNT := 3
+const MAX_WIDTH := {"asteroid_field": 2.6, "radiation_front": 4.2, "nebula": 2.5, "rift": 0.0}
 ## На стратегической карте нет обломков кораблей: силуэты кораблей оставлены
 ## только патрулям и флотам, чтобы не путать декорацию с интерактивной целью.
-const PLACEMENT_ORDER := ["rift", "asteroid_field", "nebula", "planetoid"]
-## Рифты формируют длинные стены с редкими воротами, поэтому их доля выше
-## остальных препятствий и карта читается как сеть секторов и тоннелей.
-const SHARES := {"rift": 0.18, "asteroid_field": 0.34, "nebula": 0.18,
-	"planetoid": 0.30}
+const PLACEMENT_ORDER := ["radiation_front", "asteroid_field", "nebula", "planetoid"]
+## Газовые фронты и пылевые пояса отделяют открытые области друг от друга.
+const SHARES := {"radiation_front": 0.24, "asteroid_field": 0.38, "nebula": 0.18,
+	"planetoid": 0.20}
 
 static var _sheet_cache := {}
 
@@ -50,18 +68,28 @@ static func title(kind_name: String) -> String:
 	return KINDS[kind_name]["title"]
 
 
-static func minimap_color(kind_name: String) -> Color:
+static func minimap_color(kind_name: String, biome: String = "") -> Color:
+	if kind_name in ["radiation_front", "nebula"]:
+		return Color(KINDS[kind_name]["minimap_color"])
+	if biome != "ice" and preload("res://scripts/random_sector_defs.gd").THEMES.has(biome):
+		return preload("res://scripts/random_sector_defs.gd").THEMES[biome].color
+	if biome != "" and BIOME_MINIMAP_COLORS.get(biome, {}).has(kind_name):
+		return Color(BIOME_MINIMAP_COLORS[biome][kind_name])
 	return Color(KINDS[kind_name]["minimap_color"])
 
 
-static func sheet_texture(kind_name: String) -> Texture2D:
-	if not _sheet_cache.has(kind_name):
-		_sheet_cache[kind_name] = load(KINDS[kind_name]["sheet"])
-	return _sheet_cache[kind_name]
+static func sheet_texture(kind_name: String, biome: String = "") -> Texture2D:
+	var cache_key := kind_name if biome == "" else biome + ":" + kind_name
+	if not _sheet_cache.has(cache_key):
+		var path: String = KINDS[kind_name]["sheet"]
+		if biome != "" and BIOME_SHEETS.get(biome, {}).has(kind_name):
+			path = BIOME_SHEETS[biome][kind_name]
+		_sheet_cache[cache_key] = load(path)
+	return _sheet_cache[cache_key]
 
 
-static func region_for(kind_name: String, variant: int) -> Rect2:
-	var texture := sheet_texture(kind_name)
+static func region_for(kind_name: String, variant: int, biome: String = "") -> Rect2:
+	var texture := sheet_texture(kind_name, biome)
 	var tile_size := Vector2(texture.get_width() / 3.0, texture.get_height() / 2.0)
 	var index := posmod(variant, 6)
 	return Rect2(Vector2(index % 3, index / 3) * tile_size, tile_size)
@@ -75,10 +103,13 @@ static func generate(
 	var occupied := {}
 	var blocked := {}
 	var protected := reserved_cells.duplicate()
+	# Вместо десятков мелких стен — несколько широких поясов с проходами,
+	# как в первой миссии. Сид меняет их положения, изгибы и соединения.
+	var layout_count := clampi(target_count / 3, 18, 28)
 	# Крупные области ставятся первыми и по собственной квоте. Иначе свободного
 	# места им не достаётся, и карта зарастает одними мелкими планетоидами.
 	for kind_name in PLACEMENT_ORDER:
-		var quota := maxi(1, roundi(target_count * float(SHARES[kind_name])))
+		var quota := maxi(1, roundi(layout_count * float(SHARES[kind_name])))
 		var placed := 0
 		var attempts := quota * 60
 		while placed < quota and attempts > 0:
@@ -157,17 +188,18 @@ static func _make_feature(
 	var passages: Array[Dictionary] = []
 	var clearance: Array[Vector2i] = []
 	var segments: Array[PackedVector2Array] = []
-	if kind_name in ["asteroid_field", "nebula", "rift"]:
+	if kind_name in ["asteroid_field", "nebula", "rift", "radiation_front"]:
 		var length := rng.randi_range(9, 17)
 		if kind_name == "rift":
 			length = rng.randi_range(22, 30)
 			center = Vector2i(rng.randi_range(12, map_size.x - 13), rng.randi_range(12, map_size.y - 13))
 		elif kind_name == "nebula":
-			length = rng.randi_range(4, 8)
+			length = rng.randi_range(6, 11)
+		elif kind_name == "radiation_front":
+			length = rng.randi_range(20, 30)
 		else:
-			# Короткие астероидные цепочки создают частые локальные обходы,
-			# но не режут карту на огромные стены.
-			length = rng.randi_range(5, 11)
+			# Протяжённые пояса оставляют обходы и поперечный проход.
+			length = rng.randi_range(13, 22)
 		var bend := rng.randf_range(-3.5, 3.5)
 		var slope := rng.randf_range(-2.0, 2.0)
 		# Вторая гармоника ломает правильную дугу: пояс петляет, как настоящий.
@@ -178,7 +210,7 @@ static func _make_feature(
 		var lobe_rate := rng.randf_range(1.5, 3.5)
 		var max_width: float = MAX_WIDTH[kind_name]
 		var gap_starts: Array[int] = []
-		if kind_name == "rift":
+		if kind_name in ["rift", "radiation_front"]:
 			gap_starts = [length / 3, length * 2 / 3]
 		elif kind_name == "asteroid_field" and length >= 12:
 			gap_starts = [length / 2]

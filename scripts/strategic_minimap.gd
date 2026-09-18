@@ -44,7 +44,7 @@ func _draw() -> void:
 	for obstacle in strategy_map.obstacles:
 		for cell in obstacle["cells"]:
 			draw_rect(Rect2(Vector2(cell) / MAP_SIZE * size, size / MAP_SIZE),
-				Color(SpaceObstacles.minimap_color(obstacle["kind"]), 0.85))
+				Color(SpaceObstacles.minimap_color(obstacle["kind"], obstacle.get("biome", "")), 0.85))
 		for passage in obstacle["passages"]:
 			if passage["rift"]:
 				var center := _cell_to_minimap(passage["cell"])

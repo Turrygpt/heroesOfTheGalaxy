@@ -6,11 +6,15 @@ extends Node
 ## Последний необязательный аргумент — сколько солов проиграть за орков перед
 ## съёмкой (см. orc_ai.gd) и открыть весь туман: так на снимке видно вождя
 ## орков и захваченные им месторождения.
+## Координаты -1 -1 автоматически наводят камеру на холодный сектор.
 
 const MAP_SCENE := preload("res://scenes/SpaceStrategyMap.tscn")
 
 var frames := 0
 var shot_path := "user://map_shot.png"
+var shot_camera: Camera2D
+var shot_camera_position := Vector2.ZERO
+var shot_camera_zoom := Vector2.ONE
 
 
 func _ready() -> void:
@@ -23,9 +27,31 @@ func _ready() -> void:
 	map.open_tactical_when_run_directly = false
 	map.map_seed = map_seed
 	add_child(map)
+	for child in map.get_children():
+		if child.get_script() == load("res://scripts/intro_dialogue.gd"):
+			child._finish()
+	if focus == Vector2i(-1, -1):
+		var target_biome := String(args[6]) if args.size() >= 7 else "ice"
+		var sum := Vector2.ZERO
+		var count := 0
+		for feature: Dictionary in map.obstacles:
+			if String(feature.get("biome", "")) != target_biome:
+				continue
+			for cell: Vector2i in feature.cells:
+				sum += Vector2(cell)
+				count += 1
+		if count > 0:
+			focus = Vector2i((sum / float(count)).round())
+		print("ice_focus=", focus, " ice_cells=", count)
 	var camera: Camera2D = map.get_node("Camera2D")
-	camera.zoom = Vector2.ONE * zoom
-	camera.position = (Vector2(focus) + Vector2.ONE * 0.5) * map.CELL_SIZE
+	shot_camera = camera
+	shot_camera_position = (Vector2(focus) + Vector2.ONE * 0.5) * map.CELL_SIZE
+	shot_camera_zoom = Vector2.ONE * zoom
+	camera.enabled = true
+	camera.zoom = shot_camera_zoom
+	camera.position = shot_camera_position
+	camera.reset_smoothing()
+	camera.force_update_scroll()
 	map.get_node("HUD").visible = false
 	var orc_turns := int(args[5]) if args.size() >= 6 else 0
 	if orc_turns > 0:
@@ -34,10 +60,13 @@ func _ready() -> void:
 		for day in range(orc_turns):
 			map.current_day = day + 1
 			map.orc_ai.take_turn(map)
-		map._refresh_orc_ship_sprite()
-		map.queue_redraw()
-		print("orcs: ", map.orc_ai.built_levels, " cell=", map.orc_ai.hero_cell,
-			" army=", map.orc_hero().army)
+			map._refresh_orc_ship_sprite()
+			map.queue_redraw()
+			print("orcs: ", map.orc_ai.built_levels, " cell=", map.orc_ai.hero_cell,
+				" army=", map.orc_hero().army)
+	# Иначе штатный _process карты возвращает камеру к флагману между
+	# настройкой кадра выше и фактическим сохранением PNG.
+	map.set_process(false)
 	var kinds := {}
 	for feature in map.obstacles:
 		kinds[feature["kind"]] = kinds.get(feature["kind"], 0) + 1
@@ -47,6 +76,11 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if is_instance_valid(shot_camera):
+		shot_camera.zoom = shot_camera_zoom
+		shot_camera.position = shot_camera_position
+		shot_camera.reset_smoothing()
+		shot_camera.force_update_scroll()
 	frames += 1
 	if frames < 45:
 		return

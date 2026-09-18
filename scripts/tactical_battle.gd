@@ -17,6 +17,9 @@ const ENEMY_COLOR := Color("ef5350")
 ## Выхлоп двигателей (см. _draw_engine_exhaust) — нейтралы (торговцы/пираты)
 ## отдельно от орков, поэтому свой цвет, а не ENEMY_COLOR у обоих.
 const NEUTRAL_ENGINE_COLOR := Color("f4d35e")
+## Сопла находятся ниже оптической оси корпуса: у исходных спрайтов двигатели
+## посажены в нижней кормовой секции, а не строго по центру силуэта.
+const ENGINE_EXHAUST_Y_OFFSET := 10.0
 ## Стражи Древних — свой холодный цвет, чтобы конструкты не читались как
 ## обычные пираты/торговцы (см. _engine_color).
 const ANCIENT_ENGINE_COLOR := Color("9b7bff")
@@ -2806,9 +2809,9 @@ func _draw_engine_exhaust(unit: Dictionary, ship_size: Vector2, index: int) -> v
 	var nozzle_radius := ship_size.y * (0.16 if tier <= 3 else 0.10) * exhaust_scale
 	var spacing := nozzle_radius * (0.95 if nozzle_count > 1 else 0.0)
 	if nozzle_count > 1:
-		draw_circle(Vector2(back_x + nozzle_radius * 0.15, 0.0), nozzle_radius * 1.18, Color(color, 0.22))
+		draw_circle(Vector2(back_x + nozzle_radius * 0.15, ENGINE_EXHAUST_Y_OFFSET), nozzle_radius * 1.18, Color(color, 0.22))
 	for nozzle in range(nozzle_count):
-		var y := (float(nozzle) - float(nozzle_count - 1) * 0.5) * spacing
+		var y := ENGINE_EXHAUST_Y_OFFSET + (float(nozzle) - float(nozzle_count - 1) * 0.5) * spacing
 		var phase := pulse * (0.94 + float(nozzle % 2) * 0.08)
 		var radius := nozzle_radius
 		var length := ship_size.y * (0.75 + 0.12 * mini(tier, 6)) * exhaust_scale * phase

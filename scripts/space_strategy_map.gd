@@ -320,7 +320,7 @@ var far_planet_camera_origin := Vector2.ZERO
 var obstacle_sprites: Node2D
 var music_player: AudioStreamPlayer
 ## Стартовый запас новой кампании; при загрузке заменяется сохранённым.
-var player_one_credits := 2000
+var player_one_credits := 10000
 var player_two_credits := 0
 var human_planet_owner := 1
 var orc_planet_owner := 2
@@ -804,7 +804,10 @@ func _open_trading_post(source: String = "map_object", index: int = -1) -> void:
 	trade_screen.trading_post_index = index
 	trade_screen.close_requested.connect(_close_human_planet.bind(trade_screen))
 	add_child(trade_screen)
-	await trade_screen.ready
+	# add_child уже прогнал _ready экрана, поэтому сигнал ready к этому моменту
+	# отправлен: "await trade_screen.ready" никогда бы не разрешился, окно
+	# биржи не открывалось, а торговый пост в режиме space_modal_mode прячет
+	# всю остальную разметку вместе с кнопкой выхода — игра вставала насмерть.
 	trade_screen._open_exchange_screen()
 	set_process(false)
 	set_process_unhandled_input(false)
@@ -1851,6 +1854,8 @@ func _check_orc_hero_encounter(cell: Vector2i) -> bool:
 func _check_orc_planet_encounter(cell: Vector2i) -> bool:
 	if orc_planet_owner != 2 or not _cell_is_in_planet(cell, ORC_PLANET_CENTER):
 		return false
+	if campaign_story != null and campaign_story.begin_mars_assault():
+		return true
 	_start_player_attack_on_orcs("orc_planet")
 	return true
 
@@ -2407,7 +2412,7 @@ func _award_quick_battle_experience(battle_units: Array, enemy_commanded: bool) 
 	_save_hero_roster()
 
 
-func _start_guardian_battle(index: int) -> void:
+func _start_guardian_battle(index: int, start_immediately: bool = false) -> void:
 	var hero := _player_hero()
 	var guardian: Dictionary = guardians[index]
 	# Дипломатия действует только на живые полевые пиратские/торговые флоты.
@@ -2439,6 +2444,9 @@ func _start_guardian_battle(index: int) -> void:
 	if String(guardians[index].get("object_kind", "")) in MapObjectDefs.FORTIFIED_PLANET_KINDS:
 		fort_level = MapObjectDefs.FORTIFIED_PLANET_FORT_LEVEL
 		enemy_fleet.append({"unit_id": "orbital_platform", "count": fort_level})
+	if start_immediately:
+		_open_guardian_battle(player_fleet, enemy_fleet, index, false, fort_level)
+		return
 	var dialog := preload("res://scripts/battle_preview_dialog.gd").new()
 	var previous_mode := process_mode
 	process_mode = Node.PROCESS_MODE_DISABLED
@@ -4061,6 +4069,9 @@ func _generate_obstacles() -> void:
 		must_reach_cells,
 		STARTER_OBSTACLE_COUNT if starter_map_mode else OBSTACLE_COUNT
 	)
+	# Только случайная карта - авторская миссия использует свой рендер
+	# (campaign_terrain_renderer.gd) и сюда не попадает вовсе (см. _ready).
+	preload("res://scripts/random_sector_defs.gd").assign_regions(obstacles, map_random)
 	blocked_cells.clear()
 	slow_cells.clear()
 	obstacle_at.clear()
@@ -4078,6 +4089,82 @@ func _generate_obstacles() -> void:
 			if passage["rift"]:
 				for side in range(2):
 					passage_at[passage["cell"] + passage["axis"] * side] = true
+
+
+## Ледяной биом — область ~20×20 клеток, где часть препятствий перекрашена в
+## холодный арт (см. SpaceObstacles.BIOME_SHEETS). Форма и правила движения
+## препятствий не меняются, поэтому вся логика ниже — чисто визуальная метка
+## на уже готовых объектах, а не отдельный проход генерации.
+const ICE_BIOME_RADIUS := 10.5
+const ICE_BIOME_MIN_PLANET_DISTANCE := 16
+const ICE_BIOME_KINDS := ["asteroid_field", "planetoid", "nebula"]
+## Даже если случайный центр попал в чистое пространство, холодный сектор
+## должен остаться заметным биомом, а не двумя случайно посиневшими камнями.
+const ICE_BIOME_MIN_FEATURES := 7
+const ICE_BIOME_EXTRA_REACH := 5.0
+
+
+## Кромка биома не рисуется кругом по клеткам: у объектов, которые лишь
+## частично попадают в радиус, шанс окраситься подо лёд растёт вместе с долей
+## их клеток внутри круга. Так граница получается неровной и вероятностной,
+## а не нарисованной по линейке — снега без чёткой стены.
+func _tag_ice_biome(features: Array[Dictionary]) -> void:
+	var center := _pick_ice_biome_center()
+	if center.x < 0:
+		return
+	var candidates: Array[Dictionary] = []
+	var tagged := 0
+	for feature in features:
+		var kind_name: String = feature["kind"]
+		if kind_name not in ICE_BIOME_KINDS:
+			continue
+		var cells: Array = feature["cells"]
+		if cells.is_empty():
+			continue
+		var inside := 0
+		var nearest := INF
+		for cell in cells:
+			var distance := Vector2(cell).distance_to(Vector2(center))
+			nearest = minf(nearest, distance)
+			if distance <= ICE_BIOME_RADIUS:
+				inside += 1
+		candidates.append({"feature": feature, "distance": nearest})
+		var fraction := float(inside) / float(cells.size())
+		if fraction <= 0.0:
+			continue
+		if map_random.randf() < smoothstep(0.15, 0.75, fraction):
+			feature["biome"] = "ice"
+			tagged += 1
+	# Вероятностная рваная граница сохраняется, но ближайшие объекты добирают
+	# минимальную визуальную массу сектора, если центр выпал в пустой карман.
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.distance) < float(b.distance)
+	)
+	for candidate in candidates:
+		if tagged >= ICE_BIOME_MIN_FEATURES:
+			break
+		if float(candidate.distance) > ICE_BIOME_RADIUS + ICE_BIOME_EXTRA_REACH:
+			break
+		var feature: Dictionary = candidate.feature
+		if String(feature.get("biome", "")) == "ice":
+			continue
+		feature["biome"] = "ice"
+		tagged += 1
+
+
+func _pick_ice_biome_center() -> Vector2i:
+	var margin := int(ICE_BIOME_RADIUS) + 3
+	for _attempt in range(40):
+		var candidate := Vector2i(
+			map_random.randi_range(margin, MAP_SIZE.x - margin),
+			map_random.randi_range(margin, MAP_SIZE.y - margin)
+		)
+		if _chebyshev_distance(candidate, HUMAN_PLANET_CENTER) < ICE_BIOME_MIN_PLANET_DISTANCE:
+			continue
+		if _chebyshev_distance(candidate, ORC_PLANET_CENTER) < ICE_BIOME_MIN_PLANET_DISTANCE:
+			continue
+		return candidate
+	return Vector2i(-1, -1)
 
 
 ## Планеты, месторождения и стартовая клетка должны остаться доступными,
