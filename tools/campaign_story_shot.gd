@@ -22,9 +22,7 @@ func _run() -> void:
 	if mode == "journal":
 		map.campaign_story.show_journal()
 	elif mode == "gate":
-		map.campaign_story.enqueue("ledger")
-		map.player_one_credits = 2000
-		map.campaign_story.gate_choice()
+		map.campaign_story.enqueue("gate")
 	elif mode == "ending_choice":
 		map.campaign_story._ending_choice()
 	elif mode == "epilogue":

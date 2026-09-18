@@ -9,10 +9,13 @@ const CLOUD_BLUR_RADIUS := 3
 const CLOUD_BLUR_SIGMA := 1.25
 var stamps: Array[Dictionary] = []
 var regions: Array = []
+## Случайная карта использует тот же рендер, но без подписей миссии.
+var terrain_source: Node2D
+var show_mission_regions := true
 
 
 func _ready() -> void:
-	var map := get_parent()
+	var map: Node2D = terrain_source if terrain_source != null else get_parent()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 160926
 	var mask := Image.create(64, 64, false, Image.FORMAT_RGBA8)
@@ -20,6 +23,8 @@ func _ready() -> void:
 	# поэтому свободные клетки должны быть именно чёрными с нулевой альфой.
 	mask.fill(Color(0, 0, 0, 0))
 	for obstacle in map.obstacles:
+		if String(obstacle.kind) == "rift":
+			continue
 		for cell: Vector2i in obstacle.cells:
 			var radiation: bool = obstacle.kind == "radiation_front"
 			var gas: bool = obstacle.kind == "nebula"
@@ -49,8 +54,9 @@ func _ready() -> void:
 	clouds.material = shader_material
 	clouds.show_behind_parent = true
 	add_child(clouds)
-	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/campaign/mars_demo_v1.json"))
-	regions = data.regions
+	if show_mission_regions:
+		var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/campaign/mars_demo_v1.json"))
+		regions = data.regions
 
 
 ## Свёртка один раз при загрузке, а не десятки выборок на каждый пиксель кадра.

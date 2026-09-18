@@ -23,6 +23,11 @@ func _run() -> void:
 	var original_planet := PLANET.load_state()
 	campaign.prepare_new_game()
 	campaign.save_on_start = false
+	# Состав стартового флота — деталь баланса (hero_roster.gd:reset_to_default),
+	# а не то, что должен знать этот тест. Сравниваем со снимком реального
+	# дефолта, а не с зашитыми числами, которые расходятся при любой правке
+	# отладочного старта.
+	var default_army: Dictionary = roster.player_hero().army.duplicate(true)
 	var scene := load("res://scenes/StrategicMain.tscn") as PackedScene
 	var host := scene.instantiate()
 	root.add_child(host)
@@ -48,7 +53,7 @@ func _run() -> void:
 	campaign.prepare_new_game()
 	campaign.save_on_start = false
 	_check(roster.player_hero().experience == 0, "Новая игра сбрасывает опыт")
-	_check(roster.player_hero().army["interceptor"] == 15, "Новая игра сбрасывает флот")
+	_check(roster.player_hero().army == default_army, "Новая игра сбрасывает флот")
 	_check(PLANET.load_state().built_levels == {"townhall": 1}, "Новая игра сбрасывает здания")
 	_check(campaign.prepare_load(TEST_PATH), "Сохранение загружается")
 	host = scene.instantiate()
@@ -77,7 +82,7 @@ func _run() -> void:
 	host = scene.instantiate()
 	root.add_child(host)
 	map = host.get_node("SpaceStrategyMap")
-	_check(map.current_day == 1 and map.player_one_credits == 2000, "Новая карта начинается с первого дня и 2000 кредитов")
+	_check(map.current_day == 1 and map.player_one_credits == 10000, "Новая карта начинается с первого дня и 10000 кредитов")
 	_check(map.player_one_resources == {"Продукты": 10, "Руда": 10, "Научные данные": 5, "Энергокристаллы": 5, "Топливо": 5, "Радиоизотопы": 5}, "Новая игра выдаёт стартовые ресурсы")
 	_check(map.guardians[0]["alive"] and map.obelisks_collected == 0, "Новая игра сбрасывает стражей и объекты")
 	host.free()

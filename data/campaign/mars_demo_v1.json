@@ -507,15 +507,6 @@
       "amount": 6
     },
     {
-      "id": "side_reward_0",
-      "kind": "derelict_station",
-      "cell": [
-        46,
-        20
-      ],
-      "size": 2
-    },
-    {
       "id": "side_reward_1",
       "kind": "abandoned_shipyard",
       "cell": [
@@ -541,15 +532,6 @@
         35
       ],
       "size": 1
-    },
-    {
-      "id": "pirate_base_quest",
-      "kind": "pirate_base",
-      "cell": [
-        48,
-        50
-      ],
-      "size": 2
     },
     {
       "id": "exploration_0",
@@ -618,16 +600,6 @@
     "name": "Центральный патруль",
     "aggro_radius": 2
   },
-    {
-      "id": "trade_patrol",
-      "cell": [
-        31,
-        8
-      ],
-      "template": "trader_medium",
-      "name": "Конвой Штайна",
-      "aggro_radius": 1
-    },
     {
       "id": "pirate_patrol",
       "cell": [

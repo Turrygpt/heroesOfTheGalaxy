@@ -10,9 +10,10 @@ const POOL_SIZE := 4
 const PROTOCOLS_DIR := "res://assets/audio/protocols"
 const STINGERS_DIR := "res://assets/audio/stingers"
 const DESTRUCTION_DIR := "res://assets/audio/destruction"
-## -3.1 дБ ≈ на 30% тише по ощущению громкости — победа/поражение звучали
-## слишком выпирающе на фоне остального боя.
-const STINGER_VOLUME_DB := -3.1
+## -10 дБ ≈ вдвое тише по ощущению громкости. Прежних -3.1 дБ не хватало:
+## стингер окончания боя всё равно перекрывал и музыку, и звуки последнего
+## залпа — он должен подводить итог, а не бить по ушам.
+const STINGER_VOLUME_DB := -10.0
 
 ## Файл на школу — обязательный минимум; конкретный протокол может быть
 ## переопределён своим файлом (см. play_protocol_cast).

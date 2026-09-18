@@ -21,8 +21,14 @@ func _run() -> void:
 	campaign.prepare_new_game()
 	campaign.save_on_start = false
 	var host := (load("res://scenes/StrategicMain.tscn") as PackedScene).instantiate()
-	root.add_child(host)
 	var map := host.get_node("SpaceStrategyMap")
+	# Дефолтный map_seed теперь грузит авторскую Марс-миссию
+	# (CampaignMissionMap.populate), у которой свой единственный торговый пост
+	# и она вообще не знает про MapObjectDefs.TRADING_POST_CELLS. Эта проверка
+	# — про процедурную раскладку, поэтому явно просим детерминированную
+	# процедурную карту тем же сидом, что и отладочные снимки (см. AGENTS.md).
+	map.map_seed = 1001
+	root.add_child(host)
 	map.set_process(false)
 	var posts: Array[Dictionary] = []
 	for object in map.map_objects:

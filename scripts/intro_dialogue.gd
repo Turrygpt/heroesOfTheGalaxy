@@ -13,6 +13,7 @@ extends CanvasLayer
 signal finished
 
 const UiStyle := preload("res://scripts/ui_style.gd")
+const CampaignStoryDefs := preload("res://scripts/campaign_story_defs.gd")
 const ADMIRAL_PORTRAIT := preload("res://assets/persons/Admiral/portrait.png")
 const PAVLOVA_PORTRAIT := preload("res://assets/persons/Pavlova/portrait.png")
 ## Портреты на чёрном фоне без альфы - края гасим шейдером, иначе поверх
@@ -31,6 +32,7 @@ const SPEAKERS := {
 	"pavlova": {"name": "Полковник Павлова", "side": "right"},
 	"stein": {"name": "Лорд Штайн · Торговая лига", "side": "left"},
 	"ridus": {"name": "Капитан Ридус · Вольные капитаны", "side": "left"},
+	"patrol_captain": {"name": "Капитан патруля · Карантинная служба", "side": "left"},
 	"kowalski": {"name": "Маршал Ковальски · Патруль", "side": "left"},
 	"kowalski_evil": {"name": "Маршал Ковальски · Патруль", "side": "left"},
 	"orc": {"name": "Грак · Марсианский гарнизон", "side": "left"},
@@ -41,6 +43,7 @@ const SPEAKER_COLORS := {
 	"pavlova": Color("82c9c1"),
 	"stein": Color("e0b56b"),
 	"ridus": Color("d99ad8"),
+	"patrol_captain": Color("9eb3c9"),
 	"kowalski": Color("b9a4ee"),
 	"kowalski_evil": Color("e87979"),
 	"orc": Color("ed8578"),
@@ -49,24 +52,14 @@ const PORTRAITS := {
 	"admiral": ADMIRAL_PORTRAIT, "pavlova": PAVLOVA_PORTRAIT,
 	"stein": preload("res://assets/persons/Trader/portrait.png"),
 	"ridus": preload("res://assets/persons/Pirate/portrait.png"),
+	"patrol_captain": preload("res://assets/persons/PatrolCaptain/portrait.png"),
 	"kowalski": preload("res://assets/persons/Marshal/portrait.png"),
 	"kowalski_evil": preload("res://assets/persons/Marshal/evil.png"),
 	"orc": preload("res://assets/persons/Orc/portrait.png"),
 }
-const LINES := [
-	{"speaker": "admiral", "text": "Павлова, прежде чем отправляться на дальние рубежи, нужно разобраться с шайкой бандитов. Они захватили колонию на Марсе и перекрыли снабжение сектора."},
-	{"speaker": "admiral", "text": "Освободите Марс, выбейте бандитов и создайте там опорную базу для дальнейших операций."},
-	{"speaker": "pavlova", "text": "Принято. Что известно о маршрутах?"},
-	{"speaker": "admiral", "text": "Прямой путь перекрыт облаком токсичных отходов после взрыва танкера. Безопасный переход в центре контролирует космический патруль маршала Ковальски."},
-	{"speaker": "admiral", "text": "На северо-востоке — торговая база Лорда Штайна. На юго-западе — убежище капитана Ридуса. Оба могут быть полезны, но контакт с ними не обязателен."},
-	{"speaker": "pavlova", "text": "Сначала закреплюсь у месторождений. Потом решу, кому доверять."},
-	{"speaker": "admiral", "text": "В секторе много обходных фарватеров и заброшенных станций. Не упускайте возможности, но помните: главная цель — Марс."},
-	{"speaker": "pavlova", "text": "Задача ясна. Начинаем операцию."},
-]
-
 var left_portrait: TextureRect
 ## Сценарий задаётся до add_child; вступление остаётся значением по умолчанию.
-var dialogue_lines: Array = LINES.duplicate(true)
+var dialogue_lines: Array = CampaignStoryDefs.lines("intro")
 var right_portrait: TextureRect
 var name_label: Label
 var text_label: Label

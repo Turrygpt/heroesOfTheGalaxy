@@ -40,13 +40,6 @@ static func populate(map: Node2D) -> void:
 		if map.obstacle_at.has(cell) and data.terrain[cell.y][cell.x] == "!":
 			map.blocked_cells.erase(cell)
 			map.slow_cells.erase(cell)
-	# Верхний фарватер торговцев прорезает северную стену плотного облака.
-	# Его координаты Штайн сообщает только после выполнения своего контракта.
-	for x in range(29, 37):
-		var cell := Vector2i(x, 18)
-		if map.obstacle_at.has(cell) and data.terrain[cell.y][cell.x] == "!":
-			map.blocked_cells.erase(cell)
-			map.slow_cells.erase(cell)
 	for entry in data.production:
 		for blueprint in map.PRODUCTION_BLUEPRINTS:
 			if blueprint.resource != entry.resource:
