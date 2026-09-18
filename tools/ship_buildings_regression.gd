@@ -186,10 +186,38 @@ func _run() -> void:
 		return
 	_check_unit_upgrade(screen)
 	_check_unit_recruit_spends_credits(screen)
+	_check_ship_resource_cap()
 	_check_fort_growth()
 	_check_fleet_slots_split_merge()
 	print("SHIP_BUILDINGS_REGRESSION_OK")
 	quit()
+
+
+## Ресурсная часть цены корабля не должна превышать его ранг: V ранг — не
+## больше 5 единиц каждого ресурса (см. комментарий к UnitDefs.UNITS).
+## Цена торгового поста считается от той же пятёрки со скидкой 90%.
+func _check_ship_resource_cap() -> void:
+	for unit_id in UnitDefs.UNITS:
+		var unit: Dictionary = UnitDefs.UNITS[unit_id]
+		if String(unit.get("kind", "")) != "dwelling":
+			continue
+		var tier := int(unit.get("tier", 0))
+		var cost: Dictionary = unit.get("cost", {})
+		for resource_name in cost:
+			if resource_name == "credits":
+				continue
+			if int(cost[resource_name]) > tier:
+				_fail("Цена %s: %s %d — больше ранга %d" % [unit_id, resource_name, int(cost[resource_name]), tier])
+				return
+	for unit_id in TradingPost.UNIT_OFFERS:
+		var tier := int(UnitDefs.get_unit(unit_id).get("tier", 0))
+		var cost: Dictionary = TradingPost.UNIT_OFFERS[unit_id].get("cost", {})
+		for resource_name in cost:
+			if resource_name == "credits":
+				continue
+			if int(cost[resource_name]) > tier:
+				_fail("Цена поста %s: %s %d — больше ранга %d" % [unit_id, resource_name, int(cost[resource_name]), tier])
+				return
 
 
 ## Форт добавляет к недельному приросту всех ангаров +25/+50/+100% по своим

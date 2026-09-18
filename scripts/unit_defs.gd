@@ -25,6 +25,13 @@ const ORC_DEFS := preload("res://scripts/orc_defs.gd")
 ## уцелевших против слабого стража), флот перестал топтаться на месте. Стражи
 ## и нейтралы (kind == "guardian" ниже) корпус НЕ получили — это и есть
 ## рычаг: игрок стал крепче относительно уже откалиброванных стражей.
+##
+## Потолок редких ресурсов в цене корабля: не больше его ранга единиц каждого
+## ресурса (V ранг — максимум 5 Руды, 5 Топлива, 5 Энергокристаллов и
+## 5 Радиоизотопов). Раньше эсминец стоил 35/24/15/16, и недельного прихода
+## редких ресурсов не хватало даже на один корабль — вся цена ранга снова
+## живёт в кредитах, ресурсы остались лимитом «сколько штук за неделю», а не
+## непроходимой стеной. Правило проверяет tools/ship_buildings_regression.gd.
 const UNITS := {
 # --- Покупаемые юниты Земного флота ----------------------------------------
 	"interceptor": {
@@ -73,7 +80,7 @@ const UNITS := {
 		"move": 5, "range": 4, "initiative": 8, "sprite_width": 150.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/elite_frigate.png"), "region": Rect2(62, 304, 1598, 468),
 		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 2,
-		"cost": {"credits": 650, "Топливо": 5, "Радиоизотопы": 2}, "weekly_growth": 3,
+		"cost": {"credits": 650, "Топливо": 3, "Радиоизотопы": 2}, "weekly_growth": 3,
 	},
 	"frigate": {
 		"label": "Фрегат", "role": "обычный фрегат 4 ранга (дальнобойный)", "tier": 4,
@@ -81,7 +88,7 @@ const UNITS := {
 		"move": 4, "range": 3, "initiative": 6, "sprite_width": 155.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/cruiser.png"), "region": Rect2(34, 200, 1712, 514),
 		"kind": "dwelling", "dwelling": "frigate_yard", "dwelling_level": 1,
-		"cost": {"credits": 900, "Топливо": 8, "Радиоизотопы": 3}, "weekly_growth": 2,
+		"cost": {"credits": 900, "Топливо": 4, "Радиоизотопы": 3}, "weekly_growth": 2,
 	},
 	"elite_frigate": {
 		"label": "Элитный фрегат", "role": "элитный фрегат 4 ранга (дальнобойный)", "tier": 4,
@@ -89,7 +96,7 @@ const UNITS := {
 		"move": 4, "range": 4, "initiative": 6, "sprite_width": 165.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/elite_cruiser.png"), "region": Rect2(30, 194, 1722, 526),
 		"kind": "dwelling", "dwelling": "frigate_yard", "dwelling_level": 2,
-		"cost": {"credits": 1600, "Топливо": 12, "Радиоизотопы": 6}, "weekly_growth": 1,
+		"cost": {"credits": 1600, "Топливо": 4, "Радиоизотопы": 4}, "weekly_growth": 1,
 	},
 	"destroyer": {
 		"label": "Эсминец", "role": "обычный эсминец 5 ранга (дальнобойный)", "tier": 5,
@@ -97,7 +104,7 @@ const UNITS := {
 		"move": 3, "range": 4, "initiative": 5, "sprite_width": 170.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/destroyer.png"), "region": Rect2(36, 44, 1734, 788),
 		"kind": "dwelling", "dwelling": "destroyer_yard", "dwelling_level": 1,
-		"cost": {"credits": 1800, "Руда": 35, "Топливо": 24, "Энергокристаллы": 15, "Радиоизотопы": 16}, "weekly_growth": 1,
+		"cost": {"credits": 1800, "Руда": 5, "Топливо": 5, "Энергокристаллы": 5, "Радиоизотопы": 5}, "weekly_growth": 1,
 	},
 	"elite_destroyer": {
 		"label": "Элитный эсминец", "role": "элитный эсминец 5 ранга (дальнобойный)", "tier": 5,
@@ -105,7 +112,7 @@ const UNITS := {
 		"move": 4, "range": 5, "initiative": 6, "sprite_width": 180.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/elite_destroyer.png"), "region": Rect2(34, 42, 1740, 792),
 		"kind": "dwelling", "dwelling": "destroyer_yard", "dwelling_level": 2,
-		"cost": {"credits": 2600, "Руда": 45, "Топливо": 36, "Энергокристаллы": 20, "Радиоизотопы": 22}, "weekly_growth": 1,
+		"cost": {"credits": 2600, "Руда": 5, "Топливо": 5, "Энергокристаллы": 5, "Радиоизотопы": 5}, "weekly_growth": 1,
 	},
 	# --- Стражи (только для составов нейтралов на карте) ---------------------
 	"raider": {
