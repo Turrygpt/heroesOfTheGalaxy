@@ -158,6 +158,22 @@ func _test_long_career() -> void:
 			var weights: Dictionary = DEFS.SKILLS[skill_id]["weights"]
 			_check(int(weights.get(class_id, 0)) > 0, "Класс не изучает чужие навыки (%s/%s)" % [class_id, skill_id])
 		_check(hero.gain_experience(1000000) == 0, "На потолке опыт уровней не даёт (%s)" % class_id)
+		# На потолке опыт не просто бесполезен — он вообще не начисляется,
+		# на этом держатся погасшие награды опытом на карте.
+		_check(not hero.can_gain_experience(), "На потолке опыт больше не принимается (%s)" % class_id)
+		var capped_experience := hero.experience
+		hero.gain_experience(1000000)
+		_check(hero.experience == capped_experience, "Счётчик опыта на потолке не растёт (%s)" % class_id)
+
+	# Уровень, уже выданный, но ещё не подтверждённый в окне навыков, тоже
+	# закрывает начисление: иначе опыт копился бы между боем и окном.
+	var pending := Hero.create("pending", "Новобранец", "admiral")
+	pending.gain_experience(DEFS.experience_for_level(DEFS.MAX_LEVEL))
+	_check(pending.level == 1 and pending.pending_level_ups == DEFS.MAX_LEVEL - 1, "Все уровни ждут подтверждения")
+	var queued_experience := pending.experience
+	_check(not pending.can_gain_experience(), "Очередь уровней до потолка закрывает начисление")
+	pending.gain_experience(1000000)
+	_check(pending.experience == queued_experience, "Опыт не копится, пока уровни ждут подтверждения")
 
 
 func _test_damage_multiplier() -> void:

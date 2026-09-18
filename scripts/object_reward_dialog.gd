@@ -10,6 +10,7 @@ signal choice_selected(choice_id: String)
 
 const GOLD := preload("res://scripts/ui_style.gd").GOLD
 const INK := preload("res://scripts/ui_style.gd").INK
+const MUTED := preload("res://scripts/ui_style.gd").MUTED
 const PANEL_SIZE := Vector2(620, 300)
 
 
@@ -79,10 +80,20 @@ func setup(title: String, description: String, texture: Texture2D = null, choice
 				choice_button.expand_icon = true
 				choice_button.add_theme_constant_override("icon_max_width", 28)
 			choice_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			choice_button.pressed.connect(_on_choice.bind(String(choice.get("id", ""))))
+			# Недоступный вариант остаётся на виду (игрок должен понимать, что
+			# он был), но не нажимается: "hint" объясняет почему.
+			if bool(choice.get("disabled", false)):
+				choice_button.disabled = true
+				choice_button.focus_mode = Control.FOCUS_NONE
+				choice_button.mouse_default_cursor_shape = Control.CURSOR_ARROW
+				choice_button.add_theme_color_override("font_disabled_color", MUTED)
+				choice_button.add_theme_stylebox_override("disabled", _style(Color(MUTED, 0.3)))
+				choice_button.tooltip_text = String(choice.get("hint", ""))
+			else:
+				choice_button.pressed.connect(_on_choice.bind(String(choice.get("id", ""))))
+				if first_button == null:
+					first_button = choice_button
 			row.add_child(choice_button)
-			if first_button == null:
-				first_button = choice_button
 		if first_button != null:
 			first_button.grab_focus()
 
