@@ -58,20 +58,20 @@ static func populate(map: Node2D) -> void:
 	for index in range(map.production_sites.size()):
 		if String(map.production_sites[index].guard_template) == "":
 			continue
-		map._add_guardian(map.production_sites[index].cell, String(map.production_sites[index].guard_template), index)
+		map.map_generation.add_guardian(map.production_sites[index].cell, String(map.production_sites[index].guard_template), index)
 		map.guardians[-1]["mission_id"] = String(map.production_sites[index].mission_id) + "_guard"
 	for entry in data.guardians:
-		map._add_guardian(_cell(entry.cell), entry.template, -1)
+		map.map_generation.add_guardian(_cell(entry.cell), entry.template, -1)
 		var guardian: Dictionary = map.guardians[-1]
 		guardian["mission_id"] = entry.id
 		guardian["display_name"] = entry.name
 		guardian["aggro_radius"] = int(entry.aggro_radius)
 	for entry in data.objects:
 		if map.MapObjectDefs.family(entry.kind) == "guardian_reward":
-			map._add_object_guardian(_cell(entry.cell), entry.kind, int(entry.size))
+			map.map_generation.add_object_guardian(_cell(entry.cell), entry.kind, int(entry.size))
 			map.guardians[-1]["mission_id"] = entry.id
 			continue
-		map._add_map_object(_cell(entry.cell), entry.kind, int(entry.size))
+		map.map_generation.add_map_object(_cell(entry.cell), entry.kind, int(entry.size))
 		var object: Dictionary = map.map_objects[-1]
 		object["mission_id"] = entry.id
 		if entry.kind == "resource_cache":

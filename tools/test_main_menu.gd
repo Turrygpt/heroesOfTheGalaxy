@@ -1,5 +1,14 @@
 ## Проверка меню в отдельном профиле: редактор, настройки, переход и возврат.
+##
+## Переход из меню грузит StrategicMain фоново (load_threaded_request), поэтому
+## ждать его надо по ЧАСАМ, а не по числу кадров: на медленной машине сцена
+## приезжает за ~10 секунд, а 600 кадров там проходят за четыре. Раньше тест
+## из-за этого падал на ровном месте — сцена была ещё в пути, а не сломана.
 extends SceneTree
+
+## Потолок ожидания перехода. Столько же даёт бою test_campaign_playthrough.
+const SCENE_TIMEOUT_MSEC := 60000
+
 var failures := 0
 func _initialize() -> void:
 	call_deferred("run")
@@ -29,10 +38,7 @@ func run() -> void:
 	check(not paused, "Настройки закрываются")
 	menu._new_game()
 	check(menu.transition_started and menu.menu_buttons[0].disabled, "Повторный старт заблокирован")
-	var ticks := 0
-	while is_instance_valid(menu) and ticks < 600:
-		await process_frame
-		ticks += 1
+	await _await_scene_change(menu)
 	check(current_scene != null and current_scene.name == "StrategicMain", "Кампания загружена")
 	check(not root.get_node("CampaignSave").read_save().is_empty(), "Стартовое сохранение создано")
 	change_scene_to_file("res://scenes/MainMenu.tscn")
@@ -40,10 +46,17 @@ func run() -> void:
 	await process_frame
 	menu = current_scene
 	menu._load_game()
-	ticks = 0
-	while is_instance_valid(menu) and ticks < 600:
-		await process_frame
-		ticks += 1
+	await _await_scene_change(menu)
 	check(current_scene != null and current_scene.name == "StrategicMain", "Загрузка сохранения из меню")
 	print("MENU_TEST_FAILURES=", failures)
 	quit(1 if failures else 0)
+
+
+## Ждёт, пока меню уступит место загруженной сцене. Возвращает управление
+## сразу, как только меню исчезло из дерева, — или по истечении потолка.
+func _await_scene_change(menu: Node) -> void:
+	var deadline := Time.get_ticks_msec() + SCENE_TIMEOUT_MSEC
+	while is_instance_valid(menu) and Time.get_ticks_msec() < deadline:
+		await process_frame
+	if is_instance_valid(menu):
+		push_error("Сцена не сменилась за %d с: %s" % [SCENE_TIMEOUT_MSEC / 1000, menu.status.text])
