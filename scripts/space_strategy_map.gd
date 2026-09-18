@@ -135,6 +135,9 @@ const DISTRESS_JOIN_COUNT_MAX := 10
 const DISTRESS_JOIN_TIER_MIN := 1
 const DISTRESS_JOIN_TIER_MAX := 3
 const TRAINING_GROUND_XP := 1000
+## Пояснение к недоступной награде опытом — на потолке уровня (HeroDefs.MAX_LEVEL)
+## опыт не начисляется, поэтому такие варианты выбора гаснут.
+const MAX_LEVEL_HINT := "Герой достиг максимального уровня, опыт больше не начисляется"
 const RESOURCE_ICON_ATLAS := preload("res://assets/resources/basic.png")
 const CREDITS_ICON := preload("res://assets/resources/credits.png")
 const EXPERIENCE_ICON := preload("res://assets/resources/experience.png")
@@ -2121,6 +2124,13 @@ func _player_hero() -> Hero:
 	return roster.player_hero() if roster != null else null
 
 
+## Без героя награду опытом тоже выдавать некому, поэтому обе причины
+## недоступности сведены в одну проверку.
+func _hero_can_gain_experience() -> bool:
+	var hero := _player_hero()
+	return hero != null and hero.can_gain_experience()
+
+
 ## Автобой с карты: прогоняет тактический движок скрыто и сразу применяет
 ## потери, победу и награды, не открывая сцену боя игроку.
 func _run_quick_battle(player_fleet: Array[Dictionary], enemy_fleet: Array[Dictionary], guardian_index: int = -1, orc_battle_kind: String = "", fort_level: int = 0) -> void:
@@ -2656,6 +2666,11 @@ func _trigger_hero_xp(index: int) -> void:
 	map_objects[index]["consumed"] = true
 	if hero == null:
 		return
+	if not hero.can_gain_experience():
+		var stale := "Тренажёры простаивают: " + MAX_LEVEL_HINT.to_lower()
+		navigation_message = "Тренировочная станция: " + stale
+		_show_object_reward_dialog(String(def.get("name", "Станция")), stale, def.get("texture"))
+		return
 	var before := hero.experience
 	BattleRewards.award(self, hero, TRAINING_GROUND_XP)
 	var description := "Герой получает %d опыта." % (hero.experience - before)
@@ -2688,7 +2703,7 @@ func _trigger_obelisk(index: int) -> void:
 		add_resource(String(resource_name), 10)
 		description += "\n+10 всех ресурсов."
 		reward_items.append(_resource_reward_item(String(resource_name), 10))
-	if hero != null:
+	if hero != null and hero.can_gain_experience():
 		var before := hero.experience
 		BattleRewards.award(self, hero, 3000)
 		description += "\nОпыт героя: +%d." % (hero.experience - before)
@@ -2818,9 +2833,16 @@ func _trigger_loot(index: int) -> void:
 	var credits: int = CARGO_CREDITS_VALUES[map_random.randi_range(0, CARGO_CREDITS_VALUES.size() - 1)]
 	var experience: int = CARGO_EXPERIENCE_VALUES[map_random.randi_range(0, CARGO_EXPERIENCE_VALUES.size() - 1)]
 	var description := "Внутри контейнера уцелели платёжные чипы и навигационные архивы. Выберите, что забрать:"
+	var experience_choice := {"id": "experience", "label": "%d опыта" % experience, "icon": EXPERIENCE_ICON}
+	# На потолке уровня опыт не начисляется вовсе, поэтому вариант остаётся
+	# виден, но выбрать его нельзя — иначе игрок менял бы кредиты на ничто.
+	if not _hero_can_gain_experience():
+		experience_choice["disabled"] = true
+		experience_choice["hint"] = MAX_LEVEL_HINT
+		description += "\nАрхивы бесполезны: %s" % MAX_LEVEL_HINT.to_lower()
 	var choices: Array[Dictionary] = [
 		{"id": "credits", "label": "%d кредитов" % credits, "icon": CREDITS_ICON},
-		{"id": "experience", "label": "%d опыта" % experience, "icon": EXPERIENCE_ICON},
+		experience_choice,
 	]
 	_show_object_choice_dialog(
 		String(def.get("name", "Находка")),
@@ -2864,6 +2886,8 @@ func _apply_cargo_container_reward(choice_id: String, credits: int, experience: 
 		var hero := _player_hero()
 		if hero == null:
 			description = "Архивы повреждены: героя нет рядом, опыт не получен."
+		elif not hero.can_gain_experience():
+			description = "Архивы бесполезны: " + MAX_LEVEL_HINT.to_lower()
 		else:
 			var before := hero.experience
 			BattleRewards.award(self, hero, experience)

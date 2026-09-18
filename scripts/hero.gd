@@ -52,9 +52,16 @@ static func create(new_id: String, new_name: String, new_class_id: String) -> He
 
 # --- Опыт и уровни -----------------------------------------------------------
 
+## Герой на потолке уровня больше не копит опыт: учитываем и уже выданные,
+## но ещё не подтверждённые уровни, иначе счётчик опыта продолжал бы расти
+## между боем и окном выбора навыка.
+func can_gain_experience() -> bool:
+	return level + pending_level_ups < DEFS.MAX_LEVEL
+
+
 ## Начисляет опыт с учётом навыка «Обучение». Возвращает число новых уровней.
 func gain_experience(amount: int) -> int:
-	if amount <= 0 or level >= DEFS.MAX_LEVEL:
+	if amount <= 0 or not can_gain_experience():
 		return 0
 	var gained := int(round(float(amount) * experience_multiplier()))
 	experience += gained

@@ -7,7 +7,10 @@ extends RefCounted
 
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 
-const MAX_LEVEL := 40
+## Потолок уровня героя. На потолке опыт перестаёт начисляться совсем
+## (см. Hero.can_gain_experience), а награды, которые давали опыт,
+## предлагают только альтернативу.
+const MAX_LEVEL := 5
 ## Как в HoMM: герой держит ограниченный набор умений. Когда все слоты
 ## заняты, новые навыки больше не предлагаются — только повышение уже изученных.
 const MAX_SKILL_SLOTS := 6
