@@ -142,6 +142,8 @@ build/, .godot/  генерируемое, в .gitignore
 | `space_strategy_map.gd` (~3400) | ядро: сетка 64×64, ход дня, движение по A*, ресурсы, запуск боёв, фоновая музыка (`_start_music/pause_music/resume_music`) |
 | `map_generation.gd` (~1000) | генерация случайной карты: препятствия, месторождения, стражи, объекты приключений. Пишет прямо в поля карты, создаётся в `space_strategy_map.gd` как `map_generation` |
 | `space_obstacles.gd` / `space_obstacle_renderer.gd` | геометрия препятствий (общая для карты, навигации и миникарты) и её отрисовка |
+| `random_sector_defs.gd` / `random_sector_renderer.gd` | девять тематических районов случайной карты и редкие акценты поверх них |
+| `ice_biome_defs.gd` / `ice_sector_renderer.gd` | арт и композиция ледяного сектора: поток обломков, холодный газ, завихрения — см. §7d |
 | `guardian_defs.gd` / `guardian_overlay.gd` | составы нейтральных стражей (пираты и торговые конвои) и их иконки |
 | `map_object_defs.gd` / `map_object_overlay.gd` | объекты приключений (обелиски, университет, сундуки) и плейсхолдер-иконки |
 | `route_overlay.gd`, `production_overlay.gd`, `strategic_minimap.gd` | отрисовка маршрута, подписи месторождений, миникарта |
@@ -257,7 +259,8 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 | Реплики сюжетных сцен первой миссии | `campaign_story_defs.gd:DIALOGUES` — координаты контрактных целей в текст не зашивают, ставят подстановку (`{convoy_targets}`, `{cruiser_target}`, `{pirate_targets}`, `{pirate_base}`) и разбирают её в `campaign_story.gd:_resolved_lines` |
 | Порядок сюжетных сцен, реакция баз фракций, старт боя из диалога | `campaign_story.gd:enqueue / _process / play / visit` — база Лиги и база Ридуса отвечают диалогом (`_visit_stein_base` / `_visit_ridus_base` возвращают `true` и подавляют карточку объекта из `_trigger_info`) |
 | Генерация карты (месторождения, препятствия, объекты) | `map_generation.gd` — точки входа `generate_production_sites / generate_obstacles / generate_guardians / generate_map_objects`, зовутся из `space_strategy_map.gd:_ready` |
-| Ледяной биом на случайной карте (область ~20×20, холодные препятствия и туманности) | `space_strategy_map.gd:_tag_ice_biome / _pick_ice_biome_center` (вызывается из `_generate_obstacles`, только не-стартовые карты) + `space_obstacles.gd:BIOME_SHEETS` + `space_obstacle_renderer.gd:_build_ice_biome_wash` — см. §7d |
+| Темы районов случайной карты (девять секторов) | `random_sector_defs.gd:assign_regions` — зовётся из `map_generation.gd:generate_obstacles` |
+| Ледяной сектор случайной карты (поток обломков, холодный газ, завихрения) | `ice_sector_renderer.gd` (+ `ice_biome_defs.gd`), узел `IceSector` создаётся в `space_obstacle_renderer.gd:_ready`; холодная палитра газа — альфа-канал маски в `campaign_terrain_renderer.gd` и `shaders/campaign_hazards.gdshader` — см. §7d |
 | Декорации дальнего космоса (кометы с хвостами/искрами/струями, далёкие планеты) | `space_decorations.gd` — константы `COMET_*` в шапке; анимация идёт от поля `time`, которое копит `tick_comets` |
 | Область карты и то, что HUD её не перекрывает | `space_strategy_map.gd:_update_camera_limits / _clamp_camera_position / _camera_position_for` — пределы камеры расширены за край карты на полосы HUD (см. §7c) |
 | Сила стражей от удалённости | `space_strategy_map.gd:_threat_distance / _guardian_template_for_distance` + `guardian_defs.gd:TEMPLATES` |
@@ -400,8 +403,9 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
   декорация: `docs/battle_screen.md`.
 * **Глобальная карта** — почему HUD не перекрывает поле и как пределы камеры
   зависят от зума: `docs/map_screen.md`.
-* **Биомы случайной карты** — ледяной сектор: перекраска препятствий без
-  изменения проходимости, `_tag_ice_biome` и `BIOME_SHEETS`: `docs/map_screen.md`.
+* **Биомы случайной карты** — ледяной сектор: композиция потока обломков
+  поверх неизменной геометрии, `ice_sector_renderer.gd` и правило «крупное
+  только на непроходимой клетке»: `docs/map_screen.md`.
 
 ---
 

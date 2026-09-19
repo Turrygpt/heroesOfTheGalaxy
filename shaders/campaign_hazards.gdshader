@@ -26,11 +26,18 @@ void fragment() {
 	vec2 flow = vec2(TIME * 0.018, -TIME * 0.011);
 	vec2 drift = vec2(cloud_noise(p * 0.24), cloud_noise(p * 0.24 + 31.7)) - 0.5;
 	// Извилистая кромка и лёгкие языки газа поверх доступных клеток.
-	vec3 mask = texture(TEXTURE, UV + drift * 0.012).rgb;
+	vec4 sampled = texture(TEXTURE, UV + drift * 0.012);
+	vec3 mask = sampled.rgb;
+	// Альфа-канал маски помечает холодный сектор: там та же геометрия облаков
+	// раскрашивается льдом, а не фиолетово-медной палитрой остальной карты.
+	float ice = clamp(sampled.a * 1.7, 0.0, 1.0);
 	float n = cloud_noise(p + drift * 2.0 + flow) * 0.55 + cloud_noise(p * 2.1 - flow * 0.7) * 0.3 + cloud_noise(p * 4.3) * 0.15;
 	vec3 dust = mix(vec3(0.035, 0.045, 0.07), vec3(0.18, 0.23, 0.30), n);
 	vec3 radiation = nebula_palette(UV) * (0.35 + n * 0.85);
 	vec3 gas = mix(vec3(0.07, 0.23, 0.38), vec3(0.24, 0.67, 0.83), n);
+	dust = mix(dust, mix(vec3(0.05, 0.08, 0.13), vec3(0.30, 0.44, 0.58), n), ice);
+	radiation = mix(radiation, mix(vec3(0.09, 0.24, 0.42), vec3(0.50, 0.76, 0.98), n), ice);
+	gas = mix(gas, mix(vec3(0.08, 0.28, 0.48), vec3(0.46, 0.82, 1.00), n), ice);
 	mask.b *= 1.35;
 	float total = mask.r + mask.g + mask.b;
 	vec3 color = (dust * mask.r + radiation * mask.g + gas * mask.b) / max(total, 0.001);

@@ -9,20 +9,16 @@ const DENSE_VARIANTS := [0, 1, 3]
 const SPARSE_VARIANTS := [2, 4, 5]
 const NEBULA_VARIANTS := [0, 1, 4]
 const CARDINALS := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
-## Атласы холодного сектора подготовлены отдельно от общих препятствий:
-## мелкие детали — 8×8, два средних листа — 4×4, крупные акценты — 2×2.
-const ICE_SMALL_TEXTURE := preload("res://assets/biomes/ice/props_small.png")
-const ICE_MEDIUM_TEXTURE := preload("res://assets/biomes/ice/props_medium.png")
-const ICE_MEDIUM_2_TEXTURE := preload("res://assets/biomes/ice/props_medium2.png")
-const ICE_LARGE_TEXTURE := preload("res://assets/biomes/ice/props_large.png")
-## Из малого листа исключены башни и явно вертикальные постройки. Остались
-## камни, бронеплиты, кольца, спутники и секции кораблей; случайный поворот
-## окончательно убирает у них ощущение общего «низа».
-const ICE_SMALL_VARIANTS := [0, 2, 4, 5, 7, 9, 10, 12, 13, 14,
-	16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 34, 35, 36, 37, 38,
-	43, 51, 52, 54, 55, 56, 57, 58, 59, 60, 62]
-const ICE_MEDIUM_VARIANTS := [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 15]
-const ICE_MEDIUM_2_VARIANTS := [0, 1, 2, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15]
+## Атласы и варианты холодного сектора живут в ice_biome_defs.gd: тот же
+## набор использует отдельный рендер сектора (ice_sector_renderer.gd).
+const IceDefs := preload("res://scripts/ice_biome_defs.gd")
+const ICE_SMALL_TEXTURE := IceDefs.SMALL
+const ICE_MEDIUM_TEXTURE := IceDefs.MEDIUM
+const ICE_MEDIUM_2_TEXTURE := IceDefs.MEDIUM_2
+const ICE_LARGE_TEXTURE := IceDefs.LARGE
+const ICE_SMALL_VARIANTS := IceDefs.SMALL_VARIANTS
+const ICE_MEDIUM_VARIANTS := IceDefs.MEDIUM_VARIANTS
+const ICE_MEDIUM_2_VARIANTS := IceDefs.MEDIUM_2_VARIANTS
 const PALETTE_SHADER := """
 shader_type canvas_item;
 uniform vec4 tint : source_color = vec4(1.0);
@@ -76,6 +72,12 @@ func _ready() -> void:
 	var accents := preload("res://scripts/random_sector_renderer.gd").new()
 	accents.name = "SectorDecorations"
 	add_child(accents)
+	# Холодный сектор рисуется отдельным проходом: общий рендер даёт ему тот
+	# же камень, что и соседям, а биому нужна собственная композиция потока.
+	var ice := preload("res://scripts/ice_sector_renderer.gd").new()
+	ice.name = "IceSector"
+	ice.terrain_source = get_parent()
+	add_child(ice)
 
 
 ## Старые способы отрисовки сохранены для инструментов предпросмотра.
@@ -286,17 +288,8 @@ func _next_ice_large_variant(rng: RandomNumberGenerator) -> int:
 	return result
 
 
-## Приближённое соотношение гайда: 60% тёмного камня/металла, 25% льда,
-## 10% светлого инея и только 5% заметного cyan-акцента.
 func _ice_modulation(rng: RandomNumberGenerator, alpha: float = 1.0) -> Color:
-	var roll := rng.randf()
-	if roll < 0.60:
-		return Color(0.58, 0.67, 0.78, alpha)
-	if roll < 0.85:
-		return Color(0.78, 0.88, 1.0, alpha)
-	if roll < 0.95:
-		return Color(0.96, 0.98, 1.0, alpha)
-	return Color(0.62, 0.94, 1.0, alpha)
+	return IceDefs.modulation(rng, alpha)
 
 
 func _add_ice_prop(texture: Texture2D, grid: int, variant: int, center: Vector2,

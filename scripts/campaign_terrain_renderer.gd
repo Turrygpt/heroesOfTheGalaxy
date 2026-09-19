@@ -25,11 +25,16 @@ func _ready() -> void:
 	for obstacle in map.obstacles:
 		if String(obstacle.kind) == "rift":
 			continue
+		# Холодный сектор рисует свой проход (ice_sector_renderer.gd), поэтому
+		# отсюда он получает только маску: альфа-канал несёт «это лёд», а
+		# серый камень общего пояса на его клетки не ложится вовсе.
+		var ice: bool = String(obstacle.get("biome", "")) == "ice"
 		for cell: Vector2i in obstacle.cells:
 			var radiation: bool = obstacle.kind == "radiation_front"
 			var gas: bool = obstacle.kind == "nebula"
-			mask.set_pixelv(cell, Color(0 if radiation or gas else 1, 1 if radiation else 0, 1 if gas else 0, 1))
-			if radiation or gas:
+			mask.set_pixelv(cell, Color(0 if radiation or gas else 1, 1 if radiation else 0,
+				1 if gas else 0, 1 if ice else 0))
+			if radiation or gas or ice:
 				continue
 			var edge := false
 			for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:

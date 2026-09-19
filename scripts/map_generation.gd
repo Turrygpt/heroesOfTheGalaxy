@@ -435,8 +435,8 @@ func _generate_guarded_resource_caches() -> void:
 		if cell.x < 0:
 			continue
 		var amount := map_random.randi_range(map.RESOURCE_CACHE_AMOUNT_MIN, map.RESOURCE_CACHE_AMOUNT_MAX)
-		var neighbours := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
-		neighbours.shuffle()
+		var neighbours: Array = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+		_shuffle(neighbours)
 		var guardian_cell := Vector2i(-1, -1)
 		for offset in neighbours:
 			var candidate: Vector2i = cell + offset
@@ -961,7 +961,7 @@ func _add_distant_production_sites(occupied_cells: Array[Vector2i], copies_per_r
 			for sx in range(PRODUCTION_SECTOR_GRID):
 				for sy in range(PRODUCTION_SECTOR_GRID):
 					sector_order.append(Vector2i(sx, sy))
-			sector_order.shuffle()
+			_shuffle(sector_order)
 			sector_order.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 				return int(sector_counts.get(a, 0)) < int(sector_counts.get(b, 0))
 			)
@@ -979,6 +979,17 @@ func _add_distant_production_sites(occupied_cells: Array[Vector2i], copies_per_r
 				break
 			if not placed:
 				push_error("Не удалось равномерно разместить редкое месторождение")
+
+
+## Array.shuffle() берёт глобальный генератор Godot, который рандомизируется
+## при запуске: из-за этого одна и та же map_seed давала разные карты. Тасуем
+## сами, через map_random, чтобы сид снова означал карту.
+func _shuffle(items: Array) -> void:
+	for index in range(items.size() - 1, 0, -1):
+		var other := map_random.randi_range(0, index)
+		var swapped: Variant = items[index]
+		items[index] = items[other]
+		items[other] = swapped
 
 
 func _find_production_in_sector(sector: Vector2i, occupied_cells: Array[Vector2i]) -> Vector2i:
