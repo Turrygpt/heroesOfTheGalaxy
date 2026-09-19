@@ -21,6 +21,8 @@ var pending_map: Dictionary = {}
 var save_on_start := false
 ## Флаг передаётся из меню только для старта новой случайной карты.
 var random_map_requested := false
+## Ноль выбирает новый сид; положительное число воспроизводит приключение.
+var random_map_seed := 0
 var error_message := ""
 
 
@@ -48,6 +50,7 @@ func save_campaign(map: Node, path: String = SAVE_PATH) -> bool:
 	for field in MAP_FIELDS:
 		snapshot[field] = map.get(field)
 	snapshot["campaign_map_id"] = map.campaign_map_id
+	snapshot["random_map_layout"] = map.random_map_layout
 	snapshot["story_state"] = map.story_state
 	snapshot["random_state"] = map.map_random.state
 	snapshot["pirate_balance_version"] = 4

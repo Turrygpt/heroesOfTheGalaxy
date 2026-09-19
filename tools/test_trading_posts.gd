@@ -1,4 +1,4 @@
-## Проверяет фиксированную нейтральную расстановку торговых постов.
+## Два торговых поста в боковых секторах приключения, без пересечений и тупиков.
 extends SceneTree
 
 const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
@@ -26,11 +26,7 @@ func _run() -> void:
 	campaign.random_map_requested = true
 	var host := (load("res://scenes/StrategicMain.tscn") as PackedScene).instantiate()
 	var map := host.get_node("SpaceStrategyMap")
-	# Дефолтный map_seed теперь грузит авторскую Марс-миссию
-	# (CampaignMissionMap.populate), у которой свой единственный торговый пост
-	# и она вообще не знает про MapObjectDefs.TRADING_POST_CELLS. Эта проверка
-	# — про процедурную раскладку, поэтому явно просим детерминированную
-	# процедурную карту тем же сидом, что и отладочные снимки (см. AGENTS.md).
+	# Авторская миссия имеет свою расстановку; здесь нужен случайный генератор.
 	map.map_seed = 1001
 	root.add_child(host)
 	map.set_process(false)
@@ -38,15 +34,16 @@ func _run() -> void:
 	for object in map.map_objects:
 		if String(object.get("kind", "")) == "trading_post":
 			posts.append(object)
-	_check(posts.size() == MapObjectDefs.TRADING_POST_CELLS.size(), "На карте должно быть два торговых поста")
+	_check(posts.size() == 2, "На карте должно быть два торговых поста")
+	var sides := {}
 	for object in posts:
 		var cell: Vector2i = object["cell"]
-		var human_distance: int = map._chebyshev_distance(cell, map.HUMAN_PLANET_CENTER)
-		var orc_distance: int = map._chebyshev_distance(cell, map.ORC_PLANET_CENTER)
-		_check(
-			absi(human_distance - orc_distance) <= 3,
-			"Торговый пост %s слишком смещён: Земля=%d, Орка=%d" % [str(cell), human_distance, orc_distance]
-		)
+		sides[cell.x < 32] = true
+		for start: Vector2i in [map.PLAYER_ONE_START_CELL, map.ORC_PLANET_CENTER]:
+			_check(not map.navigation_grid.get_id_path(start, cell).is_empty(), "Торговый пост недоступен")
+		for point: Vector2i in map._footprint_cells(cell, 2):
+			_check(not map.blocked_cells.has(point) and not map.guardian_at.has(point), "Пост перекрыт препятствием или стражем")
+	_check(sides.size() == 2, "Посты должны обслуживать обе боковые ветви")
 	host.free()
 	if failures == 0:
 		print("PASS: торговые посты размещены нейтрально")

@@ -274,9 +274,10 @@ var orc_report := ""
 ## "" пока кампания идёт, иначе "victory" / "defeat" — дальше ходов нет.
 var campaign_outcome := ""
 var fog_enabled := FOG_ENABLED
-## Истина только для карт, созданных кнопкой «Случайная карта». Значение
-## восстанавливается по map_seed, поэтому старые сохранения не ломаются.
+## Режим приключения; в старых сохранениях без метаданных узнаётся по сиду 0.
 var random_map_mode := false
+## Описание случайного приключения сохраняется отдельно от авторской миссии.
+var random_map_layout: Dictionary = {}
 ## Истина только для фиксированной простой карты новой кампании. Случайная
 ## карта и старые сохранения продолжают использовать полную генерацию.
 var starter_map_mode := false
@@ -305,15 +306,19 @@ func _ready() -> void:
 	# видела бы уже сброшенное false и показывала вступление и на ней.
 	var was_random_map_request := CampaignSave.random_map_requested
 	if was_random_map_request:
-		map_seed = 0
+		map_seed = CampaignSave.random_map_seed
 		CampaignSave.random_map_requested = false
-	random_map_mode = map_seed == 0
-	starter_map_mode = map_seed == STARTER_MAP_SEED
-	fog_enabled = FOG_ENABLED
+	random_map_mode = was_random_map_request or map_seed != STARTER_MAP_SEED
+	starter_map_mode = not random_map_mode
+	# Приключение начинается с разведки; отладочная настройка старых карт
+	# не должна заранее показывать все схроны и развилки нового генератора.
+	fog_enabled = FOG_ENABLED or random_map_mode
 	if map_seed != 0:
 		map_random.seed = map_seed
 	else:
 		map_random.randomize()
+		map_seed = map_random.randi_range(1, 2147483646)
+		map_random.seed = map_seed
 	var decoration_seed := int(map_random.seed) ^ 0x5EED
 	var map_pixel_size := Vector2(MAP_SIZE) * CELL_SIZE
 	space_decorations = SpaceDecorations.generate(decoration_seed, map_pixel_size)
@@ -330,15 +335,23 @@ func _ready() -> void:
 			map_generation.generate_obstacles()
 			map_generation.generate_guardians()
 			map_generation.generate_map_objects()
+			preload("res://scripts/adventure_map_generator.gd").new().populate(self)
 		current_cell = PLAYER_ONE_START_CELL
 	else:
 		for field in CampaignSave.MAP_FIELDS:
 			set(field, snapshot[field])
 		campaign_map_id = String(snapshot.get("campaign_map_id", ""))
+		random_map_layout = snapshot.get("random_map_layout", {}).duplicate(true)
 		story_state = snapshot.get("story_state", {}).duplicate(true)
-		random_map_mode = map_seed == 0
-		starter_map_mode = map_seed == STARTER_MAP_SEED
+		random_map_mode = not random_map_layout.is_empty() or map_seed == 0
+		starter_map_mode = campaign_map_id == CampaignMissionMap.ID
+		fog_enabled = FOG_ENABLED or not random_map_layout.is_empty()
+		_init_fog()
 		map_random.state = int(snapshot.get("random_state", map_random.state))
+		# Декорации тоже восстанавливаются по сохранённому сиду.
+		decoration_seed = map_seed ^ 0x5EED
+		space_decorations = SpaceDecorations.generate(decoration_seed, map_pixel_size)
+		space_comets = SpaceDecorations.make_comets(decoration_seed, map_pixel_size)
 		# Обновляем старые составы, сохраняя позиции, трофеи и побеждённых стражей.
 		_refresh_guardian_rosters(int(snapshot.get("pirate_balance_version", 0)))
 		for cell in explored_cells:
@@ -421,7 +434,7 @@ func _ready() -> void:
 	if CampaignSave.save_on_start:
 		CampaignSave.save_on_start = false
 		_save_campaign()
-	if snapshot.is_empty() and not was_random_map_request:
+	if snapshot.is_empty() and starter_map_mode:
 		_show_intro_briefing()
 
 
@@ -589,6 +602,15 @@ func _process_camera_pan(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
+		if event.pressed and not event.echo:
+			if event.keycode == KEY_SPACE:
+				_continue_planned_route()
+				get_viewport().set_input_as_handled()
+				return
+			if event.keycode in [KEY_ENTER, KEY_KP_ENTER]:
+				_end_day()
+				get_viewport().set_input_as_handled()
+				return
 		if event.keycode == KEY_F10 and event.pressed and not event.echo:
 			_toggle_fog()
 			get_viewport().set_input_as_handled()
@@ -628,6 +650,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		camera.position -= event.relative / camera.zoom
 		camera.position = _clamp_camera_position(camera.position)
 		get_viewport().set_input_as_handled()
+
+
+## Продолжает выбранный маршрут с текущей клетки. Это та же команда, что
+## повторный ПКМ по цели, но её можно вызвать пробелом после остановки на
+## границе сола или закрытия окна события.
+func _continue_planned_route() -> void:
+	if is_moving or campaign_outcome != "" or planned_path.is_empty():
+		return
+	navigation_message = ""
+	if movement_points >= _cell_move_cost(planned_path[0]):
+		_begin_move_to(planned_path[0])
+		is_moving = true
+	else:
+		navigation_message = "Не хватает очков на следующий шаг. Завершите сол."
+	_update_hud()
+	route_overlay.queue_redraw()
+	queue_redraw()
 
 
 func _toggle_fog() -> void:
@@ -837,11 +876,7 @@ func _handle_right_click(clicked_cell: Vector2i) -> void:
 		planned_path.clear()
 		planned_destination = Vector2i(-1, -1)
 	elif clicked_cell == planned_destination and not planned_path.is_empty():
-		if movement_points >= _cell_move_cost(planned_path[0]):
-			_begin_move_to(planned_path[0])
-			is_moving = true
-		else:
-			navigation_message = "Не хватает очков на следующий шаг. Завершите сол."
+		_continue_planned_route()
 	else:
 		planned_destination = clicked_cell
 		planned_path = _build_path(current_cell, planned_destination)
@@ -866,10 +901,10 @@ func _draw() -> void:
 
 	for column in range(MAP_SIZE.x + 1):
 		var x := column * CELL_SIZE
-		draw_line(Vector2(x, 0.0), Vector2(x, map_pixel_size.y), GRID_COLOR, 2.0)
+		draw_line(Vector2(x, 0.0), Vector2(x, map_pixel_size.y), Color(GRID_COLOR, 0.35) if not random_map_layout.is_empty() else GRID_COLOR, 2.0)
 	for row in range(MAP_SIZE.y + 1):
 		var y := row * CELL_SIZE
-		draw_line(Vector2(0.0, y), Vector2(map_pixel_size.x, y), GRID_COLOR, 2.0)
+		draw_line(Vector2(0.0, y), Vector2(map_pixel_size.x, y), Color(GRID_COLOR, 0.35) if not random_map_layout.is_empty() else GRID_COLOR, 2.0)
 	_draw_production_owner_markers()
 	if campaign_story != null and campaign_story.has_seen("pirate_complete"):
 		_draw_secret_passage_marker(Vector2i(22, 40), "Секретный фарватер")
@@ -1100,12 +1135,16 @@ func _update_navigation_hud() -> void:
 		summary.text = navigation_message
 	elif planned_path.is_empty():
 		summary.text = "Выберите пункт назначения правой кнопкой мыши"
+		if not random_map_layout.is_empty():
+			summary.text += "\nЭкспедиция · сид %d" % map_seed
 	else:
 		var schedule := _route_schedule()
 		summary.text = "%d очк. движения · прибытие: %s\n%s" % [
 			schedule["cost"], format_sol(schedule["arrival_day"]),
-			"В полёте" if is_moving else "Повторный ПКМ по цели — лететь"]
+			"В полёте" if is_moving else "Пробел — продолжить маршрут"]
 	terrain.text = "Пояса и разломы непроходимы · туманности: движение ×2"
+	if not random_map_layout.is_empty():
+		terrain.text = "Пояса непроходимы · ионные обходы: движение ×2"
 	if hovered_cell != Vector2i(-1, -1) and not is_cell_explored(hovered_cell):
 		terrain.text = "▪ Неизведанная область — подлетите ближе, чтобы рассмотреть"
 		return
@@ -2181,9 +2220,15 @@ func _award_quick_battle_experience(battle_units: Array, enemy_commanded: bool) 
 func _start_guardian_battle(index: int, start_immediately: bool = false) -> void:
 	var hero := _player_hero()
 	var guardian: Dictionary = guardians[index]
-	# Дипломатия действует только на живые полевые пиратские/торговые флоты.
-	# Базы, планеты, орки и гарнизоны зданий всегда требуют боя/осады.
-	var can_diplomacy := not guardian.has("object_kind") and String(guardian.get("kind", "")) in ["pirate", "trader"]
+	# Дипломатия действует только на обычные живые полевые пиратские/торговые
+	# флоты. Контрактные конвои Ридуса — обязательные цели квеста «Победить
+	# торговые флоты», поэтому они всегда требуют боя. Базы, планеты, орки и
+	# гарнизоны зданий также всегда требуют боя/осады.
+	var mission_id := String(guardian.get("mission_id", ""))
+	var contract_convoy := mission_id in ["ridus_trader_convoy_1", "ridus_trader_convoy_2"]
+	var can_diplomacy := not guardian.has("object_kind") \
+			and not contract_convoy \
+			and String(guardian.get("kind", "")) in ["pirate", "trader"]
 	var player_fleet: Array[Dictionary] = _player_battle_fleet(false)
 	var enemy_fleet_for_diplomacy: Array[Dictionary] = []
 	for entry in guardian.get("fleet", []):
@@ -2240,8 +2285,16 @@ func _diplomacy_recruit_guardian(index: int) -> void:
 		return
 	_join_fleet_with_capacity(hero, guardian.get("fleet", []), func(joined: bool) -> void:
 		if not joined:
-			navigation_message = "Мирное присоединение отклонено."
+			# Если места во флоте не хватило и игрок отказался распускать
+			# собственный отряд, нейтралы не должны оставаться висеть на
+			# клетке для повторного предложения: они уходят с карты.
+			guardian["alive"] = false
+			guardian["fleet"] = []
+			guardian["peaceful_departure"] = true
+			guardian_overlay.queue_redraw()
+			navigation_message = "Мирное присоединение отклонено — нейтральный флот ушёл."
 			_update_hud()
+			queue_redraw()
 			return
 		guardian["alive"] = false
 		current_cell = guardian["cell"]
@@ -3045,6 +3098,16 @@ func _trigger_distress_signal(index: int) -> void:
 func _trigger_info(index: int) -> void:
 	var kind := String(map_objects[index]["kind"])
 	var def := MapObjectDefs.get_kind(kind)
+	if kind == "stellar_observatory":
+		var destination: Vector2i = map_objects[index].get("secret_cell", Vector2i(-1, -1))
+		if destination.x >= 0:
+			_reveal_around(destination, 5)
+			fog_overlay.queue_redraw()
+			beacon_cell = destination
+			var description := "Звёздная сфера восстановила забытый маршрут. В каменном кольце у (%d, %d) скрыт схрон Древних. Найдите узкую горловину и подготовьте флот: сокровища охраняются. Координаты отмечены на миникарте." % [destination.x, destination.y]
+			navigation_message = description
+			_show_object_reward_dialog(String(def.name), description, def.texture)
+		return
 	if kind in ["mission_trader_base", "mission_pirate_base"]:
 		_show_object_reward_dialog(String(def.name), String(def.description), load(String(def.portrait)))
 		return
@@ -3406,6 +3469,8 @@ func _pick_ice_biome_center() -> Vector2i:
 func _create_obstacle_sprites() -> void:
 	if campaign_map_id == CampaignMissionMap.ID:
 		obstacle_sprites = preload("res://scripts/campaign_terrain_renderer.gd").new()
+	elif not random_map_layout.is_empty():
+		obstacle_sprites = preload("res://scripts/adventure_terrain_renderer.gd").new()
 	else:
 		obstacle_sprites = preload("res://scripts/space_obstacle_renderer.gd").new()
 	obstacle_sprites.name = "ObstacleSprites"

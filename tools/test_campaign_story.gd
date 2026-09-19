@@ -96,6 +96,21 @@ func _run() -> void:
 				if String(entry.unit_id) == "trader_destroyer":
 					flagships += int(entry.count)
 			check(flagships == 0, "В торговом конвое не должно быть флагмана")
+	# Незавершённая цель не должна исчезнуть навсегда после ухода конвоя:
+	# следующий пересчёт прогресса восстанавливает именно недостающий флот.
+	var first_convoy := guardian_index(map, "ridus_trader_convoy_1")
+	if first_convoy >= 0:
+		map.guardians[first_convoy]["alive"] = false
+		map.guardians[first_convoy]["fleet"] = []
+		story.update_progress()
+		var replacement_found := false
+		for guardian in map.guardians:
+			if guardian.get("mission_id", "") == "ridus_trader_convoy_1" \
+					and bool(guardian.get("alive", false)):
+				replacement_found = true
+				break
+		check(replacement_found,
+			"Недостающий торговый конвой пиратского квеста не восстановился")
 	# Три фрегата не исчезают сами: Ридус принимает их только после прибытия
 	# на базу и подтверждения через resolve_pirate_delivery.
 	var pirate_hero: Hero = map._player_hero()
@@ -141,6 +156,8 @@ func _run() -> void:
 	check(map.story_state.trader_line.clearance, "Лига не активировала пропуск через центральный кордон")
 	check(central_patrol >= 0 and bool(map.guardians[central_patrol].get("neutral", false)),
 		"Центральный патруль не стал нейтральным после контракта Лиги")
+	check(not story.active_quests_label.text.contains("ТОРГОВАЯ ВЕТКА"),
+		"Выполненная торговая ветка остаётся в списке активных квестов")
 	story.captured("production_2_2")
 	story.captured("production_2_5")
 	story.guardian_won("side_reward_3")

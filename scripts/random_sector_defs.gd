@@ -8,7 +8,7 @@ const THEMES := {
 	"trader": {"name": "Золотая пыль", "color": Color("9b884a"), "accent": Color("c4b982"), "stretch": 3.0, "props": [2, 3, 3, 21]},
 	"volcanic": {"name": "Пепельный пояс", "color": Color("ad542c"), "accent": Color("d8a452"), "stretch": 2.0, "props": [0, 1, 2, 3]},
 	"crystal": {"name": "Кристаллический сектор", "color": Color("348777"), "accent": Color("9271bc"), "stretch": 1.4, "props": [6, 7, 8, 9]},
-	"dead": {"name": "Тёмная пылевая туманность", "color": Color("55566f"), "accent": Color("8d719b"), "stretch": 2.6, "props": [2, 3, 12, 15]},
+	"dead": {"name": "Кладбище эскадр", "color": Color("55566f"), "accent": Color("8d719b"), "stretch": 2.6, "props": [2, 3, 12, 15]},
 	"ion": {"name": "Ионные течения", "color": Color("5967b2"), "accent": Color("5abacb"), "stretch": 4.0, "props": [7, 9, 9, 3]},
 	"ice": {"name": "Холодный сектор", "color": Color("4289a9"), "accent": Color("a5d9df"), "stretch": 1.8, "props": [0, 2, 4, 5, 7]},
 	"toxic": {"name": "Ядовитые отмели", "color": Color("6c8a32"), "accent": Color("b6d84a"), "stretch": 2.4, "props": [12, 13, 14, 15]},

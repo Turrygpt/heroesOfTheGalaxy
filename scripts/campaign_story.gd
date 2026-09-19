@@ -152,6 +152,11 @@ func captured(id: String) -> void:
 
 
 func update_progress() -> void:
+	# Контракт требует две отдельные победы. Если один из целей не оказалось
+	# в сохранении или незавершённый конвой ушёл мирно, восстановить его сразу,
+	# а не оставлять ветку с прогрессом 1 / 2 без второй цели.
+	if map.story_state.pirate_line.active and map.story_state.pirate_line.traders < 2:
+		_spawn_pirate_contract_convoys()
 	if map.story_state.trader_line.active \
 			and map.story_state.trader_line.pirates >= 2 \
 			and map.story_state.trader_line.paid \
@@ -229,14 +234,16 @@ func _refresh_active_quests() -> void:
 		else:
 			rows.append("1. ✓ Рандеву с отрядами маршала")
 	rows.append(("2. Освободить Марс\n   Координаты: (57, 57)" if not has_seen("ending") else "2. ✓ Освободить Марс"))
-	if state.pirate_line.active:
+	if state.pirate_line.active and not has_seen("pirate_complete"):
 		rows.append("\nПИРАТСКАЯ ВЕТКА")
-		rows.append("○ Победить торговые флоты: %d / 2" % mini(state.pirate_line.traders, 2))
+		var traders_done := int(state.pirate_line.traders) >= 2
+		rows.append(("✓ " if traders_done else "○ ") + "Победить торговые флоты: %d / 2" % mini(state.pirate_line.traders, 2))
 		rows.append("○ Доставить 3 фрегата на базу Ридуса" if not state.pirate_line.frigates else "✓ Фрегаты переданы Ридусу")
 		rows.append("○ Победить пиратский крейсер" if not state.pirate_line.cruiser else "✓ Пиратский крейсер разбит")
-	if state.trader_line.active:
+	if state.trader_line.active and not has_seen("trader_complete"):
 		rows.append("\nТОРГОВАЯ ВЕТКА")
-		rows.append("○ Победить пиратские флоты: %d / 2" % mini(state.trader_line.pirates, 2))
+		var pirates_done := int(state.trader_line.pirates) >= 2
+		rows.append(("✓ " if pirates_done else "○ ") + "Победить пиратские флоты: %d / 2" % mini(state.trader_line.pirates, 2))
 		rows.append("○ Доставить 10000 кредитов на базу Лиги" if not state.trader_line.paid else "✓ Депозит передан Лиге")
 		rows.append("○ Взять пиратскую базу и вернуть артефакт Лиге" if not state.trader_line.artifact else "✓ Артефакт передан Лиге")
 	active_quests_label.text = "\n".join(rows)
@@ -420,7 +427,8 @@ func _spawn_pirate_contract_convoys() -> void:
 		var mission_id := String(convoy.mission_id)
 		var existing_cell := Vector2i(-1, -1)
 		for guardian in map.guardians:
-			if String(guardian.get("mission_id", "")) == mission_id:
+			if String(guardian.get("mission_id", "")) == mission_id \
+					and (bool(guardian.get("alive", false)) or mission_id in map.story_state.won):
 				existing_cell = guardian.cell
 				break
 		if existing_cell != Vector2i(-1, -1):

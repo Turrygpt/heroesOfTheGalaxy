@@ -21,6 +21,11 @@ extends RefCounted
 ## PRODUCTION_FOOTPRINT в space_strategy_map.gd); мелкие объекты (ящики,
 ## маяки, капсулы...) — одну клетку.
 const KINDS := {
+	"stellar_observatory": {
+		"family": "info", "name": "Звёздная обсерватория", "size": 2, "repeatable": true,
+		"color": "80d9d5", "glyph": "✧",
+		"texture": preload("res://assets/map_objects/stellar_observatory.png"),
+	},
 	"mission_trader_base": {
 		"family": "info", "name": "База Лорда Штайна", "size": 4, "repeatable": true,
 		"color": "55d6c2", "glyph": "₡",
