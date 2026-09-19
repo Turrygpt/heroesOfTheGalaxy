@@ -9,16 +9,16 @@ const DENSE_VARIANTS := [0, 1, 3]
 const SPARSE_VARIANTS := [2, 4, 5]
 const NEBULA_VARIANTS := [0, 1, 4]
 const CARDINALS := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
-## Атласы и варианты холодного сектора живут в ice_biome_defs.gd: тот же
-## набор использует отдельный рендер сектора (ice_sector_renderer.gd).
-const IceDefs := preload("res://scripts/ice_biome_defs.gd")
-const ICE_SMALL_TEXTURE := IceDefs.SMALL
-const ICE_MEDIUM_TEXTURE := IceDefs.MEDIUM
-const ICE_MEDIUM_2_TEXTURE := IceDefs.MEDIUM_2
-const ICE_LARGE_TEXTURE := IceDefs.LARGE
-const ICE_SMALL_VARIANTS := IceDefs.SMALL_VARIANTS
-const ICE_MEDIUM_VARIANTS := IceDefs.MEDIUM_VARIANTS
-const ICE_MEDIUM_2_VARIANTS := IceDefs.MEDIUM_2_VARIANTS
+## Атласы и варианты секторов живут в biome_sector_defs.gd: тот же набор
+## использует композиционный рендер (biome_sector_renderer.gd).
+const IceDefs := preload("res://scripts/biome_sector_defs.gd")
+const ICE_SMALL_TEXTURE := IceDefs.ICE_SMALL
+const ICE_MEDIUM_TEXTURE := IceDefs.ICE_MEDIUM
+const ICE_MEDIUM_2_TEXTURE := IceDefs.ICE_MEDIUM_2
+const ICE_LARGE_TEXTURE := IceDefs.ICE_LARGE
+const ICE_SMALL_VARIANTS := IceDefs.ICE_SMALL_VARIANTS
+const ICE_MEDIUM_VARIANTS := IceDefs.ICE_MEDIUM_VARIANTS
+const ICE_MEDIUM_2_VARIANTS := IceDefs.ICE_MEDIUM_2_VARIANTS
 const PALETTE_SHADER := """
 shader_type canvas_item;
 uniform vec4 tint : source_color = vec4(1.0);
@@ -72,12 +72,16 @@ func _ready() -> void:
 	var accents := preload("res://scripts/random_sector_renderer.gd").new()
 	accents.name = "SectorDecorations"
 	add_child(accents)
-	# Холодный сектор рисуется отдельным проходом: общий рендер даёт ему тот
-	# же камень, что и соседям, а биому нужна собственная композиция потока.
-	var ice := preload("res://scripts/ice_sector_renderer.gd").new()
-	ice.name = "IceSector"
-	ice.terrain_source = get_parent()
-	add_child(ice)
+	# Секторы с собственной композицией рисуются отдельными проходами: общий
+	# рендер даёт им тот же камень, что и соседям, а биому нужен свой поток.
+	# Узел создаётся на каждый профиль и сам молча уходит, если его биома на
+	# этой карте не выпало.
+	for id: String in IceDefs.PROFILES:
+		var sector := preload("res://scripts/biome_sector_renderer.gd").new()
+		sector.name = String(IceDefs.PROFILES[id].node)
+		sector.biome = id
+		sector.terrain_source = get_parent()
+		add_child(sector)
 
 
 ## Старые способы отрисовки сохранены для инструментов предпросмотра.
@@ -289,7 +293,7 @@ func _next_ice_large_variant(rng: RandomNumberGenerator) -> int:
 
 
 func _ice_modulation(rng: RandomNumberGenerator, alpha: float = 1.0) -> Color:
-	return IceDefs.modulation(rng, alpha)
+	return IceDefs.modulation(IceDefs.PROFILES["ice"], rng, alpha)
 
 
 func _add_ice_prop(texture: Texture2D, grid: int, variant: int, center: Vector2,

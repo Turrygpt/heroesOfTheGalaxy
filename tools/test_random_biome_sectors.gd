@@ -1,5 +1,6 @@
-## Регрессия холодного сектора случайной карты: биом получает кластерный арт,
-## но не меняет геометрию препятствий и не попадает в авторскую миссию.
+## Регрессия секторов со своей композицией (biome_sector_renderer.gd): биом
+## получает собственный арт, но не меняет геометрию препятствий и не попадает
+## в авторскую миссию.
 extends SceneTree
 
 const ALLOWED_ICE_KINDS := ["asteroid_field", "planetoid", "nebula", "radiation_front"]
@@ -65,32 +66,43 @@ func _run() -> void:
 			ice_cell_count += 1
 	if ice_cell_count > 0:
 		ice_center /= float(ice_cell_count)
-	# Сектор собирает отдельный проход (ice_sector_renderer.gd): поток обломков,
-	# холодная дымка и завихрения. Общий рендер поясов на его клетки больше
+	# Каждый такой сектор собирает отдельный проход: поток обломков, холодная
+	# или ядовитая дымка, завихрения. Общий рендер поясов на его клетки больше
 	# ничего не кладёт, поэтому пустой узел означал бы биом без арта вовсе.
-	var sector: Node = map.obstacle_sprites.get_node_or_null("IceSector")
-	_check(sector != null, "Холодный сектор остался без собственного рендера")
-	if sector != null:
-		_check(sector.props_count > 0, "Рендер холодного сектора не поставил ни одного обломка")
-		_check(sector.glints.size() > 0, "У холодного сектора пропали блики")
+	var composed := preload("res://scripts/random_sector_defs.gd").COMPOSED_SECTORS
+	for id: String in composed:
+		var profile: Dictionary = preload("res://scripts/biome_sector_defs.gd").PROFILES[id]
+		var sector: Node = map.obstacle_sprites.get_node_or_null(String(profile.node))
+		_check(sector != null, "Сектор остался без собственного рендера: " + id)
+		if sector == null:
+			continue
+		_check(sector.props_count > 0, "Рендер сектора не поставил ни одного обломка: " + id)
+		_check(sector.accents.size() > 0, "У сектора пропали акценты: " + id)
 		# Главное правило биома: он только декорация. Всё, что по размеру уже
 		# читается как преграда, обязано стоять на клетке, которая и так
 		# непроходима, иначе игрок видит стену там, где маршрут свободен.
 		var misplaced := 0
 		var solid := 0
 		for child in sector.get_children():
-			if not child.has_meta("ice_prop_diameter"):
+			if not child.has_meta("biome_prop_diameter"):
 				continue
-			if float(child.get_meta("ice_prop_diameter")) <= 96.0 * sector.SOLID_PROP_THRESHOLD:
+			if float(child.get_meta("biome_prop_diameter")) <= 96.0 * sector.SOLID_PROP_THRESHOLD:
 				continue
 			solid += 1
 			if not map.blocked_cells.has(Vector2i((child.position / 96.0).floor())):
 				misplaced += 1
 		_check(misplaced == 0,
-			"Крупный обломок холодного сектора встал на свободную клетку: " + str(misplaced))
+			"Крупный обломок сектора " + id + " встал на свободную клетку: " + str(misplaced))
 		prop_count += sector.props_count
-		print("  холодный сектор: потоков — ", sector.streams, ", обломков — ", sector.props_count,
-			", крупных — ", solid)
+		print("  сектор ", id, ": потоков — ", sector.streams, ", обломков — ",
+			sector.props_count, ", крупных — ", solid)
+	# Оба композиционных сектора обязаны быть на любой карте: у них
+	# гарантированное место в раскладке тем (COMPOSED_SECTORS).
+	var present := {}
+	for feature: Dictionary in map.obstacles:
+		present[String(feature.get("biome", ""))] = true
+	for id: String in composed:
+		_check(present.has(id), "Гарантированный сектор не попал на карту: " + id)
 	map.queue_free()
 	await process_frame
 	await process_frame
@@ -116,6 +128,6 @@ func _run() -> void:
 		"Карта с той же map_seed сгенерировалась по-другому")
 	repeat.queue_free()
 	await process_frame
-	print("Проверка холодного сектора: ошибок — ", failures, ", пропсов — ", prop_count,
+	print("Проверка секторов: ошибок — ", failures, ", пропсов — ", prop_count,
 		", центр — ", ice_center.round())
 	quit(1 if failures else 0)

@@ -4,6 +4,10 @@ extends Node2D
 const CELL := 96.0
 const ROCKS := preload("res://assets/space/obstacle_asteroid_field.png")
 const HAZARD_SHADER := preload("res://shaders/campaign_hazards.gdshader")
+## Каналы второй маски: по одному на сектор со своей композицией. Красный —
+## лёд, зелёный — токсичный; синий свободен под следующий.
+const BIOME_CHANNELS := {"ice": 0, "toxic": 1}
+
 ## Размытие только визуальное: ореол выходит на 3 клетки за опасную область.
 const CLOUD_BLUR_RADIUS := 3
 const CLOUD_BLUR_SIGMA := 1.25
@@ -19,22 +23,29 @@ func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 160926
 	var mask := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	var biome_mask := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	biome_mask.fill(Color(0, 0, 0, 1))
 	# Шейдер читает RGB как плотность: у Color.TRANSPARENT белые RGB,
 	# поэтому свободные клетки должны быть именно чёрными с нулевой альфой.
 	mask.fill(Color(0, 0, 0, 0))
 	for obstacle in map.obstacles:
 		if String(obstacle.kind) == "rift":
 			continue
-		# Холодный сектор рисует свой проход (ice_sector_renderer.gd), поэтому
-		# отсюда он получает только маску: альфа-канал несёт «это лёд», а
-		# серый камень общего пояса на его клетки не ложится вовсе.
-		var ice: bool = String(obstacle.get("biome", "")) == "ice"
+		# Секторы со своей композицией (biome_sector_renderer.gd) получают
+		# отсюда только маску: серый камень общего пояса на их клетки не
+		# ложится вовсе, а вторая маска несёт номер биома, чтобы шейдер
+		# раскрасил тот же газ их палитрой.
+		var composed: int = BIOME_CHANNELS.get(String(obstacle.get("biome", "")), -1)
 		for cell: Vector2i in obstacle.cells:
 			var radiation: bool = obstacle.kind == "radiation_front"
 			var gas: bool = obstacle.kind == "nebula"
 			mask.set_pixelv(cell, Color(0 if radiation or gas else 1, 1 if radiation else 0,
-				1 if gas else 0, 1 if ice else 0))
-			if radiation or gas or ice:
+				1 if gas else 0, 1))
+			if composed >= 0:
+				var channel := biome_mask.get_pixelv(cell)
+				channel[composed] = 1.0
+				biome_mask.set_pixelv(cell, channel)
+			if radiation or gas or composed >= 0:
 				continue
 			var edge := false
 			for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
@@ -56,6 +67,8 @@ func _ready() -> void:
 	clouds.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	var shader_material := ShaderMaterial.new()
 	shader_material.shader = HAZARD_SHADER
+	shader_material.set_shader_parameter("biome_mask",
+		ImageTexture.create_from_image(_soft_cloud_mask(biome_mask)))
 	clouds.material = shader_material
 	clouds.show_behind_parent = true
 	add_child(clouds)

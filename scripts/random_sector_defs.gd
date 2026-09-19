@@ -11,20 +11,35 @@ const THEMES := {
 	"dead": {"name": "Тёмная пылевая туманность", "color": Color("55566f"), "accent": Color("8d719b"), "stretch": 2.6, "props": [2, 3, 12, 15]},
 	"ion": {"name": "Ионные течения", "color": Color("5967b2"), "accent": Color("5abacb"), "stretch": 4.0, "props": [7, 9, 9, 3]},
 	"ice": {"name": "Холодный сектор", "color": Color("4289a9"), "accent": Color("a5d9df"), "stretch": 1.8, "props": [0, 2, 4, 5, 7]},
+	"toxic": {"name": "Ядовитые отмели", "color": Color("6c8a32"), "accent": Color("b6d84a"), "stretch": 2.4, "props": [12, 13, 14, 15]},
 }
+
+## Биомы со своей композицией (biome_sector_defs.gd) стоят дороже остальных по
+## арту, поэтому им гарантируется место на карте: тем девять слотов, а этих
+## всего два. Остальные темы разыгрывают оставшиеся пять.
+const COMPOSED_SECTORS := ["ice", "toxic"]
 
 ## Только треть секторов имеет протяжённый газ; остальные — открытый космос.
 const CLOUD_SECTORS := ["volcanic", "ion", "orc"]
 
-## Холодный сектор рисуется отдельной композицией (ice_sector_renderer.gd), и
-## на одном поясе она не читается. Если жребий отдал льду пустой участок,
-## тема меняется местами с самым плотным из свободных районов: планеты
-## остаются в своих углах, меняется только оформление.
-const ICE_MIN_FEATURES := 3
+## Композиция сектора на одном поясе не читается. Если жребий отдал такому
+## биому пустой участок, тема меняется местами с самым плотным из свободных
+## районов: планеты остаются в своих углах, меняется только оформление.
+const COMPOSED_MIN_FEATURES := 3
 
 
 static func assign_regions(features: Array[Dictionary], rng: RandomNumberGenerator) -> void:
-	var order: Array[String] = ["pirate", "trader", "volcanic", "crystal", "dead", "ion", "ice"]
+	# Тем больше, чем свободных слотов, поэтому часть остаётся за бортом — но
+	# только из обычных: секторы со своей композицией на карте есть всегда.
+	var pool: Array[String] = ["pirate", "trader", "volcanic", "crystal", "dead", "ion"]
+	for i in range(pool.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var old := pool[i]
+		pool[i] = pool[j]
+		pool[j] = old
+	var order: Array[String] = []
+	order.assign(COMPOSED_SECTORS)
+	order.append_array(pool.slice(0, 7 - COMPOSED_SECTORS.size()))
 	for i in range(order.size() - 1, 0, -1):
 		var j := rng.randi_range(0, i)
 		var old := order[i]
@@ -55,7 +70,8 @@ static func assign_regions(features: Array[Dictionary], rng: RandomNumberGenerat
 		owners.append(selected)
 		if String(feature.kind) != "rift":
 			counts[selected] += 1
-	_promote_ice_region(regions, counts)
+	for id: String in COMPOSED_SECTORS:
+		_promote_region(regions, counts, id)
 	for i in range(features.size()):
 		var selected: Dictionary = regions[owners[i]]
 		features[i]["sector"] = selected.id
@@ -67,21 +83,25 @@ static func assign_regions(features: Array[Dictionary], rng: RandomNumberGenerat
 		features[0]["regions"] = regions
 
 
-## Углы 0 и 8 закреплены за людьми и орками, поэтому лёд переезжает только
-## между районами 1..7 — и только если там препятствий заметно больше.
-static func _promote_ice_region(regions: Array[Dictionary], counts: Array[int]) -> void:
-	var ice := -1
+## Углы 0 и 8 закреплены за людьми и орками, поэтому тема переезжает только
+## между районами 1..7 — и только если там препятствий заметно больше. Чужой
+## композиционный сектор не трогаем: иначе второй вызов отберёт участок у
+## первого и пустым останется уже он.
+static func _promote_region(regions: Array[Dictionary], counts: Array[int], id: String) -> void:
+	var home := -1
 	for i in range(regions.size()):
-		if String(regions[i].id) == "ice":
-			ice = i
-	if ice < 0 or counts[ice] >= ICE_MIN_FEATURES:
+		if String(regions[i].id) == id:
+			home = i
+	if home < 0 or counts[home] >= COMPOSED_MIN_FEATURES:
 		return
-	var best := ice
+	var best := home
 	for i in range(1, regions.size() - 1):
+		if String(regions[i].id) in COMPOSED_SECTORS:
+			continue
 		if counts[i] > counts[best]:
 			best = i
-	if best == ice:
+	if best == home:
 		return
 	var swapped: String = regions[best].id
-	regions[best]["id"] = "ice"
-	regions[ice]["id"] = swapped
+	regions[best]["id"] = id
+	regions[home]["id"] = swapped

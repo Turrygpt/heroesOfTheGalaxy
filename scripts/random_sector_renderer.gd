@@ -23,6 +23,7 @@ const PROP_POOLS := {
 	"trader": ["worlds", "rocks", "wrecks"],
 	"dead": ["wrecks", "wrecks", "worlds", "sectors"],
 	"ice": ["ice_rocks", "ice_worlds", "ice_small", "ice_medium", "ice_medium2", "ice_large"],
+	"toxic": ["sectors", "wrecks", "rocks"],
 	"crystal": ["sectors", "sectors", "ice_medium2", "worlds"],
 	"volcanic": ["rocks", "worlds", "sectors"],
 	"ion": ["ice_rocks", "rocks", "sectors"],
@@ -71,9 +72,15 @@ func _ready() -> void:
 					too_close = true
 			if too_close:
 				continue
+			# У секторов с собственной композицией общий акцент подкрашивается их
+			# же цветом, иначе, например, лавовая порода в ядовитом секторе
+			# остаётся оранжевой посреди зелени.
+			var tint := Color(0.9, 0.94, 1.0, 0.9)
+			if biome in Defs.COMPOSED_SECTORS:
+				tint = Color(theme.accent, 0.9)
 			_sprite(int(theme.props[rng.randi_range(0, theme.props.size() - 1)]),
 				(Vector2(cell) + Vector2.ONE * 0.5) * CELL, rng.randf_range(MIN_PROP_WIDTH, MAX_PROP_WIDTH),
-				rng.randf() * TAU, Color(0.9, 0.94, 1.0, 0.9), biome, rng)
+				rng.randf() * TAU, tint, biome, rng)
 			accent_cells.append(cell)
 			break
 
