@@ -386,10 +386,14 @@ func _player_build(state: Dictionary) -> void:
 
 
 ## Резерв кредитов на ближайшую постройку, для которой уже есть ресурсы —
-## то же правило, что у ИИ (см. OrcAI._savings_target).
+## то же правило, что у ИИ (см. OrcAI._savings_target, включая пропуск
+## построек вовсе без ресурсов — совет теперь канонично стоит чистым
+## золотом и в резерв не просится).
 func _player_build_reserve(state: Dictionary) -> int:
 	for entry in _player_pending_builds(state):
 		var cost: Dictionary = PLANET_SCREEN.BUILDING_DEFS[String(entry["kind"])]["costs"][int(entry["level"]) - 1]
+		if cost.size() <= 1:
+			continue
 		var has_resources := true
 		for key in cost:
 			if key != "credits" and int(map.player_one_resources.get(key, 0)) < int(cost[key]):

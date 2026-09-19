@@ -95,8 +95,12 @@ func _run() -> void:
 			_fail("Every level of %s must have a construction price" % kind)
 			return
 		for cost in costs:
-			if int(cost.get("credits", 0)) <= 0 or cost.size() < 2:
-				_fail("%s price must contain credits and at least one resource" % kind)
+			# HoMM III canon: I ранг часто обходится без ресурсов вовсе
+			# (см. комментарий к BUILDING_DEFS), поэтому резервный ресурс
+			# обязателен не для каждого уровня — достаточно, чтобы кредиты
+			# были заданы.
+			if int(cost.get("credits", 0)) <= 0:
+				_fail("%s price must contain credits" % kind)
 				return
 		var base_credits := int(costs[0].get("credits", 0))
 		if base_credits < previous_base_credits:
