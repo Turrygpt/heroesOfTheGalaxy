@@ -84,7 +84,7 @@ sh tools/run_tests.sh orc battle   # только те, чьё имя содер
 | `tools/test_campaign_playthrough.gd` | сквозное прохождение демо-миссии от новой игры до эпилога |
 | `tools/test_random_campaign_layout.gd` | разные сиды дают разные пояса, обязательные точки остаются доступны |
 | `tools/test_random_sectors.gd` | регионы случайной карты: все темы, воспроизводимость, сохранение, геометрия |
-| `tools/test_random_biome_sectors.gd` | секторы с собственной композицией (лёд, токсичный): арт, проходимость не меняется |
+| `tools/test_random_biome_sectors.gd` | секторы с собственной композицией (лёд, токсичный, высокотемпературный): арт, проходимость не меняется |
 | `tools/test_planet_turn_persistence.gd` | недельное сохранение не стирает здания |
 | `tools/test_trading_post.gd` | склад торгового поста: запас, списание, недельный прирост |
 | `tools/test_trading_posts.gd` | фиксированная нейтральная расстановка торговых постов |
@@ -143,7 +143,7 @@ build/, .godot/  генерируемое, в .gitignore
 | `map_generation.gd` (~1000) | генерация случайной карты: препятствия, месторождения, стражи, объекты приключений. Пишет прямо в поля карты, создаётся в `space_strategy_map.gd` как `map_generation` |
 | `space_obstacles.gd` / `space_obstacle_renderer.gd` | геометрия препятствий (общая для карты, навигации и миникарты) и её отрисовка |
 | `random_sector_defs.gd` / `random_sector_renderer.gd` | девять тематических районов случайной карты и редкие акценты поверх них |
-| `biome_sector_defs.gd` / `biome_sector_renderer.gd` | арт и композиция секторов с собственной сборкой (лёд, токсичный): поток обломков, газ, завихрения — см. §7d |
+| `biome_sector_defs.gd` / `biome_sector_renderer.gd` | арт и композиция секторов с собственной сборкой (лёд, токсичный, высокотемпературный): поток обломков, газ, завихрения, взорванная планета — см. §7d |
 | `guardian_defs.gd` / `guardian_overlay.gd` | составы нейтральных стражей (пираты и торговые конвои) и их иконки |
 | `map_object_defs.gd` / `map_object_overlay.gd` | объекты приключений (обелиски, университет, сундуки) и плейсхолдер-иконки |
 | `route_overlay.gd`, `production_overlay.gd`, `strategic_minimap.gd` | отрисовка маршрута, подписи месторождений, миникарта |
@@ -260,7 +260,7 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 | Порядок сюжетных сцен, реакция баз фракций, старт боя из диалога | `campaign_story.gd:enqueue / _process / play / visit` — база Лиги и база Ридуса отвечают диалогом (`_visit_stein_base` / `_visit_ridus_base` возвращают `true` и подавляют карточку объекта из `_trigger_info`) |
 | Генерация карты (месторождения, препятствия, объекты) | `map_generation.gd` — точки входа `generate_production_sites / generate_obstacles / generate_guardians / generate_map_objects`, зовутся из `space_strategy_map.gd:_ready` |
 | Темы районов случайной карты (девять секторов) | `random_sector_defs.gd:assign_regions` — зовётся из `map_generation.gd:generate_obstacles` |
-| Секторы случайной карты со своей композицией: ледяной и токсичный (поток обломков, газ, завихрения) | `biome_sector_renderer.gd` (+ профили в `biome_sector_defs.gd`), узлы `IceSector`/`ToxicSector` создаются в `space_obstacle_renderer.gd:_ready`; палитра газа — каналы маски `biome_mask` в `campaign_terrain_renderer.gd` и `shaders/campaign_hazards.gdshader` — см. §7d |
+| Секторы случайной карты со своей композицией: ледяной, токсичный и высокотемпературный (поток обломков, газ, завихрения, взорванная планета) | `biome_sector_renderer.gd` (+ профили в `biome_sector_defs.gd`), узлы `IceSector`/`ToxicSector`/`VolcanicSector` создаются в `space_obstacle_renderer.gd:_ready`; палитра газа — каналы маски `biome_mask` в `campaign_terrain_renderer.gd` и `shaders/campaign_hazards.gdshader` — см. §7d |
 | Декорации дальнего космоса (кометы с хвостами/искрами/струями, далёкие планеты) | `space_decorations.gd` — константы `COMET_*` в шапке; анимация идёт от поля `time`, которое копит `tick_comets` |
 | Область карты и то, что HUD её не перекрывает | `space_strategy_map.gd:_update_camera_limits / _clamp_camera_position / _camera_position_for` — пределы камеры расширены за край карты на полосы HUD (см. §7c) |
 | Сила стражей от удалённости | `space_strategy_map.gd:_threat_distance / _guardian_template_for_distance` + `guardian_defs.gd:TEMPLATES` |
@@ -403,10 +403,10 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
   декорация: `docs/battle_screen.md`.
 * **Глобальная карта** — почему HUD не перекрывает поле и как пределы камеры
   зависят от зума: `docs/map_screen.md`.
-* **Биомы случайной карты** — ледяной и токсичный секторы: композиция потока
-  обломков поверх неизменной геометрии, `biome_sector_renderer.gd`, профили
-  в `biome_sector_defs.gd` и правило «крупное только на непроходимой
-  клетке»: `docs/map_screen.md`.
+* **Биомы случайной карты** — ледяной, токсичный и высокотемпературный
+  секторы: композиция потока обломков поверх неизменной геометрии,
+  `biome_sector_renderer.gd`, профили в `biome_sector_defs.gd` и правило
+  «крупное только на непроходимой клетке»: `docs/map_screen.md`.
 
 ---
 

@@ -174,6 +174,8 @@ func _ready() -> void:
 			_build_island(feature, feature_rng, blocked)
 		else:
 			_build_stream(feature, feature_rng, blocked)
+	if bool(profile.get("shatter", false)):
+		_build_blast(features, blocked, rng)
 	# Полосы последними: их пыль ложится перед глыбами и читается как ближний
 	# план, а упирается в потолок спрайтов тоже она, а не силуэты.
 	_build_lanes(hull, rng)
@@ -443,10 +445,115 @@ func _build_island(feature: Dictionary, rng: RandomNumberGenerator, blocked: Dic
 			rng.randf_range(0.35, 0.9), rng)
 
 
+## Место для взорванной планеты: самая глубокая точка сектора, то есть клетка,
+## от которой дальше всего до свободного пространства. Оболочка разлетевшегося
+## тела целиком помещается внутрь непроходимой области, и маршрут рядом с ней
+## остаётся ровно таким же, каким был.
+##
+## Глубина считается послойно: у клеток на кромке она нулевая, у остальных —
+## на единицу больше минимальной у соседей. Нескольких проходов хватает,
+## потому что глубина ограничена шириной пояса.
+func _blast_site(features: Array[Dictionary], blocked: Dictionary) -> Dictionary:
+	var depth := {}
+	for feature in features:
+		for cell: Vector2i in feature.cells:
+			depth[cell] = 0 if _on_edge(cell, blocked) else 99
+	for pass_index in range(6):
+		var changed := false
+		for cell: Vector2i in depth:
+			if int(depth[cell]) == 0:
+				continue
+			var lowest := 99
+			for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				lowest = mini(lowest, int(depth.get(cell + offset, 0)))
+			if lowest + 1 < int(depth[cell]):
+				depth[cell] = lowest + 1
+				changed = true
+		if not changed:
+			break
+	var best := Vector2i.ZERO
+	var best_depth := -1
+	for cell: Vector2i in depth:
+		if int(depth[cell]) > best_depth:
+			best_depth = int(depth[cell])
+			best = cell
+	return {"cell": best, "depth": best_depth}
+
+
+func _on_edge(cell: Vector2i, blocked: Dictionary) -> bool:
+	for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+		if not blocked.has(cell + offset):
+			return true
+	return false
+
+
+## Взорванная планета: от тела остался только разорванный обод, поэтому плиты
+## садятся по кольцу и развёрнуты наружу, а середина светится — там нутро.
+## Наружу уходят пылевые лучи: они мельче порога преграды, потому что за
+## пределами области клетки свободны и крупный кусок читался бы как стена.
+func _build_blast(features: Array[Dictionary], blocked: Dictionary,
+		rng: RandomNumberGenerator) -> void:
+	var site := _blast_site(features, blocked)
+	if int(site.depth) < 2:
+		return
+	var center := (Vector2(site.cell) + Vector2.ONE * 0.5) * CELL
+	var reach := clampf(float(site.depth) - 0.35, 1.2, 4.2)
+	var glow: Variant = profile.get("molten", null)
+	if glow != null:
+		for index in range(3):
+			_add_gas(profile.gas, rng.randi_range(0, 5),
+				center + Vector2(rng.randfn(0.0, 0.25), rng.randfn(0.0, 0.25)) * CELL,
+				CELL * reach * rng.randf_range(1.3, 2.0), rng.randf_range(-PI, PI),
+				Color(glow, rng.randf_range(0.30, 0.52)), "gas")
+	var shard: Array = profile.get("shard", [])
+	var plates := rng.randi_range(6, 9)
+	var heading := rng.randf_range(-PI, PI)
+	for index in range(plates):
+		# Обод неровный: ровное кольцо читалось бы как построенная станция.
+		var angle := heading + TAU * float(index) / float(plates) + rng.randf_range(-0.22, 0.22)
+		var direction := Vector2.RIGHT.rotated(angle)
+		var point := center + direction * CELL * reach * rng.randf_range(0.62, 0.95)
+		if not _is_solid(point, blocked):
+			continue
+		var sheet: Array = shard if not shard.is_empty() else Defs.pick_sheet(profile.berg, rng)
+		_add_prop(sheet, Defs.pick(sheet[3], rng), point,
+			CELL * rng.randf_range(0.9, 1.5) * clampf(reach * 0.5, 0.8, 1.4),
+			angle + rng.randf_range(-0.45, 0.45), Defs.modulation(profile, rng), rng)
+		if glow != null:
+			_add_gas(profile.gas, rng.randi_range(0, 5), point.lerp(center, 0.4),
+				CELL * rng.randf_range(0.8, 1.4), rng.randf_range(-PI, PI),
+				Color(glow, rng.randf_range(0.20, 0.38)), "gas")
+		_add_swarm(point, CELL * 0.5, rng.randi_range(4, 8), rng)
+	# Пылевые лучи наружу: направление взрыва держится именно ими.
+	for index in range(rng.randi_range(5, 8)):
+		var angle := rng.randf_range(-PI, PI)
+		var direction := Vector2.RIGHT.rotated(angle)
+		var side := Vector2(-direction.y, direction.x)
+		var span := reach * rng.randf_range(2.4, 4.5)
+		for grain in range(rng.randi_range(20, 38)):
+			var along := reach * 0.6 + rng.randf() * span
+			var point := center + direction * CELL * along
+			point += side * rng.randfn(0.0, 0.3) * CELL * (0.5 + along * 0.4)
+			_add_grit(point, CELL * rng.randf_range(0.07, 0.24),
+				rng.randf_range(0.3, 0.9) * clampf(1.0 - along / (reach + span), 0.15, 1.0), rng)
+	for index in range(rng.randi_range(5, 8)):
+		var direction := Vector2.RIGHT.rotated(rng.randf_range(-PI, PI))
+		_add_gas(profile.gas, rng.randi_range(0, 5),
+			center + direction * CELL * reach * rng.randf_range(0.6, 1.8),
+			CELL * rng.randf_range(2.6, 4.4), rng.randf_range(-PI, PI),
+			Color(1, 1, 1, rng.randf_range(0.12, 0.26)), "gas")
+
+
 ## Глыба: крупная масса плюс сдвинутый осколок поменьше, чтобы «остров»
 ## читался как расколотое тело, а не как одиночный штамп.
 func _add_berg(point: Vector2, diameter: float, blocked: Dictionary,
 		rng: RandomNumberGenerator) -> void:
+	# Раскалённое нутро кладётся до самой глыбы: порядок детей — порядок
+	# отрисовки, поэтому свечение должно оказаться под ней, а не поверх.
+	var glow: Variant = profile.get("molten", null)
+	if glow != null:
+		_add_gas(profile.gas, rng.randi_range(0, 5), point, diameter * rng.randf_range(1.1, 1.5),
+			rng.randf_range(-PI, PI), Color(glow, rng.randf_range(0.28, 0.5)), "gas")
 	var sheet: Array = Defs.pick_sheet(profile.berg, rng)
 	_add_prop(sheet, Defs.pick(sheet[3], rng), point, diameter,
 		rng.randf_range(-PI, PI), Defs.modulation(profile, rng), rng)
@@ -488,18 +595,29 @@ func _next_landmark(sheet: Array) -> int:
 	return result
 
 
-## Акценты поверх сектора: блики на льду или споровые облака в токсичном.
+## Акценты поверх сектора: блики на льду, споровые облака в токсичном, угли в
+## высокотемпературном. Угли мельче и их больше: один-два тлеющих пятна на
+## сектор читались бы как случайный мусор, а россыпь — как жар.
 func _build_accents(hull: Dictionary, rng: RandomNumberGenerator) -> void:
 	var center: Vector2 = hull.center
 	var radius: float = hull.radius
-	var spore := String(profile.accent) == "spore"
-	for index in range(roundi(clampf(radius * (1.0 if spore else 0.8), 5.0, 18.0))):
+	var accent := String(profile.accent)
+	var density: float = {"spore": 1.0, "ember": 1.5}.get(accent, 0.8)
+	for index in range(roundi(clampf(radius * density, 5.0, 26.0))):
 		var direction := Vector2.RIGHT.rotated(rng.randf_range(-PI, PI))
+		var size := rng.randf_range(14.0, 34.0)
+		var speed := rng.randf_range(0.5, 1.1)
+		if accent == "spore":
+			size = rng.randf_range(26.0, 70.0)
+			speed = rng.randf_range(0.25, 0.6)
+		elif accent == "ember":
+			size = rng.randf_range(9.0, 26.0)
+			speed = rng.randf_range(0.8, 1.9)
 		accents.append({
 			"point": (center + direction * sqrt(rng.randf()) * radius + Vector2.ONE * 0.5) * CELL,
-			"size": rng.randf_range(26.0, 70.0) if spore else rng.randf_range(14.0, 34.0),
+			"size": size,
 			"phase": rng.randf_range(0.0, TAU),
-			"speed": rng.randf_range(0.25, 0.6) if spore else rng.randf_range(0.5, 1.1),
+			"speed": speed,
 			"drift": Vector2.RIGHT.rotated(rng.randf_range(-PI, PI)) * rng.randf_range(4.0, 14.0),
 		})
 
@@ -660,13 +778,16 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var spore := String(profile.get("accent", "glint")) == "spore"
+	var kind := String(profile.get("accent", "glint"))
 	for accent: Dictionary in accents:
 		var wave := 0.5 + 0.5 * sin(time * float(accent.speed) + float(accent.phase))
-		if spore:
-			_draw_spore(accent, wave)
-		else:
-			_draw_glint(accent, wave)
+		match kind:
+			"spore":
+				_draw_spore(accent, wave)
+			"ember":
+				_draw_ember(accent, wave)
+			_:
+				_draw_glint(accent, wave)
 
 
 ## Блик на льду: короткие лучи и мягкий ореол.
@@ -692,3 +813,16 @@ func _draw_spore(accent: Dictionary, wave: float) -> void:
 	draw_circle(point, size * 0.85, Color(0.36, 0.62, 0.14, 0.10 * breath))
 	draw_circle(point, size * 0.45, Color(0.56, 0.86, 0.22, 0.16 * breath))
 	draw_circle(point, size * 0.16, Color(0.84, 1.0, 0.40, 0.34 * breath))
+
+
+## Уголь: тлеет неровно, поэтому пульсация идёт в квадрате — большую часть
+## времени он тусклый, а вспыхивает коротко. Сносит его медленнее, чем спору:
+## это тяжёлая искра, а не облако.
+func _draw_ember(accent: Dictionary, wave: float) -> void:
+	var heat := wave * wave
+	var size := float(accent.size) * (0.55 + heat * 0.45)
+	var point: Vector2 = accent.point + Vector2(accent.drift) * 0.45 * sin(time
+		* float(accent.speed) * 0.35 + float(accent.phase))
+	draw_circle(point, size * 0.9, Color(0.72, 0.22, 0.05, 0.10 + 0.10 * heat))
+	draw_circle(point, size * 0.38, Color(1.0, 0.46, 0.10, 0.22 + 0.24 * heat))
+	draw_circle(point, size * 0.13, Color(1.0, 0.84, 0.52, 0.45 + 0.45 * heat))

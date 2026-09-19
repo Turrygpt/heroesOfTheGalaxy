@@ -31,9 +31,10 @@ void fragment() {
 	vec2 drift = vec2(cloud_noise(p * 0.24), cloud_noise(p * 0.24 + 31.7)) - 0.5;
 	// Извилистая кромка и лёгкие языки газа поверх доступных клеток.
 	vec3 mask = texture(TEXTURE, UV + drift * 0.012).rgb;
-	vec2 biome = texture(biome_mask, UV + drift * 0.012).rg;
+	vec3 biome = texture(biome_mask, UV + drift * 0.012).rgb;
 	float ice = clamp(biome.r * 1.7, 0.0, 1.0);
 	float toxic = clamp(biome.g * 1.7, 0.0, 1.0);
+	float hot = clamp(biome.b * 1.7, 0.0, 1.0);
 	float n = cloud_noise(p + drift * 2.0 + flow) * 0.55 + cloud_noise(p * 2.1 - flow * 0.7) * 0.3 + cloud_noise(p * 4.3) * 0.15;
 	vec3 dust = mix(vec3(0.035, 0.045, 0.07), vec3(0.18, 0.23, 0.30), n);
 	vec3 radiation = nebula_palette(UV) * (0.35 + n * 0.85);
@@ -44,6 +45,11 @@ void fragment() {
 	dust = mix(dust, mix(vec3(0.06, 0.07, 0.03), vec3(0.24, 0.27, 0.10), n), toxic);
 	radiation = mix(radiation, mix(vec3(0.11, 0.16, 0.03), vec3(0.42, 0.54, 0.14), n), toxic);
 	gas = mix(gas, mix(vec3(0.09, 0.15, 0.03), vec3(0.38, 0.54, 0.13), n), toxic);
+	// Высокотемпературный сектор: пепел почти чёрный, а свет в нём - не
+	// подсветка газа, а само тепло, поэтому верх шкалы уходит в оранжевый.
+	dust = mix(dust, mix(vec3(0.07, 0.05, 0.04), vec3(0.30, 0.17, 0.11), n), hot);
+	radiation = mix(radiation, mix(vec3(0.20, 0.07, 0.03), vec3(0.85, 0.42, 0.12), n), hot);
+	gas = mix(gas, mix(vec3(0.15, 0.06, 0.03), vec3(0.62, 0.28, 0.09), n), hot);
 	mask.b *= 1.35;
 	float total = mask.r + mask.g + mask.b;
 	vec3 color = (dust * mask.r + radiation * mask.g + gas * mask.b) / max(total, 0.001);

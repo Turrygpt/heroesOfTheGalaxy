@@ -6,7 +6,7 @@ const ROCKS := preload("res://assets/space/obstacle_asteroid_field.png")
 const HAZARD_SHADER := preload("res://shaders/campaign_hazards.gdshader")
 ## Каналы второй маски: по одному на сектор со своей композицией. Красный —
 ## лёд, зелёный — токсичный; синий свободен под следующий.
-const BIOME_CHANNELS := {"ice": 0, "toxic": 1}
+const BIOME_CHANNELS := {"ice": 0, "toxic": 1, "volcanic": 2}
 
 ## Размытие только визуальное: ореол выходит на 3 клетки за опасную область.
 const CLOUD_BLUR_RADIUS := 3

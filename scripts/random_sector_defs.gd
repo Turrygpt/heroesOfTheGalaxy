@@ -6,7 +6,7 @@ const THEMES := {
 	"pirate": {"name": "Охристые облака", "color": Color("926b43"), "accent": Color("ca9461"), "stretch": 2.2, "props": [1, 2, 3, 19]},
 	"orc": {"name": "Багровая туманность", "color": Color("9b425c"), "accent": Color("c78167"), "stretch": 1.5, "props": [0, 2, 3, 20]},
 	"trader": {"name": "Золотая пыль", "color": Color("9b884a"), "accent": Color("c4b982"), "stretch": 3.0, "props": [2, 3, 3, 21]},
-	"volcanic": {"name": "Пепельный пояс", "color": Color("ad542c"), "accent": Color("d8a452"), "stretch": 2.0, "props": [0, 1, 2, 3]},
+	"volcanic": {"name": "Пепельный пояс", "color": Color("ad542c"), "accent": Color("d8a452"), "stretch": 2.0, "props": [0, 1, 2, 4]},
 	"crystal": {"name": "Кристаллический сектор", "color": Color("348777"), "accent": Color("9271bc"), "stretch": 1.4, "props": [6, 7, 8, 9]},
 	"dead": {"name": "Тёмная пылевая туманность", "color": Color("55566f"), "accent": Color("8d719b"), "stretch": 2.6, "props": [2, 3, 12, 15]},
 	"ion": {"name": "Ионные течения", "color": Color("5967b2"), "accent": Color("5abacb"), "stretch": 4.0, "props": [7, 9, 9, 3]},
@@ -16,8 +16,8 @@ const THEMES := {
 
 ## Биомы со своей композицией (biome_sector_defs.gd) стоят дороже остальных по
 ## арту, поэтому им гарантируется место на карте: тем девять слотов, а этих
-## всего два. Остальные темы разыгрывают оставшиеся пять.
-const COMPOSED_SECTORS := ["ice", "toxic"]
+## трое. Остальные темы разыгрывают оставшиеся четыре.
+const COMPOSED_SECTORS := ["ice", "toxic", "volcanic"]
 
 ## Только треть секторов имеет протяжённый газ; остальные — открытый космос.
 const CLOUD_SECTORS := ["volcanic", "ion", "orc"]
@@ -31,7 +31,7 @@ const COMPOSED_MIN_FEATURES := 3
 static func assign_regions(features: Array[Dictionary], rng: RandomNumberGenerator) -> void:
 	# Тем больше, чем свободных слотов, поэтому часть остаётся за бортом — но
 	# только из обычных: секторы со своей композицией на карте есть всегда.
-	var pool: Array[String] = ["pirate", "trader", "volcanic", "crystal", "dead", "ion"]
+	var pool: Array[String] = ["pirate", "trader", "crystal", "dead", "ion"]
 	for i in range(pool.size() - 1, 0, -1):
 		var j := rng.randi_range(0, i)
 		var old := pool[i]
