@@ -2,6 +2,7 @@
 extends Node2D
 
 const Defs := preload("res://scripts/random_sector_defs.gd")
+const BiomeDefs := preload("res://scripts/biome_sector_defs.gd")
 const CELL := 96.0
 const ATLAS := preload("res://assets/biomes/sectors/props.png")
 const ATMOSPHERE := preload("res://shaders/adventure_sectors.gdshader")
@@ -29,10 +30,13 @@ func _ready() -> void:
 		rng.seed = int(feature.seed)
 		var biome := String(feature.biome)
 		var theme: Dictionary = Defs.THEMES[biome]
+		# У секторов со своей композицией общий штамп только мешает: они
+		# рисуют собственные потоки обломков поверх той же геометрии.
+		var composed: bool = BiomeDefs.has(biome)
 		for cell: Vector2i in feature.cells:
 			var gas: bool = feature.kind == "nebula"
 			mask.set_pixelv(cell, Color(0 if gas else 1, 0, 1 if gas else 0, 1))
-			if gas:
+			if gas or composed:
 				continue
 			var edge := false
 			for delta in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
@@ -70,6 +74,14 @@ func _ready() -> void:
 	clouds.material = material
 	clouds.show_behind_parent = true
 	add_child(clouds)
+	# Ледяной, токсичный и высокотемпературный секторы собираются композицией
+	# поверх той же геометрии — тем же узлом, что и на прежней случайной карте.
+	for id: String in BiomeDefs.PROFILES:
+		var sector := preload("res://scripts/biome_sector_renderer.gd").new()
+		sector.name = String(BiomeDefs.PROFILES[id].node)
+		sector.biome = id
+		sector.terrain_source = map
+		add_child(sector)
 
 
 func _process(_delta: float) -> void:

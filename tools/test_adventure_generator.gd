@@ -1,4 +1,5 @@
-## Контракт генератора: сид, связность, петли, секреты и полные площади целей.
+## Контракт генератора: сид, связность, открытость, биомы, секреты и полные
+## площади целей.
 extends SceneTree
 
 const Generator := preload("res://scripts/adventure_map_generator.gd")
@@ -18,6 +19,7 @@ func _check(ok: bool, message: String) -> void:
 func _run() -> void:
 	var generator := Generator.new()
 	var previous := {}
+	var worst_share := 1.0
 	for seed_value in range(1, 101):
 		var data := generator.generate(seed_value * 7919)
 		var seen := generator._flood(Vector2i(8, 6))
@@ -33,20 +35,65 @@ func _run() -> void:
 		for cell: Vector2i in data.slow:
 			_check(not data.blocked.has(cell), "Замедление на непроходимой клетке")
 		_check(data != previous, "Разные сиды повторяют карту")
-		# Если закрыть горловины, сектора действительно разделяются поясами.
-		# Иначе стражей можно облететь прямо через визуальную границу биома.
-		for link: Dictionary in data.links:
-			for dx in range(-2, 3):
-				for dy in range(-2, 3):
-					generator.blocked[link.cell + Vector2i(dx, dy)] = true
-		for origin in range(9):
-			var isolated := generator._flood(data.regions[origin].center)
-			for other in range(9):
-				if origin != other:
-					_check(not isolated.has(data.regions[other].center), "Незакрытый проход на сиде %d" % seed_value)
+		# Карта открытая, а не девять комнат с дверями. Раньше здесь
+		# проверялось обратное: закрой горловины — и сектора распадутся.
+		# Так и было, потому что границы областей застраивались стенами, и
+		# карта читалась как сетка окошек с переходами. Теперь стен нет:
+		# стражи стоят в самых узких местах, но обойти их можно, и закрытие
+		# всех створов сразу не должно резать карту на части.
+		var open_cells := seen.size()
+		_check(open_cells >= 2600, "Карта слишком тесная: %d свободных клеток" % open_cells)
+		_check(data.blocked.size() >= 400, "Препятствий почти нет: %d" % data.blocked.size())
+		# Граница между соседними областями должна быть дырявой. Раньше она
+		# застраивалась целиком, и карта читалась как девять окошек с
+		# дверями; проверяем именно это, а не то, где стоят стражи.
+		var frontier := {}
+		var open_frontier := {}
+		for y in range(1, 63):
+			for x in range(1, 63):
+				var cell := Vector2i(x, y)
+				var here: int = generator.owners[cell]
+				for delta: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN]:
+					var side: int = generator.owners[cell + delta]
+					if side == here:
+						continue
+					var key := Vector2i(mini(here, side), maxi(here, side))
+					frontier[key] = int(frontier.get(key, 0)) + 1
+					if not data.blocked.has(cell) and not data.blocked.has(cell + delta):
+						open_frontier[key] = int(open_frontier.get(key, 0)) + 1
+		var total := 0.0
+		var counted := 0
+		for key: Vector2i in frontier:
+			# Короткие стыки углов границей не считаем: там и мерить нечего.
+			if int(frontier[key]) < 20:
+				continue
+			var crossings := int(open_frontier.get(key, 0))
+			_check(crossings > 0, "Граница областей застроена наглухо на сиде %d" % seed_value)
+			total += float(crossings) / float(frontier[key])
+			counted += 1
+		# Отдельная граница может оказаться и плотной — там просто лежит
+		# гряда. Важно, что в среднем по карте границы проходимы: девять
+		# комнат с дверями дали бы здесь проценты, а не половину.
+		var share := total / float(maxi(1, counted))
+		worst_share = minf(worst_share, share)
+		_check(share >= 0.35, "Границы областей застроены: открыто %d%%" % roundi(share * 100.0))
+		# Препятствия трёх обещанных видов, и ни одно не разрастается в стену.
+		var kinds := {}
+		for feature: Dictionary in data.obstacles:
+			kinds[feature.kind] = true
+			if feature.kind != "nebula":
+				_check(feature.cells.size() <= 140, "Препятствие размером со стену: %d" % feature.cells.size())
+		for kind: String in ["asteroid_field", "debris_field", "radiation_front"]:
+			_check(kinds.has(kind), "Пропал вид препятствия: %s" % kind)
+		# Каждому биому со своей композицией гарантировано место на карте.
+		var themes := {}
+		for region: Dictionary in data.regions:
+			themes[region.id] = true
+		for biome: String in ["ice", "toxic", "volcanic"]:
+			_check(themes.has(biome), "Нет области биома: %s" % biome)
 		_check(data == generator.generate(seed_value * 7919), "Сид не воспроизводит карту")
 		previous = data
-	print("Геометрия: 100 сидов проверены")
+	print("Геометрия: 100 сидов проверены, самая плотная карта — %d%% открытых границ" % roundi(worst_share * 100.0))
 	var scene: PackedScene = load("res://scenes/SpaceStrategyMap.tscn")
 	var save := root.get_node("CampaignSave")
 	var seeds: Array[int] = [1001, 424242, 8192, 777, 7919, 2147483646]

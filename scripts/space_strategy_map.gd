@@ -329,12 +329,11 @@ func _ready() -> void:
 		if starter_map_mode:
 			CampaignMissionMap.populate(self)
 		else:
-			map_generation.generate_production_sites()
-			production_owners.resize(production_sites.size())
-			production_owners.fill(0)
-			map_generation.generate_obstacles()
-			map_generation.generate_guardians()
-			map_generation.generate_map_objects()
+			# Случайную карту целиком собирает генератор приключений: он ставит
+			# препятствия по биомам, экономику у обеих планет, цели похода и
+			# охрану. Старый набор поясов (map_generation.generate_obstacles и
+			# соседи) остался только у авторской миссии — вместе они давали
+			# карту, где половина целей стояла внутри камня.
 			preload("res://scripts/adventure_map_generator.gd").new().populate(self)
 		current_cell = PLAYER_ONE_START_CELL
 	else:

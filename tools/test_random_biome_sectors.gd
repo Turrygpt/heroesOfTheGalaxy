@@ -3,7 +3,7 @@
 ## в авторскую миссию.
 extends SceneTree
 
-const ALLOWED_ICE_KINDS := ["asteroid_field", "planetoid", "nebula", "radiation_front"]
+const ALLOWED_ICE_KINDS := ["asteroid_field", "debris_field", "planetoid", "nebula", "radiation_front"]
 
 var failures := 0
 
@@ -26,15 +26,9 @@ func _run() -> void:
 	map.map_seed = 424242
 	root.add_child(map)
 	map.set_process(false)
-	_check(map.obstacles[0].get("regions", []).size() == 9, "Случайная карта потеряла описание регионов")
-	var decorations: Node = map.obstacle_sprites.get_node("SectorDecorations")
-	_check(decorations.props_count > 0 and decorations.props_count <= 24, "Нарушена редкость акцентов")
-	_check(decorations.max_prop_width >= 64.0 and decorations.max_prop_width <= 104.0,
-		"Акценты должны быть читаемыми, но не гигантскими")
-	var terrain: Node = map.obstacle_sprites.get_node("Terrain")
-	_check(terrain.get_script() == preload("res://scripts/campaign_terrain_renderer.gd"),
-		"Случайная карта должна использовать рендер Новой игры")
-	_check(terrain.regions.is_empty(), "На случайную карту попали сюжетные подписи")
+	_check(map.random_map_layout.get("regions", []).size() == 9, "Случайная карта потеряла описание регионов")
+	_check(map.obstacle_sprites.get_script() == preload("res://scripts/adventure_terrain_renderer.gd"),
+		"Случайная карта должна использовать рендер приключения")
 	var ice_features: Array[Dictionary] = []
 	for feature: Dictionary in map.obstacles:
 		if String(feature.get("biome", "")) == "ice":
@@ -46,9 +40,6 @@ func _run() -> void:
 			!= preload("res://scripts/space_obstacles.gd").minimap_color("planetoid"),
 		"Холодный сектор не выделяется на миникарте")
 	var prop_count := 0
-	for child in decorations.get_children():
-		if child.has_meta("ice_biome_prop"):
-			prop_count += 1
 	_check(map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, map.ORC_PLANET_CENTER).size() > 0,
 		"Декор холодного сектора изменил доступность маршрута между планетами")
 	for path in [
