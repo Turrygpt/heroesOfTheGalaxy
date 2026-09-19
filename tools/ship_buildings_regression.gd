@@ -1,5 +1,7 @@
 extends SceneTree
 
+const OrcDefs := preload("res://scripts/orc_defs.gd")
+
 
 class FakeStrategyMap:
 	extends Node2D
@@ -195,11 +197,15 @@ func _run() -> void:
 
 
 ## Ресурсная часть цены корабля не должна превышать его ранг: V ранг — не
-## больше 5 единиц каждого ресурса (см. комментарий к UnitDefs.UNITS).
+## больше 5 единиц каждого ресурса (см. комментарий к UnitDefs.UNITS и
+## OrcDefs.UNITS — потолок общий для обеих фракций).
 ## Цена торгового поста считается от той же пятёрки со скидкой 90%.
 func _check_ship_resource_cap() -> void:
-	for unit_id in UnitDefs.UNITS:
-		var unit: Dictionary = UnitDefs.UNITS[unit_id]
+	var all_units := {}
+	all_units.merge(UnitDefs.UNITS)
+	all_units.merge(OrcDefs.UNITS)
+	for unit_id in all_units:
+		var unit: Dictionary = all_units[unit_id]
 		if String(unit.get("kind", "")) != "dwelling":
 			continue
 		var tier := int(unit.get("tier", 0))
@@ -222,12 +228,15 @@ func _check_ship_resource_cap() -> void:
 
 
 ## Ресурсная цена постройки живёт по шкале HoMM (см. комментарий к
-## BUILDING_DEFS): 20 единиц базового ресурса и 10 единиц редкого — потолок
-## на один уровень постройки, всё остальное берут кредиты.
+## BUILDING_DEFS людей и орков): 20 единиц базового ресурса и 10 единиц
+## редкого — потолок на один уровень постройки, всё остальное берут кредиты.
 func _check_building_resource_cap(screen: Node) -> void:
 	var basic_resources := ["Продукты", "Руда"]
-	for kind in screen.BUILDING_DEFS:
-		for cost in screen.BUILDING_DEFS[kind].get("costs", []):
+	var all_defs := {}
+	all_defs.merge(screen.BUILDING_DEFS)
+	all_defs.merge(OrcDefs.BUILDING_DEFS)
+	for kind in all_defs:
+		for cost in all_defs[kind].get("costs", []):
 			for resource_name in cost:
 				if resource_name == "credits":
 					continue

@@ -28,6 +28,10 @@ extends RefCounted
 ## damage_factor, который применяется уже к итоговому залпу
 ## (tactical_battle.gd:_damage_multiplier). Если поднять сам разброс урона,
 ## на первом ранге (1-3) округление до целых дало бы не +10%, а +25-30%.
+##
+## Ресурсная часть cost подчиняется тому же потолку, что и у UnitDefs.UNITS:
+## не больше ранга единиц каждого ресурса (V ранг — максимум 5). Кредиты не
+## ограничены — вся разница рангов живёт в них.
 
 ## Множители фракции — вынесены сюда, чтобы правка баланса не требовала
 ## пересчёта таблицы вручную (значения ниже уже посчитаны по ним).
@@ -64,7 +68,7 @@ const UNITS := {
 		"move": 7, "range": 2, "initiative": 11, "sprite_width": 124.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/orc/piranha.png"), "region": Rect2(0, 0, 1330, 556),
 		"kind": "orc_dwelling", "dwelling": "ork_gunship_yard", "dwelling_level": 1,
-		"cost": {"credits": 150, "Руда": 5}, "weekly_growth": 6,
+		"cost": {"credits": 150, "Руда": 2}, "weekly_growth": 6,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	"ork_elite_gunship": {
@@ -73,7 +77,7 @@ const UNITS := {
 		"move": 7, "range": 2, "initiative": 12, "sprite_width": 132.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/orc/elite_piranha.png"), "region": Rect2(0, 0, 1336, 560),
 		"kind": "orc_dwelling", "dwelling": "ork_gunship_yard", "dwelling_level": 2,
-		"cost": {"credits": 250, "Руда": 8, "Энергокристаллы": 2}, "weekly_growth": 5,
+		"cost": {"credits": 250, "Руда": 2, "Энергокристаллы": 2}, "weekly_growth": 5,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	# --- III ранг: корветы --------------------------------------------------
@@ -83,7 +87,7 @@ const UNITS := {
 		"move": 6, "range": 3, "initiative": 9, "sprite_width": 140.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/shark.png"), "region": Rect2(0, 0, 1644, 583),
 		"kind": "orc_dwelling", "dwelling": "ork_corvette_yard", "dwelling_level": 1,
-		"cost": {"credits": 400, "Руда": 10, "Топливо": 7}, "weekly_growth": 4,
+		"cost": {"credits": 400, "Руда": 3, "Топливо": 3}, "weekly_growth": 4,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	"ork_elite_corvette": {
@@ -92,7 +96,7 @@ const UNITS := {
 		"move": 6, "range": 4, "initiative": 9, "sprite_width": 150.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/elite_shark.png"), "region": Rect2(0, 0, 1645, 584),
 		"kind": "orc_dwelling", "dwelling": "ork_corvette_yard", "dwelling_level": 2,
-		"cost": {"credits": 650, "Руда": 16, "Топливо": 10, "Радиоизотопы": 2}, "weekly_growth": 3,
+		"cost": {"credits": 650, "Руда": 3, "Топливо": 3, "Радиоизотопы": 2}, "weekly_growth": 3,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	# --- IV ранг: фрегаты ---------------------------------------------------
@@ -102,7 +106,7 @@ const UNITS := {
 		"move": 5, "range": 3, "initiative": 7, "sprite_width": 155.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/katran.png"), "region": Rect2(0, 0, 1624, 576),
 		"kind": "orc_dwelling", "dwelling": "ork_frigate_yard", "dwelling_level": 1,
-		"cost": {"credits": 900, "Руда": 20, "Топливо": 14, "Энергокристаллы": 5, "Радиоизотопы": 3}, "weekly_growth": 2,
+		"cost": {"credits": 900, "Руда": 4, "Топливо": 4, "Энергокристаллы": 4, "Радиоизотопы": 3}, "weekly_growth": 2,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	"ork_elite_frigate": {
@@ -111,7 +115,7 @@ const UNITS := {
 		"move": 5, "range": 4, "initiative": 7, "sprite_width": 165.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/elite_katran.png"), "region": Rect2(0, 0, 1628, 576),
 		"kind": "orc_dwelling", "dwelling": "ork_frigate_yard", "dwelling_level": 2,
-		"cost": {"credits": 1600, "Руда": 33, "Топливо": 22, "Энергокристаллы": 8, "Радиоизотопы": 6}, "weekly_growth": 1,
+		"cost": {"credits": 1600, "Руда": 4, "Топливо": 4, "Энергокристаллы": 4, "Радиоизотопы": 4}, "weekly_growth": 1,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	# --- V ранг: эсминцы ----------------------------------------------------
@@ -121,7 +125,7 @@ const UNITS := {
 		"move": 4, "range": 4, "initiative": 6, "sprite_width": 170.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/orc/dragon.png"), "region": Rect2(0, 0, 1582, 567),
 		"kind": "orc_dwelling", "dwelling": "ork_destroyer_yard", "dwelling_level": 1,
-		"cost": {"credits": 1800, "Руда": 35, "Топливо": 24, "Энергокристаллы": 15, "Радиоизотопы": 16}, "weekly_growth": 1,
+		"cost": {"credits": 1800, "Руда": 5, "Топливо": 5, "Энергокристаллы": 5, "Радиоизотопы": 5}, "weekly_growth": 1,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	"ork_elite_destroyer": {
@@ -130,18 +134,18 @@ const UNITS := {
 		"move": 5, "range": 5, "initiative": 7, "sprite_width": 180.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/orc/elite_dragon.png"), "region": Rect2(0, 0, 1644, 565),
 		"kind": "orc_dwelling", "dwelling": "ork_destroyer_yard", "dwelling_level": 2,
-		"cost": {"credits": 2600, "Руда": 45, "Топливо": 36, "Энергокристаллы": 20, "Радиоизотопы": 22}, "weekly_growth": 1,
+		"cost": {"credits": 2600, "Руда": 5, "Топливо": 5, "Энергокристаллы": 5, "Радиоизотопы": 5}, "weekly_growth": 1,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 }
 
-## Постройки орочьей базы. Изначально цены совпадали с земными (см.
-## human_planet_screen.gd:BUILDING_DEFS), разница была только в
-## характеристиках кораблей. Сейчас земная сторона переведена на шкалу HoMM
-## (20 базового ресурса и 10 редкого — потолок за уровень постройки), а эта
-## таблица оставлена как была: её платит только ИИ орков, и удешевление
-## базы усилило бы противника вместо того, чтобы облегчить игроку старт.
-## Если понадобится вернуть симметрию — резать надо здесь и в UNITS выше.
+## Постройки орочьей базы. Цены зеркалят земные (см.
+## human_planet_screen.gd:BUILDING_DEFS) — та же шкала HoMM: основную тяжесть
+## несут кредиты, ресурсы — добавка, кратная пяти, с потолком 20 базового
+## ресурса (Продукты, Руда) и 10 редкого (Научные данные, Энергокристаллы,
+## Топливо, Радиоизотопы) за уровень. Экономики фракций снова симметричны,
+## разница только в характеристиках кораблей. Потолок проверяет
+## tools/ship_buildings_regression.gd.
 ## costs[i] — цена уровня (i+1); шатёр вождя, как и планетарный совет людей,
 ## стоит с начала игры на I уровне, поэтому costs[0] у него пустой.
 const BUILDING_DEFS := {
@@ -151,50 +155,50 @@ const BUILDING_DEFS := {
 			{},
 			{"credits": 800, "Продукты": 5},
 			{"credits": 2000, "Продукты": 10, "Научные данные": 5},
-			{"credits": 5000, "Продукты": 20, "Научные данные": 15, "Энергокристаллы": 10},
+			{"credits": 5000, "Продукты": 20, "Научные данные": 10, "Энергокристаллы": 5},
 		],
 	},
 	"fort": {
 		"name": "Орочий форт", "max_level": 3,
 		"costs": [
-			{"credits": 600, "Руда": 8},
+			{"credits": 600, "Руда": 5},
 			{"credits": 1500, "Руда": 15, "Энергокристаллы": 5},
-			{"credits": 3500, "Руда": 25, "Энергокристаллы": 15, "Радиоизотопы": 10},
+			{"credits": 3500, "Руда": 20, "Энергокристаллы": 10, "Радиоизотопы": 5},
 		],
 	},
 	"ork_fighter_yard": {
 		"name": "Логово истребителей · I ранг", "max_level": 2,
 		"costs": [
 			{"credits": 400, "Руда": 5},
-			{"credits": 900, "Руда": 12, "Научные данные": 5},
+			{"credits": 900, "Руда": 10, "Научные данные": 5},
 		],
 	},
 	"ork_gunship_yard": {
 		"name": "Логово штурмовиков · II ранг", "max_level": 2,
 		"costs": [
-			{"credits": 900, "Руда": 12, "Топливо": 5},
-			{"credits": 1800, "Руда": 22, "Топливо": 10, "Энергокристаллы": 5},
+			{"credits": 900, "Руда": 10, "Топливо": 5},
+			{"credits": 1800, "Руда": 15, "Топливо": 10, "Энергокристаллы": 5},
 		],
 	},
 	"ork_corvette_yard": {
 		"name": "Логово корветов · III ранг", "max_level": 2,
 		"costs": [
-			{"credits": 3000, "Руда": 35, "Топливо": 15, "Энергокристаллы": 10},
-			{"credits": 5500, "Руда": 55, "Топливо": 25, "Энергокристаллы": 18},
+			{"credits": 3000, "Руда": 15, "Топливо": 5, "Энергокристаллы": 5},
+			{"credits": 5500, "Руда": 20, "Топливо": 10, "Энергокристаллы": 5},
 		],
 	},
 	"ork_frigate_yard": {
 		"name": "Логово фрегатов · IV ранг", "max_level": 2,
 		"costs": [
-			{"credits": 5000, "Руда": 50, "Топливо": 25, "Энергокристаллы": 15, "Радиоизотопы": 5},
-			{"credits": 8500, "Руда": 80, "Топливо": 40, "Энергокристаллы": 25, "Радиоизотопы": 10},
+			{"credits": 5000, "Руда": 15, "Топливо": 5, "Энергокристаллы": 5, "Радиоизотопы": 5},
+			{"credits": 8500, "Руда": 20, "Топливо": 10, "Энергокристаллы": 10, "Радиоизотопы": 5},
 		],
 	},
 	"ork_destroyer_yard": {
 		"name": "Логово эсминцев · V ранг", "max_level": 2,
 		"costs": [
-			{"credits": 7000, "Руда": 65, "Топливо": 35, "Энергокристаллы": 25, "Радиоизотопы": 18},
-			{"credits": 11000, "Руда": 90, "Топливо": 55, "Энергокристаллы": 40, "Радиоизотопы": 30},
+			{"credits": 7000, "Руда": 20, "Топливо": 5, "Энергокристаллы": 10, "Радиоизотопы": 5},
+			{"credits": 11000, "Руда": 20, "Топливо": 10, "Энергокристаллы": 10, "Радиоизотопы": 10},
 		],
 	},
 }
