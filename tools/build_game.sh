@@ -36,9 +36,12 @@ elif [ "$REQUIRE_INTRO" -eq 1 ]; then
 	echo "Нет файла ролика $INTRO — в сборке не будет синематика." >&2
 	echo "Он не хранится в гите (лимит GitHub), положи его локально в video/." >&2
 	echo "Собрать всё равно: sh tools/build_game.sh \"$PRESET\" --no-intro" >&2
+	echo "Такой сборке ролик можно подложить и потом: файл intro.ogv рядом" >&2
+	echo "с exe игра находит сама." >&2
 	exit 1
 else
 	echo "Ролика нет, собираем без синематика (--no-intro)."
+	echo "Положи intro.ogv рядом с готовым exe — игра подхватит его сама."
 fi
 
 find_godot() {

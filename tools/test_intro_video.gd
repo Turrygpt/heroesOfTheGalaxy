@@ -33,10 +33,13 @@ func check(value: bool, message: String) -> void:
 
 
 func run() -> void:
-	var has_video := ResourceLoader.exists(IntroVideoPlayer.VIDEO_PATH)
-	print("INTRO_VIDEO_PRESENT=", has_video, " (", IntroVideoPlayer.VIDEO_PATH, ")")
+	var has_video := IntroVideoPlayer.has_video()
+	print("INTRO_VIDEO_PRESENT=", has_video, " (", IntroVideoPlayer.VIDEO_PATH,
+		" либо ", IntroVideoPlayer.EXTERNAL_NAME, " рядом со сборкой)")
 
 	_check_flags()
+
+	_check_external()
 
 	var menu: Control = load("res://scenes/MainMenu.tscn").instantiate()
 	root.add_child(menu)
@@ -97,7 +100,8 @@ func _check_soft_skip(menu: Node, intro: Node) -> void:
 	await process_frame
 	check(is_instance_valid(menu), "Меню не дожило до продолжения запуска")
 	print("Ролика нет — проверен мягкий пропуск.")
-	print("Положи video/intro.ogv в проект, чтобы тест проверил само видео.")
+	print("Положи video/intro.ogv в проект или ", IntroVideoPlayer.EXTERNAL_NAME,
+		" рядом со сборкой, чтобы тест проверил само видео.")
 
 
 ## Кому положено вступление: кампании — всегда, случайной карте — только по
@@ -112,6 +116,29 @@ func _check_flags() -> void:
 	check(not IntroVideoPlayer.should_play(false, skip), "%s не выключил ролик" % IntroVideoPlayer.SKIP_FLAG)
 	var both := PackedStringArray([IntroVideoPlayer.FORCE_FLAG, IntroVideoPlayer.SKIP_FLAG])
 	check(not IntroVideoPlayer.should_play(false, both), "При обоих ключах сильнее должен быть %s" % IntroVideoPlayer.SKIP_FLAG)
+
+
+## Ролик, подложенный к готовой сборке, должен находиться: иначе собранную
+## игру нельзя отдать без пересборки, а файл в репозитории не лежит.
+func _check_external() -> void:
+	var paths := IntroVideoPlayer.external_paths()
+	check(paths.size() == 2, "Внешних путей ролика должно быть два: рядом с exe и в профиле")
+	var user_copy := "user://" + IntroVideoPlayer.EXTERNAL_NAME
+	check(user_copy in paths, "Профиль игрока не в списке путей ролика")
+	if FileAccess.file_exists(user_copy):
+		print("В профиле уже лежит свой ролик, подмену не проверяем: ", user_copy)
+		return
+	var file := FileAccess.open(user_copy, FileAccess.WRITE)
+	check(file != null, "Не удалось подложить ролик в профиль")
+	if file == null:
+		return
+	file.store_string("не Theora, важно только что файл есть")
+	file.close()
+	# Рядом с движком может лежать и свой ролик, тогда наш будет вторым в
+	# очереди — важно, что подложенный файл вообще попадает в поиск.
+	check(not IntroVideoPlayer.find_external().is_empty(), "Подложенный рядом ролик не нашёлся")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(user_copy))
+	check(IntroVideoPlayer.find_external() != user_copy, "Убранный ролик всё ещё числится на месте")
 
 
 func _find_intro(menu: Node) -> Node:

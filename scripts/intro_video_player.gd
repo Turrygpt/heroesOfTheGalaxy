@@ -9,6 +9,11 @@ extends CanvasLayer
 signal finished
 
 const VIDEO_PATH := "res://video/intro.ogv"
+## Ролик в репозиторий не уезжает (лимит GitHub), поэтому готовая сборка
+## часто оказывается без него. Тогда ищем файл СНАРУЖИ: рядом с самим exe и
+## в профиле игрока — так вступление можно подложить к сборке, не пересобирая
+## её. Порядок: сначала то, что запаковано, потом внешнее.
+const EXTERNAL_NAME := "intro.ogv"
 ## Ключи запуска: ролик можно потребовать или запретить, не пересобирая игру.
 ##   HeroesOfTheGalaxy.exe --intro      показывать и на "Случайной карте"
 ##   HeroesOfTheGalaxy.exe --no-intro   не показывать вовсе
@@ -29,6 +34,27 @@ const MAX_SECONDS := 600.0
 var player: VideoStreamPlayer
 var _elapsed := 0.0
 var _done := false
+
+
+## Есть ли вообще что проигрывать — в сборке или рядом с ней.
+static func has_video() -> bool:
+	return ResourceLoader.exists(VIDEO_PATH) or not find_external().is_empty()
+
+
+## Первый существующий файл ролика рядом со сборкой, иначе пустая строка.
+static func find_external() -> String:
+	for path in external_paths():
+		if FileAccess.file_exists(path):
+			return path
+	return ""
+
+
+## Куда мы смотрим за роликом, кроме самой сборки.
+static func external_paths() -> PackedStringArray:
+	return PackedStringArray([
+		OS.get_executable_path().get_base_dir().path_join(EXTERNAL_NAME),
+		"user://" + EXTERNAL_NAME,
+	])
 
 
 ## Нужно ли показывать вступление для этого старта. Обычная новая кампания
@@ -68,15 +94,15 @@ func _ready() -> void:
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(hint)
 
-	if not ResourceLoader.exists(VIDEO_PATH):
-		# Файл ролика не хранится в гите (лимит GitHub), поэтому сборка из
-		# свежего клона легко оказывается без него. Молча пропускать нельзя:
-		# со стороны это выглядит как сломанный синематик, а не как
-		# отсутствующий файл.
-		push_warning("Вступление пропущено: нет файла %s" % VIDEO_PATH)
+	var stream := _resolve_stream()
+	if stream == null:
+		# Молча пропускать нельзя: со стороны это выглядит как сломанный
+		# синематик, а не как отсутствующий файл.
+		push_warning("Вступление пропущено: нет ни %s, ни %s рядом со сборкой"
+			% [VIDEO_PATH, EXTERNAL_NAME])
 		_finish()
 		return
-	player.stream = load(VIDEO_PATH) as VideoStream
+	player.stream = stream
 	player.play()
 
 
@@ -110,3 +136,17 @@ func _finish() -> void:
 		player.stop()
 	finished.emit()
 	queue_free()
+
+
+## Поток ролика: из сборки, иначе из файла рядом с ней. Внешний файл читаем
+## через VideoStreamTheora.file — ResourceLoader такие пути не открывает.
+func _resolve_stream() -> VideoStream:
+	if ResourceLoader.exists(VIDEO_PATH):
+		return load(VIDEO_PATH) as VideoStream
+	var external := find_external()
+	if external.is_empty():
+		return null
+	print("Вступление берём снаружи сборки: ", external)
+	var stream := VideoStreamTheora.new()
+	stream.file = external
+	return stream
