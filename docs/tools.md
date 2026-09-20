@@ -60,6 +60,9 @@ sh tools/build_game.sh Web              # веб      -> build/web/index.html
 sh tools/build_game.sh Web --no-intro   # можно и без ролика
 ```
 
+Из-под cmd, где `sh` нет, то же самое делает `tools\build_game.cmd`
+(`tools\build_game.cmd --no-intro`, `tools\build_game.cmd Web`).
+
 Пресеты лежат в `export_presets.cfg` (`Windows Desktop` и `Web`), вывод — в
 `build/` (не в гите). Windows-сборка одним файлом: `binary_format/embed_pck`,
 `tools/*` в сборку не попадает. Нужны установленные шаблоны экспорта той же
