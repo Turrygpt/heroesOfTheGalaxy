@@ -293,9 +293,13 @@ func _guardian_template_for_distance(distance: int) -> String:
 
 func production_guard_template(site: Dictionary, cell: Vector2i) -> String:
 	var resource := String(site.get("resource", ""))
+	# Даже ближайшее охраняемое производство — уже второй шаг сложности:
+	# 15 кораблей I ранга и 5 кораблей II ранга. Дальше состав выбирается
+	# обычными поясами угрозы и постепенно доходит до старших рангов.
+	var production_distance := maxi(_threat_distance(cell), GuardianDefs.DISTANCE_LIMITS[0])
 	if resource == "Продукты" or resource == "Руда":
-		return "trader_basic_resource"
-	return GuardianDefs.rare_trader_template_for_distance(_threat_distance(cell))
+		return GuardianDefs.trader_template_for_distance(production_distance)
+	return GuardianDefs.rare_trader_template_for_distance(production_distance)
 
 
 ## Пояс угрозы клетки. Считается от БЛИЖАЙШЕЙ из двух родных планет, а не

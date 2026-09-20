@@ -19,10 +19,16 @@ func _run() -> void:
 	await process_frame
 	var args := OS.get_cmdline_user_args()
 	var mode := args[0] if not args.is_empty() else "ledger"
-	if mode == "journal":
+	if mode == "contracts":
+		map.current_cell = Vector2i(5, 53)
+		map.campaign_story.visit("ridus_base")
+		map.current_cell = Vector2i(54, 4)
+		map.campaign_story.visit("stein_base")
+		map.campaign_story.show_journal()
+	elif mode == "journal":
 		map.campaign_story.show_journal()
 	elif mode == "gate":
-		map.campaign_story.enqueue("gate")
+		map.campaign_story.play("gate")
 	elif mode == "ending_choice":
 		map.campaign_story._ending_choice()
 	elif mode == "epilogue":

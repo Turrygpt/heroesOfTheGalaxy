@@ -79,12 +79,20 @@ func _run() -> void:
 	host.free()
 	campaign.prepare_new_game()
 	campaign.save_on_start = false
+	# Регрессия: фиксированная земная миссия не должна наследовать каталог
+	# пиратских верфей из повреждённого или отладочного состояния планеты.
+	var contaminated_planet := PLANET.load_state()
+	contaminated_planet["faction"] = "pirate"
+	PLANET.save_state(contaminated_planet)
 	host = scene.instantiate()
 	root.add_child(host)
 	map = host.get_node("SpaceStrategyMap")
 	_check(map.current_day == 1 and map.player_one_credits == 2000, "Новая карта начинается с первого дня и 2000 кредитов")
 	_check(map.player_one_resources == {"Продукты": 10, "Руда": 10, "Научные данные": 5, "Энергокристаллы": 5, "Топливо": 5, "Радиоизотопы": 5}, "Новая игра выдаёт стартовые ресурсы")
 	_check(map.guardians[0]["alive"] and map.obelisks_collected == 0, "Новая игра сбрасывает стражей и объекты")
+	var repaired_planet := PLANET.load_state()
+	_check(repaired_planet.faction == "earth", "Земная миссия исправляет фракцию базы в состоянии планеты")
+	_check(UnitDefs.recruitable_for_dwelling("fighter_yard", 1, repaired_planet.faction) == "interceptor", "База людей строит человеческие корабли")
 	host.free()
 	roster.heroes = original_heroes
 	roster.save_state()

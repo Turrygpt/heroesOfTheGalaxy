@@ -5,10 +5,14 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var town = load("res://scenes/HumanPlanetTown.tscn").instantiate()
+	if "--pirate" in OS.get_cmdline_user_args():
+		town.town_faction = "pirate"
 	if "--earth" in OS.get_cmdline_user_args():
 		town.town_faction = "earth"
 	if "--trader" in OS.get_cmdline_user_args():
 		town.town_faction = "trader"
+	if "--hero" in OS.get_cmdline_user_args():
+		root.get_node("HeroRoster").reset_for_faction(town.town_faction)
 	if "--start" in OS.get_cmdline_user_args():
 		town.preview_levels = {"townhall": 1}
 	if "--full" in OS.get_cmdline_user_args():
@@ -34,6 +38,14 @@ func _run() -> void:
 		await process_frame
 	if "--exchange" in OS.get_cmdline_user_args():
 		town._open_exchange_screen()
+		await process_frame
+		await process_frame
+	if "--garrison" in OS.get_cmdline_user_args():
+		town._open_garrison_screen()
+		await process_frame
+		await process_frame
+	if "--protocols" in OS.get_cmdline_user_args():
+		town.university_button.pressed.emit()
 		await process_frame
 		await process_frame
 	if DisplayServer.get_name() != "headless":

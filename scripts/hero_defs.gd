@@ -87,6 +87,33 @@ const CLASSES := {
 		"weights_low": {"attack": 35, "defense": 20, "power": 25, "wisdom": 20},
 		"weights_high": {"attack": 30, "defense": 20, "power": 25, "wisdom": 25},
 	},
+	"league_commander": {
+		"name": "Коммодор Лиги",
+		"faction": "Торговая лига",
+		"blurb": "Конвойная дисциплина, снабжение и точная гипернавигация",
+		"base_stats": {"attack": 1, "defense": 2, "power": 1, "wisdom": 2},
+		"weights_low": {"attack": 20, "defense": 30, "power": 15, "wisdom": 35},
+		"weights_high": {"attack": 20, "defense": 25, "power": 25, "wisdom": 30},
+		"skill_archetype": "engineer",
+	},
+	"syndicate_captain": {
+		"name": "Капитан Синдиката",
+		"faction": "Космические пираты",
+		"blurb": "Молниеносные рейды, перегрузка систем и рискованные манёвры",
+		"base_stats": {"attack": 2, "defense": 1, "power": 2, "wisdom": 1},
+		"weights_low": {"attack": 35, "defense": 15, "power": 30, "wisdom": 20},
+		"weights_high": {"attack": 30, "defense": 20, "power": 25, "wisdom": 25},
+		"skill_archetype": "corsair",
+	},
+	"mars_raider": {
+		"name": "Марсианский рейдер",
+		"faction": "Бандиты Марса",
+		"blurb": "Абордаж, тяжёлый первый удар и выживание в ближнем бою",
+		"base_stats": {"attack": 3, "defense": 1, "power": 1, "wisdom": 1},
+		"weights_low": {"attack": 45, "defense": 20, "power": 20, "wisdom": 15},
+		"weights_high": {"attack": 35, "defense": 25, "power": 20, "wisdom": 20},
+		"skill_archetype": "warlord",
+	},
 }
 
 ## Стартовые навыки класса (как в HoMM герой приходит с 1–2 умениями).
@@ -96,6 +123,20 @@ const CLASS_STARTING_SKILLS := {
 	"warlord": ["boarding", "gunnery"],
 	"shaman": ["cyberwarfare", "energy_core"],
 	"corsair": ["luck", "thrusters"],
+	"league_commander": ["navigation", "logistics_supply"],
+	"syndicate_captain": ["luck", "thrusters"],
+	"mars_raider": ["boarding", "gunnery"],
+}
+
+const HERO_PORTRAIT_PATHS := {
+	"admiral": "res://assets/persons/Pavlova/portrait.png",
+	"engineer": "res://assets/persons/Admiral/portrait.png",
+	"warlord": "res://assets/persons/Orc/portrait.png",
+	"shaman": "res://assets/persons/Orc/portrait.png",
+	"corsair": "res://assets/persons/Pirate/portrait.png",
+	"league_commander": "res://assets/persons/LeagueHero/portrait.png",
+	"syndicate_captain": "res://assets/persons/PirateHero/portrait.png",
+	"mars_raider": "res://assets/persons/BanditHero/portrait.png",
 }
 
 ## Вторичные навыки. tiers — эффект на 1/2/3 ранге.
@@ -389,8 +430,19 @@ static func class_title(class_id: String) -> String:
 
 
 static func stat_weights(class_id: String, level: int) -> Dictionary:
-	var definition: Dictionary = CLASSES[class_id]
+	var definition: Dictionary = CLASSES.get(class_id, CLASSES["admiral"])
 	return definition["weights_high"] if level > 10 else definition["weights_low"]
+
+
+static func skill_weight(class_id: String, skill_id: String) -> int:
+	var definition: Dictionary = CLASSES.get(class_id, CLASSES["admiral"])
+	var archetype := String(definition.get("skill_archetype", class_id))
+	return int((SKILLS.get(skill_id, {}).get("weights", {}) as Dictionary).get(archetype, 0))
+
+
+static func hero_portrait(class_id: String) -> Texture2D:
+	var path := String(HERO_PORTRAIT_PATHS.get(class_id, HERO_PORTRAIT_PATHS["admiral"]))
+	return load(path) as Texture2D
 
 
 ## Ранг протокола: из таблицы, а для новых протоколов — по стоимости энергии,

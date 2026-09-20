@@ -39,7 +39,6 @@ const FLEET_TRANSFER_ZONE := preload("res://scripts/fleet_transfer_zone.gd")
 const UNIVERSITY_DEFS := preload("res://scripts/university_defs.gd")
 const HERO_PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 const UNIVERSITY_DIALOG := preload("res://scripts/university_protocols_dialog.gd")
-const HERO_PORTRAIT := preload("res://assets/heroes/ChatGPT Image 3 сент. 2026 г., 11_09_13.png")
 const SKILL_ICON_DIR := "res://assets/hero_skills"
 const GARRISON_SLOT_COUNT := 7
 const HERO_ARMY_SLOT_COUNT := 7
@@ -78,23 +77,18 @@ const BUILDING_CATALOG := [
 ## с начала игры (см. HumanPlanetState.default_state), поэтому его costs[0]
 ## пустой - платить нужно только за апгрейды.
 ##
-## Цены переведены на канон Heroes of Might & Magic III (таблицы построек
-## Turry прислал 2026-09-19) с переводом её ресурсов на наши: дерево → Продукты,
-## руда → Руда, дефицитная четвёрка (ртуть/сера/кристаллы/самоцветы) →
-## Научные данные/Энергокристаллы/Топливо/Радиоизотопы, кредиты вместо золота
-## 1:1 (наш доход совета УЖЕ повторяет доход Town Hall/City Hall/Capitol
-## 1000/2000/4000 — см. HumanPlanetState.COUNCIL_INCOME_BY_LEVEL).
+## Основа цен взята из Heroes of Might & Magic III, но ресурсная часть усилена:
+## после первого форта развитие требует захватывать месторождения и менять
+## ресурсы на бирже. Кредиты по-прежнему повторяют шкалу оригинала 1:1.
 ##   - Совет: как в HoMM, экономические постройки стоят чистым золотом, без
 ##     ресурсов вовсе (Village Hall бесплатен, Town Hall 2500, City Hall 5000,
 ##     Capitol 10000).
-##   - Форт/Цитадель/Замок: 1500+10 продуктов+10 руды / 2500+5 руды /
-##     5000+10 дерева+10 руды — Цитадель канонично дешевле соседей по золоту.
-##   - Университет — это и есть Mage Guild: I без редких, II-IV требуют
-##     ВСЕ четыре редких сразу, по 4/6/8 единиц — ровно как в оригинале
-##     (у нас нет пятого уровня гильдии, поэтому и берём первые четыре).
-##   - Верфи (жилища существ) — округлено к середине диапазона своего ранга
-##     из таблицы; дальнобойный ресурс каждого ранга — тот же, что несёт цена
-##     самого корабля (см. UnitDefs.UNITS).
+##   - Первый форт ровно расходует стартовые 10 продуктов и 10 руды; дальше
+##     оборона требует новых месторождений.
+##   - Университет II-IV требует все четыре редких ресурса сразу, всё больше
+##     на каждом уровне.
+##   - Верфи расходуют больше руды с ростом ранга, а улучшения добавляют
+##     профильный редкий ресурс. Поэтому открыть всё одной стартовой казной нельзя.
 ## Потолок 20 базового ресурса / 10 редкого за постройку — оставлен как
 ## инвариант (все цифры ниже внутри него) и проверяется
 ## tools/ship_buildings_regression.gd.
@@ -118,8 +112,8 @@ var BUILDING_DEFS := {
 		"name": "Форт", "max_level": 3, "level_names": ["I", "II", "III"],
 		"costs": [
 			{"credits": 1500, "Продукты": 10, "Руда": 10},
-			{"credits": 2500, "Руда": 5},
-			{"credits": 5000, "Продукты": 10, "Руда": 10},
+			{"credits": 2500, "Руда": 8},
+			{"credits": 5000, "Продукты": 15, "Руда": 15},
 		],
 		"requirements": [
 			{"townhall": 1},
@@ -130,8 +124,8 @@ var BUILDING_DEFS := {
 	"fighter_yard": {
 		"name": "Ангар истребителей · I ранг", "max_level": 2, "level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
 		"costs": [
-			{"credits": 400},
-			{"credits": 1000},
+			{"credits": 400, "Руда": 3},
+			{"credits": 1000, "Руда": 5, "Научные данные": 2},
 		],
 		"requirements": [
 			{"fort": 1},
@@ -142,8 +136,8 @@ var BUILDING_DEFS := {
 		"name": "Ангар штурмовиков · II ранг", "max_level": 2,
 		"level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
 		"costs": [
-			{"credits": 1000, "Руда": 8},
-			{"credits": 1250, "Руда": 5},
+			{"credits": 1000, "Руда": 10},
+			{"credits": 1250, "Руда": 8, "Научные данные": 2},
 		],
 		"requirements": [
 			{"fort": 1, "fighter_yard": 1},
@@ -154,8 +148,8 @@ var BUILDING_DEFS := {
 		"name": "Ангар корветов · III ранг", "max_level": 2,
 		"level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
 		"costs": [
-			{"credits": 1750, "Руда": 8},
-			{"credits": 1750, "Руда": 8, "Топливо": 2},
+			{"credits": 1750, "Руда": 12},
+			{"credits": 1750, "Руда": 10, "Топливо": 4},
 		],
 		"requirements": [
 			{"fort": 2, "gunship_yard": 1},
@@ -166,8 +160,8 @@ var BUILDING_DEFS := {
 		"name": "Ангар фрегатов · IV ранг", "max_level": 2,
 		"level_names": ["ОБЫЧНАЯ", "ЭЛИТНАЯ"],
 		"costs": [
-			{"credits": 2500, "Руда": 8, "Радиоизотопы": 5},
-			{"credits": 2500, "Руда": 8, "Радиоизотопы": 4},
+			{"credits": 2500, "Руда": 15, "Радиоизотопы": 6},
+			{"credits": 2500, "Руда": 12, "Радиоизотопы": 8},
 		],
 		"requirements": [
 			{"fort": 2, "corvette_yard": 1, "townhall": 3},
@@ -178,8 +172,8 @@ var BUILDING_DEFS := {
 		"name": "Ангар эсминцев · V ранг", "max_level": 2,
 		"level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
 		"costs": [
-			{"credits": 3500, "Руда": 8, "Энергокристаллы": 8, "Радиоизотопы": 8},
-			{"credits": 4000, "Руда": 8, "Энергокристаллы": 8, "Радиоизотопы": 8},
+			{"credits": 3500, "Руда": 15, "Энергокристаллы": 10, "Радиоизотопы": 10},
+			{"credits": 4000, "Руда": 20, "Энергокристаллы": 10, "Радиоизотопы": 10},
 		],
 		"requirements": [
 			{"fort": 3, "frigate_yard": 1, "townhall": 4},
@@ -188,21 +182,21 @@ var BUILDING_DEFS := {
 	},
 	"tavern": {
 		"name": "Офицерский клуб", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 500, "Продукты": 5}],
+		"costs": [{"credits": 500, "Продукты": 8}],
 		"requirements": [{"townhall": 1}],
 	},
 	"marketplace": {
 		"name": "Биржа", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 500, "Продукты": 5}],
+		"costs": [{"credits": 500, "Продукты": 8}],
 		"requirements": [{"townhall": 1}],
 	},
 	"mage_guild": {
 		"name": "Галактический университет", "max_level": 4, "level_names": ["I", "II", "III", "IV"],
 		"costs": [
-			{"credits": 2000, "Продукты": 5, "Руда": 5},
-			{"credits": 1000, "Продукты": 5, "Руда": 5, "Научные данные": 4, "Энергокристаллы": 4, "Топливо": 4, "Радиоизотопы": 4},
-			{"credits": 1000, "Продукты": 5, "Руда": 5, "Научные данные": 6, "Энергокристаллы": 6, "Топливо": 6, "Радиоизотопы": 6},
-			{"credits": 1000, "Продукты": 5, "Руда": 5, "Научные данные": 8, "Энергокристаллы": 8, "Топливо": 8, "Радиоизотопы": 8},
+			{"credits": 2000, "Продукты": 8, "Руда": 8},
+			{"credits": 1000, "Продукты": 8, "Руда": 8, "Научные данные": 5, "Энергокристаллы": 5, "Топливо": 5, "Радиоизотопы": 5},
+			{"credits": 1000, "Продукты": 10, "Руда": 10, "Научные данные": 7, "Энергокристаллы": 7, "Топливо": 7, "Радиоизотопы": 7},
+			{"credits": 1000, "Продукты": 12, "Руда": 12, "Научные данные": 10, "Энергокристаллы": 10, "Топливо": 10, "Радиоизотопы": 10},
 		],
 		"requirements": [
 			{"townhall": 2},
@@ -223,7 +217,7 @@ const BUILDING_LAYOUT_PATH := "res://data/human_planet_buildings.json"
 const BUILDING_HOVER_SCALE := 1.035
 const BUILDING_HOVER_SPEED := 12.0
 const CONSTRUCTION_GRID_COLUMNS := 4
-const CONSTRUCTION_CARD_SIZE := Vector2(190, 136)
+const CONSTRUCTION_CARD_SIZE := Vector2(190, 156)
 
 ## Биржа (marketplace) - те же иконки ресурсов и порядок, что в
 ## HUD/ResourceBar на стратегической карте (см. SpaceStrategyMap.tscn).
@@ -599,7 +593,12 @@ func _input(event: InputEvent) -> void:
 
 
 func _request_close() -> void:
+	_close_university_screen()
 	close_requested.emit()
+
+
+func _exit_tree() -> void:
+	_close_university_screen()
 
 
 func _toggle_building_editor() -> void:
@@ -959,7 +958,7 @@ func _open_building_modal(building: Sprite2D) -> void:
 	var definition: Dictionary = BUILDING_DEFS[kind]
 	var level_names: Array = definition["level_names"]
 	modal_icon.texture = building.texture
-	modal_title.text = String(definition["name"])
+	modal_title.text = _building_display_name(kind, level)
 	modal_level.text = "УРОВЕНЬ %s" % level_names[clampi(level - 1, 0, level_names.size() - 1)]
 	var unit_id := UnitDefs.recruitable_for_dwelling(kind, level, String(HumanPlanetState.load_state().get("faction", "earth")))
 	if kind == "mage_guild":
@@ -1058,8 +1057,6 @@ func _open_construction_menu() -> void:
 
 
 func _open_university_screen() -> void:
-	if university_button.disabled:
-		return
 	_close_building_modal()
 	construction_menu.hide()
 	garrison_screen.hide()
@@ -1074,11 +1071,27 @@ func _open_university_screen() -> void:
 	university_screen = UNIVERSITY_DIALOG.new()
 	university_screen.closed.connect(_on_university_screen_closed)
 	university_screen.learned.connect(_on_university_protocol_learned)
-	add_child(university_screen)
-	university_screen.setup(_player_hero(), HumanPlanetState.load_state(), int(built_levels.get("mage_guild", 0)))
+	# Экран планеты сам является CanvasLayer. Вложенный CanvasLayer диалога
+	# присутствовал в дереве, но не попадал в итоговый canvas. Модальные окна
+	# верхнего уровня подключаем прямо к корню viewport.
+	get_tree().root.add_child(university_screen)
+	var commander_present: bool = strategy_map != null and strategy_map.player_fleet_at_home_planet()
+	university_screen.setup(
+		_player_hero(),
+		HumanPlanetState.load_state(),
+		int(built_levels.get("mage_guild", 0)),
+		commander_present
+	)
+	university_screen.layer = layer + 1
 
 
 func _on_university_screen_closed() -> void:
+	university_screen = null
+
+
+func _close_university_screen() -> void:
+	if is_instance_valid(university_screen):
+		university_screen.queue_free()
 	university_screen = null
 
 
@@ -1606,15 +1619,12 @@ func _update_garrison_screen() -> void:
 	garrison_drop_host.add_child(_build_fleet_zone("garrison", garrison_slots, fleet_at_planet, levels))
 	hero_drop_host.add_child(_build_fleet_zone("hero", hero_slots, hero_enabled, levels))
 
-	var portrait := AtlasTexture.new()
-	portrait.atlas = HERO_PORTRAIT
-	portrait.region = Rect2(0, 0, 512, 512)
-	garrison_hero_portrait.texture = portrait
 	for child in garrison_hero_skill_icons.get_children():
 		child.queue_free()
 	for child in garrison_hero_artifact_icons.get_children():
 		child.queue_free()
 	if hero != null:
+		garrison_hero_portrait.texture = HeroDefs.hero_portrait(hero.class_id)
 		garrison_hero_name.text = "%s\nуровень %d" % [hero.hero_name, hero.level]
 		var stat_parts: Array[String] = []
 		for stat_id in HeroDefs.PRIMARY_STATS:
@@ -1637,6 +1647,7 @@ func _update_garrison_screen() -> void:
 				_add_hero_artifact_tile(garrison_hero_artifact_icons, artifact_def, 72)
 		garrison_hero_artifacts.text = "\nАртефакты:" + ((" " + " · ".join(artifact_parts)) if not artifact_parts.is_empty() else "")
 	else:
+		garrison_hero_portrait.texture = null
 		garrison_hero_name.text = "НЕТ ГЕРОЯ"
 		garrison_hero_stats.text = "Статы: —"
 		garrison_hero_skills.text = "Умения: —"
@@ -1978,6 +1989,7 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_inde
 		]
 		upgrade_button.disabled = strategy_map == null or not strategy_map.can_afford(upgrade_cost)
 		_style_action_button(upgrade_button)
+		card.forward_drag_from(upgrade_button)
 		upgrade_button.pressed.connect(_upgrade_stack.bind(source_id, slot_index))
 		box.add_child(upgrade_button)
 	if enabled and count > 1:
@@ -1988,6 +2000,7 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_inde
 		split_button.text = "РАЗДЕЛИТЬ"
 		split_button.tooltip_text = "Отделить половину кораблей в свободный слот."
 		_style_action_button(split_button)
+		card.forward_drag_from(split_button)
 		split_button.pressed.connect(_split_stack.bind(source_id, slot_index))
 		box.add_child(split_button)
 	if enabled:
@@ -1997,6 +2010,7 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_inde
 		disband_button.tooltip_text = "Навсегда удалить этот отряд из флота."
 		disband_button.add_theme_font_size_override("font_size", 10)
 		_style_action_button(disband_button)
+		card.forward_drag_from(disband_button)
 		disband_button.pressed.connect(_disband_stack.bind(source_id, slot_index))
 		box.add_child(disband_button)
 	return card
@@ -2337,7 +2351,7 @@ func _build_construction_card(kind: String) -> Control:
 	var card := PanelContainer.new()
 	card.custom_minimum_size = CONSTRUCTION_CARD_SIZE
 	card.add_theme_stylebox_override("panel", _construction_card_style(Color(action["color"]), bool(action["disabled"])))
-	card.tooltip_text = String(action["tooltip"])
+	card.tooltip_text = _building_display_name(kind, icon_level) + "\n" + String(def["name"]) + "\n" + String(action["tooltip"])
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 7)
@@ -2352,18 +2366,21 @@ func _build_construction_card(kind: String) -> Control:
 
 	var image := TextureRect.new()
 	image.texture = _find_catalog_texture(kind, icon_level)
-	image.custom_minimum_size = Vector2(0, 62)
+	image.custom_minimum_size = Vector2(0, 58)
 	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	image.modulate = Color(1, 1, 1, 0.42) if bool(action["disabled"]) and level <= 0 else Color.WHITE
 	stack.add_child(image)
 
 	var title := Label.new()
-	title.text = String(def["name"]).split(" · ")[0]
-	title.add_theme_font_size_override("font_size", 13)
+	title.text = _building_display_name(kind, icon_level)
+	title.custom_minimum_size.y = 36
+	title.add_theme_font_size_override("font_size", 12)
 	title.add_theme_color_override("font_color", Color(0.93, 0.96, 0.90, 1))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.clip_text = true
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.tooltip_text = card.tooltip_text
 	stack.add_child(title)
 
 	var status := Label.new()
@@ -2616,8 +2633,11 @@ func _format_building_requirements(requirements: Dictionary) -> String:
 	return ", ".join(parts)
 
 
-func _building_display_name(kind: String) -> String:
+func _building_display_name(kind: String, level: int = -1) -> String:
 	var def: Dictionary = BUILDING_DEFS.get(kind, {})
+	var names: Array = def.get("stage_names", [])
+	if level > 0 and not names.is_empty():
+		return String(names[clampi(level - 1, 0, names.size() - 1)])
 	return String(def.get("name", kind)).split(" · ")[0]
 
 
@@ -2698,7 +2718,9 @@ func _load_planet_state() -> void:
 ## Протоколы доступны только после постройки хотя бы первого уровня университета.
 func _update_university_button() -> void:
 	var level := int(built_levels.get("mage_guild", 0))
-	university_button.disabled = level <= 0
+	# Книга должна открываться и до строительства академии: окно объяснит,
+	# что именно нужно построить, вместо «мёртвой» кнопки без реакции.
+	university_button.disabled = false
 	university_button.tooltip_text = "Постройте университет, чтобы изучать протоколы." if level <= 0 else "Открыть протоколы героя."
 
 
@@ -2712,6 +2734,10 @@ func _sync_university_protocols() -> void:
 
 
 func _teach_university_protocols(state: Dictionary) -> void:
+	# Городом и строительством можно управлять удалённо, но загрузить новые
+	# боевые протоколы командир может только при личном посещении планеты.
+	if strategy_map == null or not strategy_map.player_fleet_at_home_planet():
+		return
 	var hero := _player_hero()
 	if hero == null:
 		return

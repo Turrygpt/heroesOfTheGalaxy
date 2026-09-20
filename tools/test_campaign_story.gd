@@ -114,7 +114,7 @@ func _run() -> void:
 	# Три фрегата не исчезают сами: Ридус принимает их только после прибытия
 	# на базу и подтверждения через resolve_pirate_delivery.
 	var pirate_hero: Hero = map._player_hero()
-	pirate_hero.army["frigate"] = 3
+	pirate_hero.add_to_army("frigate", 3)
 	story.update_progress()
 	check(not map.story_state.pirate_line.frigates and int(pirate_hero.army.get("frigate", 0)) == 3,
 		"Фрегаты Ридуса списались без прибытия на базу")
@@ -136,6 +136,8 @@ func _run() -> void:
 	# не подтвердил передачу через диалог.
 	map.player_one_credits = 10000
 	story.guardian_won("stein_pirate_raider_1")
+	story.guardian_won("stein_pirate_raider_1")
+	check(map.story_state.trader_line.pirates == 1, "Повторная победа засчитана как второй рейдер")
 	story.guardian_won("stein_pirate_raider_2")
 	story.update_progress()
 	check(not map.story_state.trader_line.paid and map.player_one_credits == 10000,
@@ -249,6 +251,7 @@ func _run() -> void:
 	var ambush_map := make_map()
 	var ambush_story: Node = ambush_map.campaign_story
 	ambush_map.guardians[guardian_index(ambush_map, "kowalski")].alive = false
+	ambush_map.story_state.won.append("kowalski")
 	ambush_map.story_state["passage"] = "briefing"
 	ambush_story.mark_seen("marshal_rendezvous")
 	ambush_map.current_cell = ambush_story.MARSHAL_RENDEZVOUS

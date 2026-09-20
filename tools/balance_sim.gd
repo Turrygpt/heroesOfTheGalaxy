@@ -24,7 +24,8 @@ extends SceneTree
 const OrcAI := preload("res://scripts/orc_ai.gd")
 const REWARDS := preload("res://scripts/battle_rewards.gd")
 const PLANET := preload("res://scripts/human_planet_state.gd")
-const PLANET_SCREEN := preload("res://scripts/human_planet_screen.gd")
+const PLANET_SCREEN := "res://scripts/human_planet_screen.gd"
+var building_defs: Dictionary = {}
 const HERO_DEFS := preload("res://scripts/hero_defs.gd")
 const POWER := preload("res://scripts/fleet_power.gd")
 
@@ -80,6 +81,9 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	var catalogue: CanvasLayer = load(PLANET_SCREEN).new()
+	building_defs = catalogue.BUILDING_DEFS.duplicate(true)
+	catalogue.free()
 	var campaign := root.get_node("CampaignSave")
 	var roster := root.get_node("HeroRoster")
 	campaign.prepare_new_game()
@@ -306,13 +310,14 @@ func _resolve_orc_attack(day: int, kind: String) -> bool:
 	if defender_fleet.is_empty() or attacker_fleet.is_empty():
 		return true
 	var outcome := _run_battle(defender_fleet, attacker_fleet, fort_level)
-	warlord.army = outcome["orc_army"]
+	warlord.set_army_from_dict(outcome["orc_army"])
 	battles_fought.append("сол %d: орки атаковали (%s) — %s" % [
 		day, kind, "игрок отбился" if bool(outcome["player_won"]) else "победа орков"])
 	if bool(outcome["player_won"]):
-		player.army = outcome["player_army"]
+		player.set_army_from_dict(outcome["player_army"])
 		if kind == "planet":
 			state["garrison"] = {}
+			state["garrison_slots"] = PLANET.slots_from_army({}, 7)
 			PLANET.save_state(state)
 		orc_ai.kill_hero(map)
 		return true
@@ -325,7 +330,7 @@ func _resolve_orc_attack(day: int, kind: String) -> bool:
 	# PLAYER_ONE_START_CELL, та клетка лежит вне футпринта планеты и на пути
 	# орков к ней, из-за чего следующий перехват засчитывался бы как полевая
 	# стычка в обход осады.
-	player.army = {"interceptor": 1}
+	player.set_army_from_dict({"interceptor": 1})
 	map.current_cell = map.HUMAN_PLANET_CENTER
 	return true
 
@@ -377,7 +382,7 @@ func _player_build(state: Dictionary) -> void:
 	for entry in _player_pending_builds(state):
 		var kind := String(entry["kind"])
 		var level := int(entry["level"])
-		var cost: Dictionary = PLANET_SCREEN.BUILDING_DEFS[kind]["costs"][level - 1]
+		var cost: Dictionary = building_defs[kind]["costs"][level - 1]
 		if not map.can_afford(cost):
 			continue
 		map.pay_cost(cost)
@@ -391,7 +396,7 @@ func _player_build(state: Dictionary) -> void:
 ## золотом и в резерв не просится).
 func _player_build_reserve(state: Dictionary) -> int:
 	for entry in _player_pending_builds(state):
-		var cost: Dictionary = PLANET_SCREEN.BUILDING_DEFS[String(entry["kind"])]["costs"][int(entry["level"]) - 1]
+		var cost: Dictionary = building_defs[String(entry["kind"])]["costs"][int(entry["level"]) - 1]
 		if cost.size() <= 1:
 			continue
 		var has_resources := true
@@ -419,6 +424,7 @@ func _player_recruit(state: Dictionary) -> void:
 			garrison[unit_id] = int(garrison.get(unit_id, 0)) + 1
 			left -= 1
 		growth[unit_id] = left
+	state["garrison_slots"] = PLANET.slots_from_army(garrison, 7)
 
 
 func _can_afford_with_reserve(cost: Dictionary, reserve: int) -> bool:
@@ -439,8 +445,9 @@ func _player_reinforce(state: Dictionary) -> void:
 	if garrison.is_empty():
 		return
 	for unit_id in garrison:
-		player.army[unit_id] = int(player.army.get(unit_id, 0)) + int(garrison[unit_id])
-	state["garrison"] = {}
+		if player.add_to_army(String(unit_id), int(garrison[unit_id])):
+			garrison[unit_id] = 0
+	state["garrison_slots"] = PLANET.slots_from_army(garrison, 7)
 	PLANET.save_state(state)
 
 
@@ -524,10 +531,10 @@ func _player_arrive(cell: Vector2i) -> bool:
 		# силе. Приближение resolve_auto_battle остаётся только у ИИ, потому
 		# что в игре он свои стычки с нейтралами тоже считает формулой.
 		var outcome := _run_battle(_fleet_entries(player.army), guardian["fleet"])
-		player.army = outcome["player_army"]
+		player.set_army_from_dict(outcome["player_army"])
 		if not bool(outcome["player_won"]):
 			map.current_cell = map.PLAYER_ONE_START_CELL
-			player.army = {"interceptor": 1}
+			player.set_army_from_dict({"interceptor": 1})
 			return true
 		guardian["alive"] = false
 		player.gain_experience(REWARDS.experience_for_battle(outcome["units"], 1, true))

@@ -1409,15 +1409,53 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 	var target: Dictionary = units[target_index]
 	var best_cell: Vector2i = current_cell
 	var best_score := -INF
+	var firing_cell_available := false
+	var simulated_attacker := active.duplicate()
 	for cell in reachable:
 		# Корма корабля IV+ ранга тоже должна встать на свободную клетку.
 		if not _footprint_valid(_footprint_for_move(active, cell), active_unit_index):
 			continue
+		simulated_attacker["cell"] = cell
+		firing_cell_available = firing_cell_available or _attack_cell_for_target(simulated_attacker, target) != INVALID_CELL
 		var score := _move_cell_score(cell, active, target, shot_range, current_cell)
 		if score > best_score:
 			best_score = score
 			best_cell = cell
+	# Прямое сближение застревает за длинной грядой: правильный обход
+	# сначала уводит корабль дальше от врага. Ищем путь к позиции залпа,
+	# когда за текущий ход стрелять неоткуда. Защитный режим сохраняет строй.
+	if not firing_cell_available and not (auto_battle and int(active.side) == 1 and auto_battle_mode == AUTO_MODE_DEFENSIVE):
+		var approach := _path_to_firing_position(active, target, blocked)
+		if not approach.is_empty():
+			return approach[mini(move_budget, approach.size() - 1)]
 	return best_cell
+
+
+## Поиск обхода учитывает препятствия, другие отряды и весь корпус корабля.
+func _path_to_firing_position(active: Dictionary, target: Dictionary, blocked: Dictionary) -> Array[Vector2i]:
+	var start: Vector2i = active.cell
+	var frontier: Array[Vector2i] = [start]
+	var previous := {start: start}
+	var cursor := 0
+	var simulated_attacker := active.duplicate()
+	while cursor < frontier.size():
+		var cell := frontier[cursor]
+		cursor += 1
+		simulated_attacker["cell"] = cell
+		if _attack_cell_for_target(simulated_attacker, target) != INVALID_CELL:
+			var path: Array[Vector2i] = [cell]
+			while cell != start:
+				cell = previous[cell]
+				path.push_front(cell)
+			return path
+		for neighbor in _hex_neighbors(cell):
+			if not _cell_in_grid(neighbor) or previous.has(neighbor) or blocked.has(neighbor):
+				continue
+			if not _footprint_valid(_footprint_for_move(active, neighbor), active_unit_index):
+				continue
+			previous[neighbor] = cell
+			frontier.append(neighbor)
+	return []
 
 
 ## Оценка клетки для манёвра. Возможность отстреляться перевешивает всё, но
@@ -2057,7 +2095,10 @@ func _is_valid_target_cell(cell: Vector2i) -> bool:
 	var target_index := _unit_at_cell(cell)
 	if protocol["target"] == "ally_then_cell":
 		if teleport_unit >= 0:
-			return target_index < 0 and not obstacle_at.has(cell)
+			if target_index >= 0 or obstacle_at.has(cell):
+				return false
+			var power := int((heroes.get(1, {}) as Dictionary).get("power", 0))
+			return _hex_distance(units[teleport_unit]["cell"], cell) <= PROTOCOLS.teleport_range(power)
 		return target_index >= 0 and units[target_index]["side"] == 1 and units[target_index]["hp"] > 0
 	match protocol["target"]:
 		"ally":
@@ -2079,6 +2120,7 @@ func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) ->
 	if not _can_cast(side, id):
 		return
 	var power := int(hero["power"])
+	var protocol_bonus := int(hero.get("protocol_bonus_percent", 0))
 	hero["energy"] = int(hero["energy"]) - int(protocol["cost"])
 	var cooldowns: Dictionary = hero.get("protocol_cooldowns", {})
 	cooldowns[id] = round_number
@@ -2120,7 +2162,7 @@ func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) ->
 
 	match kind:
 		"damage":
-			var raw := PROTOCOLS.amount(id, power)
+			var raw := PROTOCOLS.amount(id, power, protocol_bonus)
 			var total := 0
 			for index in targets:
 				var damage := _apply_protocol_damage(index, raw, CINEMATIC_FX.PROTOCOL_IMPACT)
@@ -2130,7 +2172,7 @@ func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) ->
 			if targets.size() == 1 and units[targets[0]]["hp"] <= 0:
 				report = "%s: %s уничтожает «%s»" % [hero_name, protocol["name"], units[targets[0]]["label"]]
 		"heal":
-			var restored := PROTOCOLS.amount(id, power)
+			var restored := PROTOCOLS.amount(id, power, protocol_bonus)
 			var healed := 0
 			for index in targets:
 				var unit: Dictionary = units[index]
@@ -2144,7 +2186,7 @@ func _cast_protocol(side: int, id: String, target_index: int, cell: Vector2i) ->
 			report += " — восстановлено %d прочности" % healed
 		_:
 			for index in targets:
-				_add_effect(units[index], id, power)
+				_add_effect(units[index], id, power, protocol_bonus)
 			report += " → %s" % units[targets[0]]["label"] if targets.size() == 1 else " — весь флот"
 	last_event = report
 	_check_battle_end()
@@ -2190,7 +2232,7 @@ func _apply_protocol_damage(target_index: int, raw: int, feedback_delay: float =
 	return remaining
 
 
-func _add_effect(unit: Dictionary, id: String, power: int) -> void:
+func _add_effect(unit: Dictionary, id: String, power: int, bonus_percent: int = 0) -> void:
 	var protocol: Dictionary = PROTOCOLS.get_protocol(id)
 	var effects: Array = unit.get("effects", [])
 	for index in range(effects.size() - 1, -1, -1):
@@ -2200,9 +2242,9 @@ func _add_effect(unit: Dictionary, id: String, power: int) -> void:
 		"id": id,
 		"name": protocol["name"],
 		"expires": round_number + PROTOCOLS.duration(id, power),
-		"mods": protocol.get("mods", {}),
+		"mods": PROTOCOLS.mods(id, power, bonus_percent),
 		"is_shield": protocol["kind"] == "shield",
-		"shield": PROTOCOLS.amount(id, power) if protocol["kind"] == "shield" else 0,
+		"shield": PROTOCOLS.amount(id, power, bonus_percent) if protocol["kind"] == "shield" else 0,
 		"stun": protocol["kind"] == "stun",
 		"color": PROTOCOLS.school_color(id),
 	})
@@ -2269,6 +2311,19 @@ func _strongest_enemy_stack(side: int) -> int:
 	return best
 
 
+func _strongest_own_stack(side: int) -> int:
+	var best := -1
+	var best_score := -1.0
+	for index in range(units.size()):
+		if units[index]["side"] != side or units[index]["hp"] <= 0:
+			continue
+		var score := float(_stat(units[index], "attack")) * float(_stack_count(units[index]))
+		if score > best_score:
+			best_score = score
+			best = index
+	return best
+
+
 ## Автобой применяет протоколы до манёвра: спасает повреждённые пачки,
 ## усиливает свой ударный стек и ослабляет главную угрозу противника.
 ## Та же функция ведёт и сторону игрока в автобою, и вражеского командира.
@@ -2288,7 +2343,7 @@ func _auto_hero_cast(side: int) -> bool:
 	if damaged_count >= 2 and _can_cast(side, "nanite_field"):
 		_cast_protocol(side, "nanite_field", -1, INVALID_CELL)
 		return true
-	var own_strongest := _strongest_enemy_stack(side)
+	var own_strongest := _strongest_own_stack(side)
 	if own_strongest >= 0 and _can_cast(side, "shield_matrix") and _unit_shield(units[own_strongest]) <= 0:
 		_cast_protocol(side, "shield_matrix", own_strongest, units[own_strongest]["cell"])
 		return true

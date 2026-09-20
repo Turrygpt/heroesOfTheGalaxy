@@ -104,7 +104,7 @@
       ],
       "resource": "Научные данные",
       "sector": 1,
-      "guard_template": "weak",
+      "guard_template": "medium",
       "role": "Управление излучателями"
     },
     {
@@ -115,7 +115,7 @@
       ],
       "resource": "Энергокристаллы",
       "sector": 1,
-      "guard_template": "weak",
+      "guard_template": "heavy",
       "role": "Энергосеть сектора"
     },
     {
@@ -126,7 +126,7 @@
       ],
       "resource": "Топливо",
       "sector": 1,
-      "guard_template": "weak",
+      "guard_template": "strong",
       "role": "Снабжение дальних маршрутов"
     },
     {
@@ -137,7 +137,7 @@
       ],
       "resource": "Радиоизотопы",
       "sector": 1,
-      "guard_template": "weak",
+      "guard_template": "elite",
       "role": "Питание «Авроры»"
     },
     {
@@ -170,7 +170,7 @@
       ],
       "resource": "Научные данные",
       "sector": 2,
-      "guard_template": "weak",
+      "guard_template": "strong",
       "role": "Управление излучателями"
     },
     {
@@ -181,7 +181,7 @@
       ],
       "resource": "Энергокристаллы",
       "sector": 2,
-      "guard_template": "weak",
+      "guard_template": "strong",
       "role": "Энергосеть сектора"
     },
     {
@@ -192,7 +192,7 @@
       ],
       "resource": "Топливо",
       "sector": 2,
-      "guard_template": "weak",
+      "guard_template": "strong",
       "role": "Снабжение дальних маршрутов"
     },
     {
@@ -203,7 +203,7 @@
       ],
       "resource": "Радиоизотопы",
       "sector": 2,
-      "guard_template": "weak",
+      "guard_template": "heavy",
       "role": "Питание «Авроры»"
     }
   ],

@@ -36,6 +36,10 @@ func _run() -> void:
 	_test_persistence()
 	if failures == 0:
 		print("PASS: таблица опыта, уровни, шесть слотов навыков, множитель урона, книга протоколов, перезарядка энергии, награда за бой, итоги боя, окно уровня, сохранение")
+	for player: Node in root.find_children("*", "AudioStreamPlayer", true, false):
+		(player as AudioStreamPlayer).stop()
+		(player as AudioStreamPlayer).stream = null
+	await create_timer(2.0).timeout
 	quit(1 if failures > 0 else 0)
 
 
@@ -155,8 +159,7 @@ func _test_long_career() -> void:
 		_check(total_stats == base_total + DEFS.MAX_LEVEL - 1, "Каждый уровень даёт ровно одно очко стата (%s)" % class_id)
 		for skill_id in hero.skills:
 			_check(int(hero.skills[skill_id]) <= DEFS.MAX_SKILL_TIER, "Ранг навыка не выше экспертного (%s)" % class_id)
-			var weights: Dictionary = DEFS.SKILLS[skill_id]["weights"]
-			_check(int(weights.get(class_id, 0)) > 0, "Класс не изучает чужие навыки (%s/%s)" % [class_id, skill_id])
+			_check(DEFS.skill_weight(class_id, String(skill_id)) > 0, "Класс не изучает чужие навыки (%s/%s)" % [class_id, skill_id])
 		_check(hero.gain_experience(1000000) == 0, "На потолке опыт уровней не даёт (%s)" % class_id)
 		# На потолке опыт не просто бесполезен — он вообще не начисляется,
 		# на этом держатся погасшие награды опытом на карте.
@@ -185,6 +188,13 @@ func _test_damage_multiplier() -> void:
 
 
 func _test_protocol_book() -> void:
+	_check(PROTOCOLS.amount("ion_lance", 4) > PROTOCOLS.amount("ion_lance", 1), "Сила систем усиливает прямой урон протокола")
+	_check(int(PROTOCOLS.mods("overdrive", 4)["move"]) > int(PROTOCOLS.mods("overdrive", 1)["move"]), "Сила систем усиливает численный бафф")
+	_check(PROTOCOLS.duration("overdrive", 8) == 4, "Длительность протокола ограничена разумным потолком")
+	_check(PROTOCOLS.duration("emp_burst", 8) == 2, "ЭМИ не получает дополнительные пропуски хода от Силы")
+	_check(int(PROTOCOLS.mods("logic_bomb", 9)["defense"]) == -8, "Дебафф имеет потолок силы")
+	_check(PROTOCOLS.teleport_range(5) > PROTOCOLS.teleport_range(1) and PROTOCOLS.teleport_range(20) == 8, "Сила систем увеличивает дальность прыжка до потолка")
+	_check(PROTOCOLS.amount("ion_lance", 3, 15) > PROTOCOLS.amount("ion_lance", 3), "Кибервойна усиливает числовой эффект протокола")
 	var hero := Hero.create("test_engineer", "Инженер", "engineer")
 	_check(hero.skill_tier("cryptanalysis") == 1, "Инженер начинает с базовым криптоанализом")
 	_check(hero.max_ability_rank() == 2, "Базовый криптоанализ открывает второй ранг")
@@ -210,6 +220,9 @@ func _test_protocol_book() -> void:
 	for key in raw_hero:
 		_check(battle_hero.has(key), "Боевое представление героя должно содержать поле %s" % key)
 	_check(battle_hero["power"] == hero.stat("power"), "Мощность протоколов равна Силе систем")
+	hero.skills["cyberwarfare"] = 3
+	_check(battle_hero["protocol_bonus_percent"] == 0, "Снимок героя не меняется задним числом")
+	_check(hero.to_battle_hero(1)["protocol_bonus_percent"] == 15, "Кибервойна передаёт в бой бонус протоколов")
 	_check(battle_hero["max_energy"] == hero.max_energy(), "Запас энергии считается от Мудрости")
 
 

@@ -163,7 +163,10 @@ func open_ping_dialog() -> void:
 	ping_dialog = ConfirmationDialog.new()
 	ping_dialog.title = "Пеленг координат"
 	ping_dialog.ok_button_text = "Показать на карте"
-	ping_dialog.custom_minimum_size = Vector2(420.0, 250.0)
+	# ConfirmationDialog наследуется от Window, поэтому размер окна задаётся
+	# через min_size. custom_minimum_size есть только у Control и в Godot 4.7
+	# обрывает создание диалога сразу после клика по кнопке пеленга.
+	ping_dialog.min_size = Vector2i(420, 250)
 	var margins := MarginContainer.new()
 	margins.add_theme_constant_override("margin_left", 12)
 	margins.add_theme_constant_override("margin_top", 14)

@@ -1,4 +1,4 @@
-## Игровой путь: меню с сидом, открытие секрета, загрузка и движение ИИ.
+## Игровой путь: выбор фракции, открытие секрета, загрузка и движение ИИ.
 extends SceneTree
 
 var failures := 0
@@ -20,19 +20,18 @@ func _run() -> void:
 	root.add_child(menu)
 	menu.set_process(false)
 	menu._random_game()
-	var dialog: ConfirmationDialog
-	for child in menu.get_children():
-		if child is ConfirmationDialog:
-			dialog = child
-	var field := dialog.find_children("*", "LineEdit", true, false)[0] as LineEdit
-	field.text = "-3"
-	dialog.confirmed.emit()
-	_check(not menu.transition_started, "Некорректный сид запустил карту")
-	field.text = "160926"
-	dialog.confirmed.emit()
+	var chooser := menu.get_node_or_null("FactionSelection")
+	_check(chooser != null, "Случайная игра не открыла выбор фракции")
+	if chooser == null:
+		menu.free()
+		quit(1)
+		return
+	chooser.chosen.emit("earth")
 	_check(menu.transition_started, "Кнопка экспедиции не запускает загрузку")
 	var save := root.get_node("CampaignSave")
-	_check(save.random_map_requested and save.random_map_seed == 160926, "Меню потеряло сид")
+	_check(save.random_map_requested and save.selected_faction == "earth", "Меню потеряло выбор фракции")
+	# Фиксируем сид только для воспроизводимости проверки геометрии.
+	save.random_map_seed = 160926
 	# Завершаем только загрузку ресурса; не сбрасываем пользовательский прогресс.
 	ResourceLoader.load_threaded_get("res://scenes/StrategicMain.tscn")
 	menu.free()

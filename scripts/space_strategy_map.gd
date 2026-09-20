@@ -49,21 +49,34 @@ const STRATEGIC_NEBULA_TEXTURE := preload("res://assets/space/backdrops/strategi
 const TradingPost := preload("res://scripts/trading_post.gd")
 const OrcAI := preload("res://scripts/orc_ai.gd")
 const HERO_PROTOCOLS := preload("res://scripts/hero_protocols.gd")
+const UNIVERSITY_DEFS := preload("res://scripts/university_defs.gd")
 const PROTOCOL_BOOK_HUD := preload("res://scripts/protocol_book_hud.gd")
-const HERO_CARD_DIALOG := preload("res://scripts/hero_card_dialog.gd")
 const INTRO_DIALOGUE := preload("res://scripts/intro_dialogue.gd")
 const HERO_ENGINE_EXHAUST_OVERLAY := preload("res://scripts/hero_engine_exhaust_overlay.gd")
-const HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/human.png")
-## Флагман вождя орков — настоящий арт (холст 702x1301, не квадратный, в
-## отличие от HERO_SHIP_TEXTURE 518x518).
+const HERO_CITY_BACKGROUND_PATHS := {
+	"earth": "res://assets/planet_surface/human/town/master_v3.png",
+	"mars": "res://assets/planet_surface/mars/town/master_v1.png",
+	"trader": "res://assets/planet_surface/trader/town/master_v3.png",
+	"pirate": "res://assets/planet_surface/pirate/town/master_v1.png",
+}
+## Флагманы игровых фракций на глобальной карте. Все четыре спрайта имеют
+## одинаковый холст 512x512 и смотрят носом вверх, поэтому используют общий
+## масштаб и одинаково поворачиваются вдоль маршрута.
+const HERO_SHIP_TEXTURES := {
+	"earth": preload("res://assets/hero_ships/earth.png"),
+	"mars": preload("res://assets/hero_ships/mars.png"),
+	"trader": preload("res://assets/hero_ships/trader.png"),
+	"pirate": preload("res://assets/hero_ships/pirate.png"),
+}
+## Флагман вождя орков остаётся на собственном вытянутом холсте 702x1301.
 const ORC_HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/orc.png")
 ## Спрайт корабля героя рисуется в масштабе 0.16 (см. Ship в
 ## SpaceStrategyMap.tscn).
 const HERO_SHIP_SCALE := 0.16
-## Холст ORC_HERO_SHIP_TEXTURE вытянут (1301 по большей стороне против 518 у
-## HERO_SHIP_TEXTURE) — свой масштаб, чтобы на карте оба флагмана были одного
+## Холст ORC_HERO_SHIP_TEXTURE вытянут (1301 по большей стороне против 512 у
+## фракционных спрайтов) — свой масштаб, чтобы на карте оба флагмана были одного
 ## размера (по большей стороне холста), а не просто одной scale-константы.
-const ORC_HERO_SHIP_SCALE := HERO_SHIP_SCALE * 518.0 / 1301.0
+const ORC_HERO_SHIP_SCALE := HERO_SHIP_SCALE * 512.0 / 1301.0
 const HUMAN_PLANET_SCREEN := preload("res://scenes/HumanPlanetScreen.tscn")
 const HUMAN_PLANET_TOWN := preload("res://scenes/HumanPlanetTown.tscn")
 ## Временная визуальная подмена: человеческая планета открывает орочью панораму.
@@ -118,13 +131,14 @@ const ORE_DRILL_BOB_SECONDS := 1.8
 ## радиусе видимости корабля навсегда - однажды увиденное больше не гаснет.
 ## Туман работает и на случайной карте: разведка должна оставаться частью
 ## игры независимо от способа генерации раскладки.
-const FOG_ENABLED := false
+const FOG_ENABLED := true
 const FOG_REVEAL_RADIUS := 4
 const FOG_COLOR := Color(0.0, 0.0, 0.0, 1.0)
 ## Составы стражей: 1 — семь поясов пиратов, 2 — торговцы на шахтах и 4 пачки на базе,
 ## 3 — лёгкая охрана базовых ферм и рудных шахт, 4 — усиленная охрана редких
-## месторождений.
-const GUARDIAN_ROSTER_VERSION := 4
+## месторождений, 5 — постепенные составы по расстоянию и минимум II пояс
+## для охраняемых производств.
+const GUARDIAN_ROSTER_VERSION := 5
 const GUARDIAN_MEDIUM_DISTANCE := 16
 const GUARDIAN_STRONG_DISTANCE := 24
 ## Пикапы и трофеи ресурсов растут с удалением от родной планеты: рядом
@@ -195,14 +209,16 @@ const PRODUCTION_BLUEPRINTS := [
 @onready var side_hero_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/HeroList
 @onready var side_planet_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox/PlanetList
 @onready var side_hero_portrait: TextureRect = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/PortraitFrame/Margin/Portrait
+@onready var side_hero_movement_steps: VBoxContainer = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/PortraitFrame/Indicators/MovementSteps
 @onready var side_planet_portrait: TextureRect = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox/PortraitFrame/Margin/Portrait
-@onready var hero_card_portrait: TextureRect = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroPortrait
+@onready var side_construction_check: Label = $HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox/PortraitFrame/Margin/Portrait/ConstructionCheck
+var side_hero_city_background: TextureRect
+var hero_city_background_faction := ""
 @onready var hero_name_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox/HeroNameLabel
 @onready var stats_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox/HeroInfoVBox/StatsLabel
 @onready var skills_label: Label = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/SkillsLabel
 @onready var skills_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/SkillsList
 @onready var protocols_button: Button = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ProtocolsButton
-@onready var hero_card_button: Button = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroCardButton
 @onready var army_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArmyList
 @onready var artifacts_list: ItemList = $HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArtifactsList
 
@@ -369,6 +385,7 @@ func _ready() -> void:
 	_sync_human_planet_state()
 	_setup_orc_ai(snapshot)
 	_apply_home_planet_faction()
+	_setup_hero_portrait_backgrounds()
 	next_cell = current_cell
 	_reveal_around(current_cell, FOG_REVEAL_RADIUS)
 	ship_position = _cell_center(current_cell)
@@ -395,7 +412,7 @@ func _ready() -> void:
 		-orc_planet_nameplate.size.x * 0.5,
 		CELL_SIZE * 0.58
 	)
-	ship_sprite.texture = HERO_SHIP_TEXTURE
+	ship_sprite.texture = HERO_SHIP_TEXTURES.get(player_faction, HERO_SHIP_TEXTURES["earth"])
 	ship_sprite.position = ship_position
 	ship_sprite.rotation = -PI / 2.0 - SHIP_SOURCE_ANGLE
 	_refresh_orc_ship_sprite()
@@ -420,22 +437,19 @@ func _ready() -> void:
 	end_day_button.pressed.connect(_end_day)
 	ping_button.gui_input.connect(_on_ping_button_input)
 	_style_ping_button()
+	_setup_side_hero_movement_steps()
 	human_planet_name_button.pressed.connect(_open_human_planet)
 	side_hero_portrait.gui_input.connect(_on_hero_portrait_input)
-	hero_card_portrait.gui_input.connect(_on_hero_portrait_input)
 	side_planet_portrait.gui_input.connect(_on_planet_portrait_input)
 	side_hero_portrait.mouse_filter = Control.MOUSE_FILTER_STOP
-	hero_card_portrait.mouse_filter = Control.MOUSE_FILTER_STOP
 	side_planet_portrait.mouse_filter = Control.MOUSE_FILTER_STOP
 	side_hero_portrait.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	hero_card_portrait.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	side_planet_portrait.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	side_hero_list.item_selected.connect(_on_side_hero_selected)
 	side_planet_list.item_selected.connect(_on_side_planet_selected)
 	army_list.item_selected.connect(_clear_item_list_selection.bind(army_list))
 	skills_list.item_selected.connect(_clear_item_list_selection.bind(skills_list))
 	protocols_button.pressed.connect(_open_protocol_book)
-	hero_card_button.pressed.connect(_open_hero_card)
 	artifacts_list.item_selected.connect(_clear_item_list_selection.bind(artifacts_list))
 	$HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArtifactsSeparator.hide()
 	$HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/ArtifactsLabel.hide()
@@ -449,6 +463,15 @@ func _ready() -> void:
 		add_child(campaign_story)
 		if campaign_outcome == "victory":
 			campaign_story.call_deferred("_show_ending" if story_state.has("ending") else "finish_mission")
+	if campaign_outcome == "defeat":
+		call_deferred("_show_campaign_outcome", false, "ПОРАЖЕНИЕ",
+			"Оборона столицы прорвана. Родная планета потеряна. Начните новую игру, чтобы снова освободить Марс." if campaign_story != null else "Родная планета пала под натиском орков.")
+	elif campaign_outcome == "victory" and campaign_story == null:
+		call_deferred("_show_campaign_outcome", true, "ПОБЕДА", "Вражеская база захвачена. Ваш флот отстоял свой сектор галактики.")
+	if snapshot.is_empty() and starter_map_mode and campaign_story != null:
+		# Стартовый автосейв хранит брифинг в очереди: выход из игры во время
+		# вступления не должен лишать игрока начала истории при продолжении.
+		campaign_story.enqueue("intro")
 	if CampaignSave.save_on_start:
 		CampaignSave.save_on_start = false
 		_save_campaign()
@@ -462,6 +485,10 @@ func _ready() -> void:
 ## сохранения snapshot не пуст, а "Случайная карта" - отладочный быстрый
 ## старт, там вступление только мешает.
 func _show_intro_briefing() -> void:
+	if campaign_story != null:
+		story_state.pending.erase("intro")
+		campaign_story.play("intro")
+		return
 	set_process(false)
 	set_process_unhandled_input(false)
 	var briefing := INTRO_DIALOGUE.new()
@@ -592,7 +619,8 @@ func _process(delta: float) -> void:
 			# просто скользит между клетками - обновляем только по факту
 			# прибытия, а не каждый кадр анимации (иначе полёт подлагивает).
 			_update_hud()
-		camera.position = _camera_position_for(ship_position.round())
+		# Камера следует за точной позицией: округление даёт ступеньки при полёте.
+		camera.position = _camera_position_for(ship_position)
 		route_overlay.queue_redraw()
 
 
@@ -788,10 +816,47 @@ func _apply_home_planet_faction() -> void:
 	human_planet.texture = ORC_PLANET_TEXTURE if is_mars else preload("res://assets/planets/human.png")
 	if player_faction == "trader":
 		human_planet.texture = load("res://assets/planets/league.png")
+	elif player_faction == "pirate":
+		human_planet.texture = load("res://assets/map_objects/pirate_home_station.png")
 	side_planet_portrait.texture = human_planet.texture
 	human_planet_name_button.text = "Марс" if is_mars else "Земля"
 	if player_faction == "trader":
 		human_planet_name_button.text = "Торговая лига"
+	elif player_faction == "pirate":
+		human_planet_name_button.text = "Станция Синдиката"
+
+
+func _setup_hero_portrait_backgrounds() -> void:
+	side_hero_city_background = _make_hero_city_background(side_hero_portrait, "SideHeroCity")
+	_update_hero_portrait_backgrounds()
+
+
+func _make_hero_city_background(host: TextureRect, node_name: String) -> TextureRect:
+	var backdrop := TextureRect.new()
+	backdrop.name = node_name
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	backdrop.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	backdrop.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backdrop.show_behind_parent = true
+	# Холодная тёмная подложка отделяет тёплый портрет от марсианской панорамы.
+	backdrop.modulate = Color(0.36, 0.43, 0.56, 0.70)
+	host.clip_contents = true
+	host.add_child(backdrop)
+	host.move_child(backdrop, 0)
+	return backdrop
+
+
+func _update_hero_portrait_backgrounds() -> void:
+	if not is_instance_valid(side_hero_city_background):
+		return
+	if hero_city_background_faction == player_faction and side_hero_city_background.texture != null:
+		return
+	var path := String(HERO_CITY_BACKGROUND_PATHS.get(player_faction, HERO_CITY_BACKGROUND_PATHS["earth"]))
+	var city_texture := load(path) as Texture2D
+	side_hero_city_background.texture = city_texture
+	hero_city_background_faction = player_faction
 
 
 func _on_human_planet_input(_viewport: Node, event: InputEvent, _shape_index: int) -> void:
@@ -953,7 +1018,7 @@ func _draw() -> void:
 	if campaign_story != null and campaign_story.has_seen("pirate_complete"):
 		_draw_secret_passage_marker(Vector2i(22, 40), "Секретный фарватер")
 	if campaign_story != null and campaign_story.has_seen("trader_complete"):
-		_draw_secret_passage_marker(Vector2i(29, 18), "Секретный фарватер")
+		_draw_secret_passage_marker(Vector2i(29, 18), "Транзитный допуск Лиги")
 	if beacon_cell != Vector2i(-1, -1):
 		var beacon_rect := Rect2(Vector2(beacon_cell) * CELL_SIZE, Vector2.ONE * CELL_SIZE)
 		draw_rect(beacon_rect, Color("ffd166"), false, 5.0)
@@ -1228,6 +1293,7 @@ func _update_navigation_hud() -> void:
 func _update_hero_card() -> void:
 	var hero := _player_hero()
 	if hero == null:
+		side_hero_portrait.texture = null
 		hero_name_label.text = "Нет героя"
 		stats_label.text = ""
 		skills_label.text = "УМЕНИЯ"
@@ -1237,6 +1303,8 @@ func _update_hero_card() -> void:
 		artifacts_list.clear()
 		return
 
+	var portrait := HeroDefs.hero_portrait(hero.class_id)
+	side_hero_portrait.texture = portrait
 	hero_name_label.text = "%s (уровень %d)" % [hero.hero_name, hero.level]
 	stats_label.text = "АТК:%d ЗЩТ:%d СИЛ:%d МДР:%d · ЭН:%d/%d (+%d/сол)" % [
 		hero.stats["attack"],
@@ -1323,6 +1391,15 @@ func _footprint_center(anchor: Vector2i) -> Vector2:
 ## а не полагаться на то, что кто-то не забыл вызвать это при закрытии экрана.
 func _sync_human_planet_state() -> void:
 	var state := HumanPlanetState.load_state()
+	# Авторская миссия всегда проходит за Землю. В старом или отладочном
+	# сохранении поле планеты могло остаться от случайной карты за Синдикат,
+	# хотя сама карта уже принудительно переключила игрока на людей. Экран
+	# города берёт каталог верфей именно из этого поля, поэтому явно держим
+	# состояние планеты в одной фракции с текущей картой.
+	var expected_faction := "earth" if starter_map_mode else player_faction
+	if String(state.get("faction", "earth")) != expected_faction:
+		state["faction"] = expected_faction
+		HumanPlanetState.save_state(state)
 	human_planetary_council_level = maxi(1, int((state["built_levels"] as Dictionary).get("townhall", 1)))
 	bonus_daily_income = int(state.get("bonus_daily_income", 0))
 
@@ -1358,10 +1435,34 @@ func _end_day() -> void:
 ## вождя — если он дома, штурм всё равно застаёт его в обороне), потом мирные
 ## объекты приключений. Любая сработавшая проверка обрывает полёт.
 func _check_arrival_encounters(cell: Vector2i) -> bool:
+	_teach_protocols_on_home_planet_visit(cell)
 	return _check_guardian_encounter(cell) \
 		or _check_orc_planet_encounter(cell) \
 		or _check_orc_hero_encounter(cell) \
 		or _check_map_object_encounter(cell)
+
+
+## Загружает протоколы академии только при физическом прибытии командующего
+## на родную планету. Удалённое управление городом лишь открывает протоколы
+## в базе знаний и не меняет книгу героя.
+func _teach_protocols_on_home_planet_visit(cell: Vector2i) -> Array[String]:
+	var learned: Array[String] = []
+	if human_planet_owner != 1 or not _cell_is_in_planet(cell, HUMAN_PLANET_CENTER):
+		return learned
+	var state := HumanPlanetState.load_state()
+	var level := int((state.get("built_levels", {}) as Dictionary).get("mage_guild", 0))
+	if level <= 0:
+		return learned
+	if UNIVERSITY_DEFS.ensure_offers(state, level):
+		HumanPlanetState.save_state(state)
+	var hero := _player_hero()
+	if hero == null:
+		return learned
+	learned = hero.learn_protocols(UNIVERSITY_DEFS.protocols_through_level(state, level))
+	if not learned.is_empty():
+		_save_hero_roster()
+		navigation_message = "На планете загружены новые боевые протоколы: %d." % learned.size()
+	return learned
 
 
 func _turn_status_text() -> String:
@@ -1381,7 +1482,8 @@ func _save_hero_roster() -> void:
 
 func _update_hud() -> void:
 	day_label.text = "%s · %s" % [format_sol(current_day), _turn_status_text()]
-	movement_label.text = "Ходы: %d / %d" % [maxi(movement_points, 0), MOVEMENT_POINTS_PER_DAY]
+	var movement_max := MOVEMENT_POINTS_PER_DAY + weekly_movement_bonus
+	movement_label.text = "Ходы: %d / %d" % [maxi(movement_points, 0), movement_max]
 	credits_label.text = "Кредиты: %d" % player_one_credits
 	income_label.text = "Совет %d: +%d/сол" % [
 		human_planetary_council_level,
@@ -1395,6 +1497,7 @@ func _update_hud() -> void:
 	isotopes_value.text = str(player_one_resources["Радиоизотопы"])
 	end_day_button.disabled = is_moving or campaign_outcome != ""
 	_update_right_menu_lists()
+	_update_side_hero_movement_steps()
 	_update_navigation_hud()
 	_update_hero_card()
 
@@ -1408,22 +1511,54 @@ func _open_protocol_book() -> void:
 	book.setup(hero.to_battle_hero(1), 0, true)
 
 
-func _open_hero_card() -> void:
-	var hero := _player_hero()
-	if hero == null:
-		return
-	var card := HERO_CARD_DIALOG.new()
-	add_child(card)
-	card.setup(hero)
-
-
 func _update_right_menu_lists() -> void:
 	side_hero_list.clear()
 	var hero := _player_hero()
 	if hero != null:
 		side_hero_list.add_item("%s · ур. %d" % [_short_hero_name(hero.hero_name), hero.level])
 	side_planet_list.clear()
-	side_planet_list.add_item(("%s · Совет %d" % [human_planet_name_button.text, human_planetary_council_level]))
+	var planet_state := HumanPlanetState.load_state()
+	var construction_done := int(planet_state.get("last_construction_day", 0)) == current_day
+	side_planet_list.add_item("%s · Совет %d" % [human_planet_name_button.text, human_planetary_council_level])
+	side_construction_check.visible = construction_done
+
+
+## Пять раздельных зелёных делений повторяют привычную шкалу оставшегося
+## перемещения героя из HoMM: полный столбик в начале сола, пустой — после
+## всех ходов. Разделители сохраняются и при полном запасе шагов.
+func _setup_side_hero_movement_steps() -> void:
+	for child in side_hero_movement_steps.get_children():
+		child.queue_free()
+	var background := StyleBoxFlat.new()
+	background.bg_color = Color("17252a")
+	background.border_color = Color("48656a")
+	background.set_border_width_all(1)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color("55d67a")
+	fill.border_color = Color("b0f2a7")
+	fill.set_border_width_all(1)
+	for _segment in range(5):
+		var step := Panel.new()
+		step.custom_minimum_size = Vector2(0, 10)
+		step.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		step.set_meta("active_style", fill)
+		step.set_meta("inactive_style", background)
+		step.add_theme_stylebox_override("panel", background)
+		side_hero_movement_steps.add_child(step)
+
+
+func _update_side_hero_movement_steps() -> void:
+	var movement_max := maxi(1, MOVEMENT_POINTS_PER_DAY + weekly_movement_bonus)
+	var remaining := clampi(movement_points, 0, movement_max)
+	var active_segments := ceili(float(remaining) / float(movement_max) * side_hero_movement_steps.get_child_count())
+	for index in side_hero_movement_steps.get_child_count():
+		var step := side_hero_movement_steps.get_child(index) as Panel
+		var style_key := "active_style" if index >= side_hero_movement_steps.get_child_count() - active_segments else "inactive_style"
+		step.add_theme_stylebox_override("panel", step.get_meta(style_key) as StyleBox)
+	side_hero_movement_steps.tooltip_text = "Осталось шагов: %d из %d" % [
+		remaining,
+		movement_max,
+	]
 
 
 func _on_side_hero_selected(_index: int) -> void:
@@ -1959,10 +2094,18 @@ func _resolve_orc_defeat(kind: String) -> void:
 func _retreat_player_home(message: String) -> void:
 	var hero := _player_hero()
 	if hero != null:
-		hero.set_army_from_dict({"league_fighter": 1} if player_faction == "trader" else RETREAT_ARMY)
+		var retreat_army := RETREAT_ARMY
+		if player_faction == "pirate":
+			retreat_army = {"syndicate_fighter": 1}
+		elif player_faction == "trader":
+			retreat_army = {"league_fighter": 1}
+		elif player_faction == "mars":
+			retreat_army = {"bandit_fighter": 1}
+		hero.set_army_from_dict(retreat_army)
 	_consume_movement_after_retreat()
 	current_cell = HUMAN_PLANET_CENTER
 	next_cell = current_cell
+	_teach_protocols_on_home_planet_visit(current_cell)
 	ship_position = _cell_center(current_cell)
 	ship_sprite.position = ship_position
 	camera.position = _camera_position_for(ship_position.round())
@@ -2095,16 +2238,32 @@ func _refresh_guardian_rosters(saved_version: int) -> void:
 		if int(guardian.get("site_index", -1)) >= 0:
 			var site_index := int(guardian.get("site_index", -1))
 			var site: Dictionary = production_sites[site_index] if site_index < production_sites.size() else {}
-			var template := map_generation.production_guard_template(site, guardian["cell"])
-			guardian["template"] = template
-			guardian["fleet"] = GuardianDefs.fleet_for(template)
-			guardian["kind"] = "trader"
+			# В старом сейве авторской миссии у всех производств ещё записан
+			# одинаковый weak. Пересчитываем его по расстоянию; случайная карта
+			# использует свои торговые шаблоны.
+			var roster_template := ""
+			if starter_map_mode:
+				var production_distance := maxi(
+					map_generation._threat_distance(guardian["cell"]),
+					GuardianDefs.DISTANCE_LIMITS[0])
+				roster_template = GuardianDefs.template_for_distance(production_distance)
+				site["guard_template"] = roster_template
+			else:
+				roster_template = map_generation.production_guard_template(site, guardian["cell"])
+			guardian["template"] = roster_template
+			guardian["fleet"] = GuardianDefs.fleet_for(roster_template)
+			guardian["kind"] = GuardianDefs.kind_for(roster_template)
 			if not guardian.has("reward"):
 				guardian["reward"] = {
 					"type": "resources",
 					"resource_name": _random_resource_name(),
 					"amount": map_random.randi_range(2, 10),
 				}
+			continue
+		var roster_template := String(guardian.get("template", ""))
+		if GuardianDefs.TEMPLATES.has(roster_template):
+			guardian["fleet"] = GuardianDefs.fleet_for(roster_template)
+			guardian["kind"] = GuardianDefs.kind_for(roster_template)
 
 
 func _chebyshev_distance(a: Vector2i, b: Vector2i) -> int:
@@ -2265,11 +2424,10 @@ func _start_guardian_battle(index: int, start_immediately: bool = false) -> void
 	var hero := _player_hero()
 	var guardian: Dictionary = guardians[index]
 	# Дипломатия действует только на обычные живые полевые пиратские/торговые
-	# флоты. Контрактные конвои Ридуса — обязательные цели квеста «Победить
-	# торговые флоты», поэтому они всегда требуют боя. Базы, планеты, орки и
+	# флоты. Сюжетные патрули и контрактные цели требуют боя либо своего
+	# сюжетного пропуска. Базы, планеты, орки и
 	# гарнизоны зданий также всегда требуют боя/осады.
-	var mission_id := String(guardian.get("mission_id", ""))
-	var contract_convoy := mission_id in ["ridus_trader_convoy_1", "ridus_trader_convoy_2"]
+	var contract_convoy: bool = campaign_story != null and campaign_story.is_required_battle(guardian)
 	var can_diplomacy := not guardian.has("object_kind") \
 			and not contract_convoy \
 			and String(guardian.get("kind", "")) in ["pirate", "trader"]

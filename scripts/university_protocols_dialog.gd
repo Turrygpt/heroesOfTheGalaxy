@@ -19,12 +19,14 @@ const PANEL_SIZE := Vector2(980, 720)
 var hero: Hero
 var planet_state: Dictionary
 var university_level := 0
+var commander_present := false
 
 
-func setup(target_hero: Hero, state: Dictionary, built_level: int) -> void:
+func setup(target_hero: Hero, state: Dictionary, built_level: int, is_commander_present: bool = false) -> void:
 	hero = target_hero
 	planet_state = state
 	university_level = built_level
+	commander_present = is_commander_present
 	layer = 12
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -48,23 +50,32 @@ func setup(target_hero: Hero, state: Dictionary, built_level: int) -> void:
 	body.add_child(_label("Книга доступных боевых протоколов", 13, MUTED, true))
 	body.add_child(_rule(Color(GOLD, 0.35)))
 	var scroll := ScrollContainer.new()
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	body.add_child(scroll)
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 10)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# ScrollContainer до первого layout-прохода может отдать ребёнку почти
+	# нулевую ширину. Тогда русский текст переносится по одной букве.
+	list.custom_minimum_size.x = PANEL_SIZE.x - 48.0
 	scroll.add_child(list)
 	_build_protocol_list(list)
 	var footer := HBoxContainer.new()
+	footer.custom_minimum_size.y = 42
 	body.add_child(footer)
-	footer.add_child(_label("F8 — редактор раскладки  ·  Esc — закрыть", 12, MUTED))
+	var footer_hint := _label("F8 — редактор раскладки  ·  Esc — закрыть", 12, MUTED)
+	footer_hint.autowrap_mode = TextServer.AUTOWRAP_OFF
+	footer_hint.custom_minimum_size.x = 360
+	footer.add_child(footer_hint)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
 	var close_button := Button.new()
 	close_button.text = "ЗАКРЫТЬ"
 	close_button.custom_minimum_size.x = 150
+	close_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	UI_STYLE.apply_button(close_button)
 	close_button.pressed.connect(_close)
 	footer.add_child(close_button)
@@ -110,7 +121,7 @@ func _protocol_card(protocol_id: String, is_learned: bool) -> Control:
 	info.add_child(_label(String(protocol.get("name", protocol_id)), 17, INK, false))
 	info.add_child(_label(school, 11, color, false))
 	info.add_child(_label(String(protocol.get("hint", "")), 12, MUTED, false))
-	var allowed := hero != null and DEFS.protocol_rank(protocol_id) <= hero.max_ability_rank()
+	var allowed := commander_present and hero != null and DEFS.protocol_rank(protocol_id) <= hero.max_ability_rank()
 	if is_learned:
 		var status := _label("ИЗУЧЕН", 12, CYAN, true)
 		status.custom_minimum_size.x = 130
@@ -118,9 +129,14 @@ func _protocol_card(protocol_id: String, is_learned: bool) -> Control:
 		row.add_child(status)
 	else:
 		var learn_button := Button.new()
-		learn_button.text = "ИЗУЧИТЬ" if allowed else "НУЖЕН РАНГ %d" % DEFS.protocol_rank(protocol_id)
+		if not commander_present:
+			learn_button.text = "КОМАНДИР НЕ НА ПЛАНЕТЕ"
+		elif allowed:
+			learn_button.text = "ИЗУЧИТЬ"
+		else:
+			learn_button.text = "НУЖЕН РАНГ %d" % DEFS.protocol_rank(protocol_id)
 		learn_button.disabled = not allowed
-		learn_button.custom_minimum_size.x = 150
+		learn_button.custom_minimum_size.x = 230
 		UI_STYLE.apply_button(learn_button)
 		learn_button.pressed.connect(_learn_protocol.bind(protocol_id))
 		row.add_child(learn_button)
@@ -128,7 +144,7 @@ func _protocol_card(protocol_id: String, is_learned: bool) -> Control:
 
 
 func _learn_protocol(protocol_id: String) -> void:
-	if hero == null or not hero.learn_protocols([protocol_id]).has(protocol_id):
+	if not commander_present or hero == null or not hero.learn_protocols([protocol_id]).has(protocol_id):
 		return
 	learned.emit(protocol_id)
 	closed.emit()

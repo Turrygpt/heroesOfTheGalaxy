@@ -71,6 +71,11 @@ func _run() -> void:
 	_check(battle._side_alive(1) and not battle._side_alive(2), "Сильный флот побеждает слабый")
 	_check(battle.units[1]["hp"] == 0, "Быстрый бой фиксирует реальные потери")
 	battle.free()
+	for player: Node in root.find_children("*", "AudioStreamPlayer", true, false):
+		(player as AudioStreamPlayer).stop()
+		(player as AudioStreamPlayer).stream = null
+	# Даём отложенным звукам и таймерам закончиться до остановки SceneTree.
+	await create_timer(2.0).timeout
 	if failures == 0:
 		print("PASS: прогноз, автобитва, ручное управление, быстрый бой и потери")
 	quit(1 if failures else 0)

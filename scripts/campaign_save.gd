@@ -55,7 +55,7 @@ func save_campaign(map: Node, path: String = SAVE_PATH) -> bool:
 	snapshot["random_map_layout"] = map.random_map_layout
 	snapshot["story_state"] = map.story_state
 	snapshot["random_state"] = map.map_random.state
-	snapshot["pirate_balance_version"] = 4
+	snapshot["pirate_balance_version"] = 5
 	snapshot["camera_position"] = map.camera.position
 	snapshot["camera_zoom"] = map.camera.zoom
 	# Экономика и позиция ИИ орков (флот вождя уезжает вместе с героями).
@@ -100,15 +100,7 @@ func prepare_new_game(random_map: bool = false) -> void:
 	save_on_start = true
 	random_map_requested = random_map
 	pending_map.clear()
-	HeroRoster.reset_to_default()
-	if random_map and selected_faction == "trader":
-		var admiral: Hero = HeroRoster.heroes.get("player_admiral")
-		if admiral != null:
-			admiral.set_army_from_slots([
-				{"unit_id": "league_fighter", "count": 15},
-				{"unit_id": "league_gunship", "count": 6},
-				{"unit_id": "league_corvette", "count": 2},
-			])
+	HeroRoster.reset_for_faction(selected_faction if random_map else "earth")
 	HeroRoster.save_state()
 	load(PLANET_PATH).reset_to_default()
 	var planet_state: Dictionary = load(PLANET_PATH).load_state()

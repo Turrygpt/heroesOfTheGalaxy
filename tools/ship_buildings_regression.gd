@@ -194,41 +194,33 @@ func _run() -> void:
 	_check_unit_recruit_spends_credits(screen)
 	_check_ship_resource_cap()
 	_check_building_resource_cap(screen)
+	_check_building_resource_progression(screen)
 	_check_fort_growth()
 	_check_fleet_slots_split_merge()
 	print("SHIP_BUILDINGS_REGRESSION_OK")
 	quit()
 
 
-## Ресурсная часть цены корабля не должна превышать его ранг: V ранг — не
-## больше 5 единиц каждого ресурса (см. комментарий к UnitDefs.UNITS и
-## OrcDefs.UNITS — потолок общий для обеих фракций).
-## Цена торгового поста считается от той же пятёрки со скидкой 90%.
+## Все фракции нанимают корабли за кредиты; эсминцы дополнительно
+## требуют ровно по 2 единицы топлива и радиоизотопов за корабль.
 func _check_ship_resource_cap() -> void:
-	var all_units := {}
-	all_units.merge(UnitDefs.UNITS)
-	all_units.merge(OrcDefs.UNITS)
-	for unit_id in all_units:
-		var unit: Dictionary = all_units[unit_id]
-		if String(unit.get("kind", "")) != "dwelling":
-			continue
-		var tier := int(unit.get("tier", 0))
-		var cost: Dictionary = unit.get("cost", {})
-		for resource_name in cost:
-			if resource_name == "credits":
-				continue
-			if int(cost[resource_name]) > tier:
-				_fail("Цена %s: %s %d — больше ранга %d" % [unit_id, resource_name, int(cost[resource_name]), tier])
-				return
+	for faction in ["earth", "mars", "trader", "pirate"]:
+		for unit_id in UnitDefs.recruitable_ids(faction):
+			var unit: Dictionary = UnitDefs.get_unit(unit_id)
+			_check_recruit_cost(unit_id, int(unit["tier"]), unit["cost"])
+	for unit_id in OrcDefs.UNITS:
+		var unit: Dictionary = OrcDefs.UNITS[unit_id]
+		_check_recruit_cost(unit_id, int(unit["tier"]), unit["cost"])
 	for unit_id in TradingPost.UNIT_OFFERS:
-		var tier := int(UnitDefs.get_unit(unit_id).get("tier", 0))
-		var cost: Dictionary = TradingPost.UNIT_OFFERS[unit_id].get("cost", {})
-		for resource_name in cost:
-			if resource_name == "credits":
-				continue
-			if int(cost[resource_name]) > tier:
-				_fail("Цена поста %s: %s %d — больше ранга %d" % [unit_id, resource_name, int(cost[resource_name]), tier])
-				return
+		_check_recruit_cost(unit_id, int(UnitDefs.get_unit(unit_id)["tier"]), TradingPost.UNIT_OFFERS[unit_id]["cost"])
+
+
+func _check_recruit_cost(unit_id: String, tier: int, cost: Dictionary) -> void:
+	var resources := cost.duplicate()
+	resources.erase("credits")
+	var expected := {"Топливо": 2, "Радиоизотопы": 2} if tier == 5 else {}
+	if int(cost.get("credits", 0)) <= 0 or resources != expected:
+		_fail("Неверная цена найма %s: %s" % [unit_id, cost])
 
 
 ## Ресурсная цена постройки живёт по шкале HoMM (см. комментарий к
@@ -249,6 +241,24 @@ func _check_building_resource_cap(screen: Node) -> void:
 				if amount > limit:
 					_fail("Цена %s: %s %d — больше потолка %d" % [kind, resource_name, amount, limit])
 					return
+
+
+## Первый форт доступен из стартового запаса, но уже следующий ангар требует
+## новой руды. Орки платят за военную инфраструктуру по той же шкале.
+func _check_building_resource_progression(screen: Node) -> void:
+	var fort_cost: Dictionary = screen.BUILDING_DEFS["fort"]["costs"][0]
+	if fort_cost.get("Продукты") != 10 or fort_cost.get("Руда") != 10:
+		_fail("Первый форт должен расходовать стартовые продукты и руду")
+		return
+	var fighter_cost: Dictionary = screen.BUILDING_DEFS["fighter_yard"]["costs"][0]
+	if int(fighter_cost.get("Руда", 0)) <= 0:
+		_fail("Первый ангар должен требовать добычи новой руды")
+		return
+	for human_kind in ["fort", "fighter_yard", "gunship_yard", "corvette_yard", "frigate_yard", "destroyer_yard"]:
+		var orc_kind: String = human_kind if human_kind == "fort" else "ork_" + human_kind
+		if screen.BUILDING_DEFS[human_kind]["costs"] != OrcDefs.BUILDING_DEFS[orc_kind]["costs"]:
+			_fail("Цены военных зданий разошлись у людей и орков: %s" % human_kind)
+			return
 
 
 ## Форт добавляет к недельному приросту всех ангаров +25/+50/+100% по своим
@@ -285,7 +295,7 @@ func _check_unit_upgrade(screen: Node) -> void:
 	if UnitDefs.upgrade_target("interceptor") != "heavy_interceptor":
 		_fail("Interceptor must upgrade to heavy_interceptor")
 		return
-	if int(upgrade_cost.get("credits", 0)) != 40 or upgrade_cost.has("Руда"):
+	if int(upgrade_cost.get("credits", 0)) != 80 or upgrade_cost.has("Руда"):
 		_fail("Interceptor upgrade price must be the elite/base cost difference")
 		return
 	screen._upgrade_stack("garrison", 0)
@@ -294,7 +304,7 @@ func _check_unit_upgrade(screen: Node) -> void:
 	if garrison.has("interceptor") or int(garrison.get("heavy_interceptor", 0)) != 3:
 		_fail("Garrison upgrade must replace the ordinary stack with the elite one")
 		return
-	if fake_map.player_one_credits != 880 or int(fake_map.player_one_resources.get("Руда", 0)) != 100:
+	if fake_map.player_one_credits != 760 or int(fake_map.player_one_resources.get("Руда", 0)) != 100:
 		_fail("Garrison upgrade must pay the cost difference for the whole stack")
 		return
 	fake_map.queue_free()

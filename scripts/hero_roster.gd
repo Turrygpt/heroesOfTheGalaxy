@@ -6,6 +6,25 @@ extends Node
 ## Идентификатор героя не требует загрузки ИИ и всех его текстур.
 const ORC_HERO_ID := "orc_warlord"
 
+const PLAYER_HEROES := {
+	"earth": {
+		"name": "Полковник Павлова", "class_id": "admiral",
+		"army": {"interceptor": 15, "gunship": 6, "corvette": 2},
+	},
+	"mars": {
+		"name": "Дариус Кейн", "class_id": "mars_raider",
+		"army": {"bandit_fighter": 15, "bandit_gunship": 6, "bandit_corvette": 2},
+	},
+	"trader": {
+		"name": "Марта Вейл", "class_id": "league_commander",
+		"army": {"league_fighter": 15, "league_gunship": 6, "league_corvette": 2},
+	},
+	"pirate": {
+		"name": "Рея Кросс", "class_id": "syndicate_captain",
+		"army": {"syndicate_fighter": 15, "syndicate_gunship": 6, "syndicate_corvette": 2},
+	},
+}
+
 const SAVE_PATH := "user://heroes.json"
 
 signal hero_experience_gained(hero: Hero, amount: int, levels: int)
@@ -21,13 +40,17 @@ func _ready() -> void:
 
 
 func reset_to_default() -> void:
+	reset_for_faction("earth")
+
+
+func reset_for_faction(faction: String) -> void:
 	heroes.clear()
-	# Внутренний id/класс "admiral" остаётся прежним (от него зависят сейвы и
-	# баланс статов) - меняется только личность героя: полковник Павлова,
-	# та же, что уходит в разведку в стартовом брифинге (intro_dialogue.gd).
-	var admiral := Hero.create("player_admiral", "Полковник Павлова", "admiral")
-	admiral.set_army_from_dict({"interceptor": 15, "gunship": 6, "corvette": 2})
-	register(admiral)
+	var definition: Dictionary = PLAYER_HEROES.get(faction, PLAYER_HEROES["earth"])
+	# Стабильный id сохраняет совместимость карты, боя и сейвов, а личность,
+	# класс, навыки и корабли определяет выбранная сторона случайной карты.
+	var commander := Hero.create("player_admiral", String(definition["name"]), String(definition["class_id"]))
+	commander.set_army_from_dict((definition["army"] as Dictionary).duplicate())
+	register(commander)
 	# Вождь орков — герой стороны 2. Его army и есть флот ИИ на карте
 	# (см. orc_ai.gd), поэтому он живёт в общем ростере и сохраняется вместе
 	# с героем игрока. Стартовый флот выдаёт OrcAI при создании кампании.

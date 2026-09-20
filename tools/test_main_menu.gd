@@ -41,6 +41,8 @@ func run() -> void:
 	await _await_scene_change(menu)
 	check(current_scene != null and current_scene.name == "StrategicMain", "Кампания загружена")
 	check(not root.get_node("CampaignSave").read_save().is_empty(), "Стартовое сохранение создано")
+	check("intro" in root.get_node("CampaignSave").read_save().map.story_state.pending,
+		"Стартовый автосейв потерял вступительный брифинг")
 	change_scene_to_file("res://scenes/MainMenu.tscn")
 	await process_frame
 	await process_frame

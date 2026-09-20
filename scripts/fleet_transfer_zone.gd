@@ -19,6 +19,13 @@ var stack_count := 0
 var combat_tooltip_bbcode := ""
 
 
+## Кнопки действий занимают нижнюю часть карточки. Без forwarding они
+## перехватывают мышь, поэтому стек нельзя начать перетаскивать за эту часть
+## карточки и нельзя бросить на неё другой стек.
+func forward_drag_from(control: Control) -> void:
+	control.set_drag_forwarding(_get_drag_data, _can_drop_data, _drop_data)
+
+
 func _make_custom_tooltip(_for_text: String) -> Control:
 	if combat_tooltip_bbcode.is_empty():
 		return null
@@ -72,7 +79,11 @@ func _drop_data(_position: Vector2, data: Variant) -> void:
 func _make_drag_preview(grab_position: Vector2) -> Control:
 	var unit := UnitDefs.get_unit(unit_id)
 	var preview_root := Control.new()
-	preview_root.custom_minimum_size = Vector2.ZERO
+	# У корневого Control должен быть реальный прямоугольник. Нулевой размер
+	# делал дочернюю карточку невидимой в drag-preview (особенно после того,
+	# как карточка стала строиться через контейнеры).
+	preview_root.custom_minimum_size = size
+	preview_root.size = size
 	preview_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var preview := PanelContainer.new()
 	preview.custom_minimum_size = size

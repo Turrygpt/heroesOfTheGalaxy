@@ -204,7 +204,7 @@ func _roll_skill_options() -> Array:
 	var fresh: Array = []
 	var allow_new := can_learn_new_skill()
 	for skill_id in DEFS.SKILLS:
-		var weight := int((DEFS.SKILLS[skill_id]["weights"] as Dictionary).get(class_id, 0))
+		var weight := DEFS.skill_weight(class_id, String(skill_id))
 		if weight <= 0:
 			continue
 		var tier := int(skills.get(skill_id, 0))
@@ -347,6 +347,7 @@ func to_battle_hero(side: int) -> Dictionary:
 		"max_energy": max_energy(),
 		"energy": mini(energy, max_energy()),
 		"regen": energy_regen(),
+		"protocol_bonus_percent": skill_value("cyberwarfare"),
 		"damage_bonus_percent": damage_bonus_percent(),
 		"hp_bonus_percent": hp_bonus_percent(),
 		"attack_bonus": stat("attack"),

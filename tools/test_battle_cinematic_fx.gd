@@ -97,7 +97,7 @@ func _run() -> void:
 	for player: Node in root.find_children("*", "AudioStreamPlayer", true, false):
 		(player as AudioStreamPlayer).stop()
 		(player as AudioStreamPlayer).stream = null
-	await create_timer(0.15).timeout
+	await create_timer(2.0).timeout
 	if failures == 0:
 		print("PASS: синхронизация попаданий, протоколы, обломки, завершение анимаций и быстрый расчёт")
 	quit(0 if failures == 0 else 1)

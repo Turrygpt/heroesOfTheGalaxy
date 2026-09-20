@@ -1,7 +1,7 @@
-[gd_scene load_steps=27 format=3]
+[gd_scene load_steps=28 format=3]
 
 [ext_resource type="Script" path="res://scripts/space_strategy_map.gd" id="1_space_map"]
-[ext_resource type="Texture2D" path="res://assets/hero_ships/human.png" id="2_human_ship"]
+[ext_resource type="Texture2D" path="res://assets/hero_ships/earth.png" id="2_human_ship"]
 [ext_resource type="Texture2D" path="res://assets/planets/human.png" id="3_human_planet"]
 [ext_resource type="Script" path="res://scripts/route_overlay.gd" id="4_route_overlay"]
 [ext_resource type="Texture2D" path="res://assets/planets/orc.png" id="5_orc_planet"]
@@ -16,6 +16,7 @@
 [ext_resource type="Script" path="res://scripts/map_object_overlay.gd" id="14_map_object_overlay"]
 [ext_resource type="Script" path="res://scripts/fog_overlay.gd" id="15_fog_overlay"]
 [ext_resource type="Script" path="res://scripts/hero_marker_overlay.gd" id="16_hero_marker_overlay"]
+[ext_resource type="Shader" path="res://shaders/hero_portrait_focus.gdshader" id="17_hero_portrait_focus"]
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_parallax_add"]
 blend_mode = 1
@@ -112,6 +113,9 @@ region = Rect2(1024, 512, 512, 512)
 [sub_resource type="AtlasTexture" id="Atlas_hero_portrait"]
 atlas = ExtResource("13_hero_portrait")
 region = Rect2(0, 0, 512, 512)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hero_portrait_focus"]
+shader = ExtResource("17_hero_portrait_focus")
 
 [node name="SpaceStrategyMap" type="Node2D"]
 script = ExtResource("1_space_map")
@@ -508,16 +512,39 @@ theme_override_styles/panel = SubResource("StyleBox_sidebar")
 
 [node name="Margin" type="MarginContainer" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/PortraitFrame"]
 layout_mode = 2
-theme_override_constants/margin_left = 5
+theme_override_constants/margin_left = 20
 theme_override_constants/margin_top = 5
 theme_override_constants/margin_right = 5
 theme_override_constants/margin_bottom = 5
 
 [node name="Portrait" type="TextureRect" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/PortraitFrame/Margin"]
 layout_mode = 2
+material = SubResource("ShaderMaterial_hero_portrait_focus")
 texture = SubResource("Atlas_hero_portrait")
 expand_mode = 1
-stretch_mode = 5
+stretch_mode = 0
+
+[node name="Indicators" type="Control" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/PortraitFrame"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="MovementSteps" type="VBoxContainer" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox/PortraitFrame/Indicators"]
+custom_minimum_size = Vector2(9, 0)
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 1.0
+offset_left = 5.0
+offset_top = 6.0
+offset_right = 14.0
+offset_bottom = -6.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+tooltip_text = "Оставшиеся шаги героя"
+theme_override_constants/separation = 2
 
 [node name="HeroList" type="ItemList" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/HeroesBox"]
 layout_mode = 2
@@ -556,6 +583,24 @@ layout_mode = 2
 texture = ExtResource("3_human_planet")
 expand_mode = 1
 stretch_mode = 5
+
+[node name="ConstructionCheck" type="Label" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox/PortraitFrame/Margin/Portrait"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -30.0
+offset_top = 5.0
+offset_right = -5.0
+offset_bottom = 30.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(0.46, 0.9, 0.55, 1)
+theme_override_colors/font_outline_color = Color(0.04, 0.12, 0.08, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 27
+text = "✓"
+horizontal_alignment = 1
+tooltip_text = "В этом соле уже построено или улучшено здание."
 
 [node name="PlanetList" type="ItemList" parent="HUD/RightSidebar/Margin/VBox/HeroPlanetPanel/Margin/HBox/PlanetsBox"]
 layout_mode = 2
@@ -631,15 +676,7 @@ theme_override_constants/separation = 10
 
 [node name="HeroHeaderHBox" type="HBoxContainer" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 72)
-theme_override_constants/separation = 10
-
-[node name="HeroPortrait" type="TextureRect" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox"]
-layout_mode = 2
-custom_minimum_size = Vector2(64, 64)
-texture = SubResource("Atlas_hero_portrait")
-expand_mode = 1
-stretch_mode = 5
+custom_minimum_size = Vector2(0, 48)
 
 [node name="HeroInfoVBox" type="VBoxContainer" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox/HeroHeaderHBox"]
 layout_mode = 2
@@ -701,13 +738,6 @@ focus_mode = 0
 mouse_filter = 1
 item_0/text = "Артиллерия (I)"
 item_1/text = "Лидерство (I)"
-
-[node name="HeroCardButton" type="Button" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.54, 0.85, 0.9, 1)
-theme_override_font_sizes/font_size = 15
-text = "УМЕНИЯ И АРТЕФАКТЫ"
 
 [node name="ProtocolsSeparator" type="HSeparator" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2

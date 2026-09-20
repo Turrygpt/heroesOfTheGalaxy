@@ -24,6 +24,8 @@ var music_player: AudioStreamPlayer
 var transition_started := false
 var loading_scene := ""
 var requested_load := false
+## Случайная карта начинает грузить стратегическую сцену ещё во время выбора фракции.
+var preload_only := false
 ## Пока интро-ролик играет, загруженную сцену придерживаем здесь вместо
 ## немедленной смены - см. _new_game/_process/_finish_scene_change.
 var intro_active := false
@@ -324,6 +326,7 @@ func _try_apply_pending_scene() -> void:
 func _random_game() -> void:
 	if transition_started or get_node_or_null("FactionSelection") != null:
 		return
+	_preload_scene("res://scenes/StrategicMain.tscn")
 	var chooser := preload("res://scripts/faction_selection.gd").new()
 	chooser.name = "FactionSelection"
 	add_child(chooser)
@@ -332,7 +335,18 @@ func _random_game() -> void:
 		CampaignSave.random_map_seed = 0
 		chooser.queue_free()
 		requested_load = false
-		_fade_out_and_change_scene("res://scenes/StrategicMain.tscn", true)
+		CampaignSave.random_map_requested = true
+		transition_started = true
+		status.text = "Открываем галактику…"
+		for button in menu_buttons:
+			button.disabled = true
+		if pending_packed_scene != null:
+			var packed := pending_packed_scene
+			pending_packed_scene = null
+			_finish_scene_change(packed)
+		else:
+			preload_only = false
+			_fade_out_and_change_scene("res://scenes/StrategicMain.tscn", true)
 	)
 	chooser.canceled.connect(func() -> void:
 		chooser.queue_free()
@@ -349,6 +363,7 @@ func _load_game() -> void:
 
 func _fade_out_and_change_scene(scene_path: String, random_map: bool = false) -> void:
 	transition_started = true
+	preload_only = false
 	loading_scene = scene_path
 	CampaignSave.random_map_requested = random_map
 	status.text = "Подготовка галактики…"
@@ -356,6 +371,16 @@ func _fade_out_and_change_scene(scene_path: String, random_map: bool = false) ->
 		button.disabled = true
 	if ResourceLoader.load_threaded_request(scene_path) != OK:
 		_loading_failed()
+
+
+func _preload_scene(scene_path: String) -> void:
+	## Запускает фоновое чтение ресурсов, но не меняет сцену до выбора фракции.
+	loading_scene = scene_path
+	preload_only = true
+	status.text = "Загрузка галактики в фоне…"
+	if ResourceLoader.load_threaded_request(scene_path) != OK:
+		loading_scene = ""
+		preload_only = false
 
 
 func _finish_scene_change(packed: PackedScene) -> void:
@@ -382,7 +407,11 @@ func _process(_delta: float) -> void:
 	if state == ResourceLoader.THREAD_LOAD_LOADED:
 		var packed := ResourceLoader.load_threaded_get(loading_scene) as PackedScene
 		loading_scene = ""
-		if intro_active:
+		if preload_only:
+			preload_only = false
+			pending_packed_scene = packed
+			status.text = "Галактика готова к запуску"
+		elif intro_active:
 			pending_packed_scene = packed
 		else:
 			_finish_scene_change(packed)

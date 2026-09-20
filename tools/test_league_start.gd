@@ -6,7 +6,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var CampaignSave = root.get_node("CampaignSave")
 	var HeroRoster = root.get_node("HeroRoster")
-	assert(OS.get_user_data_dir().replace("\\", "/").contains("/tmp/town_profile/"))
+	assert("test_profile" in OS.get_user_data_dir() or OS.get_user_data_dir().replace("\\", "/").contains("/tmp/town_profile/"))
 	CampaignSave.selected_faction = "trader"
 	CampaignSave.random_map_seed = 73521
 	CampaignSave.prepare_new_game(true)

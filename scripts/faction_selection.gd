@@ -39,7 +39,10 @@ func _ready() -> void:
 	_card(row, "trader", "03  /  ЛИГА", "ТОРГОВАЯ ЛИГА",
 		"Портовые города, биржи и конвойные верфи.\nПять классов эскорта защищают ваши торговые пути.",
 		"res://assets/planet_surface/trader/town/master_v3.png", Color("#6de1cd"))
-	_label(column, "Совет I на старте  ·  Строительство и модернизация  ·  Случайная галактика", 15, Color("#93a5bc"))
+	_card(row, "pirate", "04  /  СИНДИКАТ", "ПИРАТСКАЯ СТАНЦИЯ",
+		"Свободная станция в глубоком космосе.\nСоберите ударный флот и подчините себе сектор.",
+		"res://assets/planet_surface/pirate/town/master_v1.png", Color("#c69aff"))
+	_label(column, "Штаб I на старте  ·  Строительство и модернизация  ·  Случайная галактика", 15, Color("#93a5bc"))
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 20)
 	column.add_child(actions)
@@ -111,7 +114,7 @@ func _select(id: String) -> void:
 		card.add_theme_stylebox_override("hover", hover)
 		card.add_theme_stylebox_override("pressed", hover)
 		card.add_theme_stylebox_override("focus", hover)
-	launch.text = "ИГРАТЬ ЗА " + {"earth": "ЗЕМЛЮ", "mars": "МАРС", "trader": "ТОРГОВУЮ ЛИГУ"}[id] + "  →"
+	launch.text = "ИГРАТЬ ЗА " + {"earth": "ЗЕМЛЮ", "mars": "МАРС", "trader": "ТОРГОВУЮ ЛИГУ", "pirate": "ПИРАТОВ"}[id] + "  →"
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):

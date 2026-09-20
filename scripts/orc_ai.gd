@@ -496,6 +496,8 @@ func _best_loot_target(map: Node2D, own_power: float) -> Vector2i:
 	for guardian in map.guardians:
 		if not bool(guardian.get("alive", false)) or int(guardian.get("site_index", -1)) >= 0:
 			continue
+		if map.campaign_story != null and map.campaign_story.is_required_battle(guardian):
+			continue
 		var guard_power := fleet_power(guardian.get("fleet", []))
 		if guard_power <= 0.0 or own_power < guard_power * GUARDIAN_ATTACK_RATIO:
 			continue
@@ -530,7 +532,8 @@ func _avoided_cells(map: Node2D, own_power: float) -> Dictionary:
 		var guardian: Dictionary = map.guardians[int(map.guardian_at[cell])]
 		if not bool(guardian["alive"]):
 			continue
-		if own_power < fleet_power(guardian["fleet"]) * GUARDIAN_ATTACK_RATIO:
+		if (map.campaign_story != null and map.campaign_story.is_required_battle(guardian)) \
+				or own_power < fleet_power(guardian["fleet"]) * GUARDIAN_ATTACK_RATIO:
 			avoid[cell] = true
 	return avoid
 
@@ -608,6 +611,8 @@ func _fight_guardian(map: Node2D, guard_index: int) -> bool:
 	if warlord == null:
 		return false
 	var guardian: Dictionary = map.guardians[guard_index]
+	if map.campaign_story != null and map.campaign_story.is_required_battle(guardian):
+		return false
 	var outcome := resolve_auto_battle(warlord.army, guardian["fleet"])
 	warlord.set_army_from_dict(outcome["army"])
 	if not bool(outcome["won"]):

@@ -8,7 +8,7 @@ extends RefCounted
 
 const TEMPLATES := {
 	"weak": [{"unit_id": "raider", "count": 10}],
-	"medium": [{"unit_id": "raider", "count": 14}, {"unit_id": "pirate_gunship", "count": 4}],
+	"medium": [{"unit_id": "raider", "count": 15}, {"unit_id": "pirate_gunship", "count": 5}],
 	"strong": [{"unit_id": "pirate_gunship", "count": 10}, {"unit_id": "pirate_corvette", "count": 4}],
 	"heavy": [{"unit_id": "pirate_corvette", "count": 10}, {"unit_id": "pirate_frigate", "count": 4}],
 	"elite": [{"unit_id": "pirate_frigate", "count": 8}, {"unit_id": "pirate_destroyer", "count": 3}],
@@ -29,8 +29,8 @@ const TEMPLATES := {
 		{"unit_id": "pirate_gunship", "count": 6},
 	],
 	"trader_weak": [{"unit_id": "trader_fighter", "count": 10}],
-	"trader_basic_resource": [{"unit_id": "trader_fighter", "count": 12}, {"unit_id": "trader_gunship", "count": 2}],
-	"trader_medium": [{"unit_id": "trader_fighter", "count": 12}, {"unit_id": "trader_gunship", "count": 4}],
+	"trader_basic_resource": [{"unit_id": "trader_fighter", "count": 15}, {"unit_id": "trader_gunship", "count": 5}],
+	"trader_medium": [{"unit_id": "trader_fighter", "count": 15}, {"unit_id": "trader_gunship", "count": 5}],
 	## Контрактные торговые конвои: только лёгкое прикрытие, без флагмана.
 	"trader_quest_convoy": [
 		{"unit_id": "trader_fighter", "count": 10},
@@ -51,7 +51,7 @@ const TEMPLATES := {
 	## Космический патруль — держит узкие проходы разломов ("мосты", см.
 	## space_strategy_map.gd:_guard_passages), не месторождения и не углы.
 	"patrol_weak": [{"unit_id": "patrol_scout", "count": 10}],
-	"patrol_medium": [{"unit_id": "patrol_scout", "count": 14}, {"unit_id": "patrol_interceptor", "count": 4}],
+	"patrol_medium": [{"unit_id": "patrol_scout", "count": 15}, {"unit_id": "patrol_interceptor", "count": 5}],
 	"patrol_strong": [{"unit_id": "patrol_interceptor", "count": 10}, {"unit_id": "patrol_cruiser", "count": 4}],
 	"patrol_heavy": [{"unit_id": "patrol_cruiser", "count": 10}, {"unit_id": "patrol_warden", "count": 4}],
 	"patrol_elite": [{"unit_id": "patrol_warden", "count": 8}, {"unit_id": "patrol_marshal", "count": 3}],

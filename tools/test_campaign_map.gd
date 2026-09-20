@@ -20,13 +20,42 @@ func _run() -> void:
 	var map := map_scene.instantiate()
 	map.open_tactical_when_run_directly = false
 	root.add_child(map)
+	var minimap := map.get_node("HUD/RightSidebar/Margin/VBox/MinimapFrame/Margin/Minimap")
+	var ping_click := InputEventMouseButton.new()
+	ping_click.button_index = MOUSE_BUTTON_LEFT
+	ping_click.pressed = true
+	map.ping_button.gui_input.emit(ping_click)
+	_check(is_instance_valid(minimap.ping_dialog) and minimap.ping_dialog.visible,
+		"Кнопка пеленга должна открывать диалог координат")
+	if is_instance_valid(minimap.ping_dialog):
+		var x_edit := minimap.ping_dialog.find_child("X", true, false) as LineEdit
+		var y_edit := minimap.ping_dialog.find_child("Y", true, false) as LineEdit
+		x_edit.text = "22"
+		y_edit.text = "40"
+		minimap._apply_ping(x_edit, y_edit)
+		_check(map.beacon_cell == Vector2i(22, 40),
+			"Диалог пеленга должен установить отметку на выбранной клетке")
 	_check(map.campaign_map_id == "mars_demo_v1", "Новая игра должна открывать первую миссию")
 	_check(map.production_sites.size() == 12, "Должно быть ровно 12 производств")
+	var expected_production_guards := {
+		"production_1_2": "medium", "production_1_3": "heavy",
+		"production_1_4": "strong", "production_1_5": "elite",
+		"production_2_2": "strong", "production_2_3": "strong",
+		"production_2_4": "strong", "production_2_5": "heavy",
+	}
 	var occupied := {}
 	var sectors := {1: {}, 2: {}}
 	for site in map.production_sites:
 		sectors[site.sector][site.resource] = true
 		_check_footprint(map, occupied, site.cell, 2)
+		var mission_id := String(site.get("mission_id", ""))
+		if expected_production_guards.has(mission_id):
+			var expected_template := String(expected_production_guards[mission_id])
+			_check(String(site.get("guard_template", "")) == expected_template,
+				"Охрана производства не соответствует поясу угрозы: " + mission_id)
+			var guard_index := guardian_index(map, mission_id + "_guard")
+			_check(guard_index >= 0 and String(map.guardians[guard_index].template) == expected_template,
+				"Флот производства не соответствует поясу угрозы: " + mission_id)
 	for sector in sectors.values():
 		_check(sector.size() == 6, "В секторе нужны все шесть ресурсов")
 	for object in map.map_objects:

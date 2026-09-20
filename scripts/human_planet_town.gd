@@ -3,6 +3,9 @@ extends "res://scripts/human_planet_screen.gd"
 ## Панорама наследует рабочую экономику, наём и сохранения.
 ## Все слои используют координаты цельного рисунка, без сдвига отдельных зданий.
 var COMPOSITION = preload("res://scripts/mars_town_composition.gd")
+const BUILDING_NAMES := preload("res://scripts/town_building_names.gd")
+## Временный режим для ручной проверки всех построек; исходные цены сохранены.
+const FREE_CONSTRUCTION_TEST := true
 const TOWN_DIR := "res://assets/planet_surface/human/town/"
 var ART_DIR := "res://assets/planet_surface/mars/town/"
 var master_name := "master_v1"
@@ -66,7 +69,7 @@ func _stage_texture(kind: String, level: int, part: String = "") -> Texture2D:
 	elif level < maximum:
 		stage = ["", "basic_v2", "middle_v2", "advanced_v2"][level]
 	if town_faction == "earth":
-		stage = "clean_plate_v3" if level == 0 or (part == "missiles" and level < 2) else master_name
+		stage = "clean_plate_v3" if level == 0 else (master_name if level >= maximum else ["", "basic_v4", "middle_v4", "advanced_v4"][level])
 	elif town_faction == "trader":
 		stage = stage.replace("_v2", "_v3")
 	var path := ART_DIR + stage + ".png"
@@ -80,7 +83,11 @@ func _stage_texture(kind: String, level: int, part: String = "") -> Texture2D:
 	return texture_cache[path]
 
 func _ready() -> void:
-	if town_faction == "trader":
+	if town_faction == "pirate":
+		ART_DIR = "res://assets/planet_surface/pirate/town/"
+		COMPOSITION = preload("res://scripts/pirate_town_composition.gd")
+		master_name = "master_v1"
+	elif town_faction == "trader":
 		ART_DIR = "res://assets/planet_surface/trader/town/"
 		COMPOSITION = preload("res://scripts/trader_town_composition.gd")
 		master_name = "master_v3"
@@ -115,10 +122,25 @@ func _ready() -> void:
 		var names := {"townhall": "Планетарный совет", "fort": "Защитный комплекс",
 			"fighter_yard": "Ангар истребителей", "gunship_yard": "Ангар штурмовиков",
 			"corvette_yard": "База корветов", "frigate_yard": "Верфь фрегатов",
-			"destroyer_yard": "Верфь эсминцев", "mage_guild": "Университет",
+			"destroyer_yard": "Верфь эсминцев", "mage_guild": "Академия Земли",
 			"tavern": "Офицерский клуб", "marketplace": "Биржа", "bank": "Банк"}
 		for kind in names:
 			BUILDING_DEFS[kind]["name"] = names[kind]
+	for kind in BUILDING_NAMES.STAGES[town_faction]:
+		BUILDING_DEFS[kind]["stage_names"] = BUILDING_NAMES.STAGES[town_faction][kind]
+		if town_faction == "pirate":
+			BUILDING_DEFS[kind]["name"] = BUILDING_NAMES.STAGES[town_faction][kind][0]
+	BUILDING_DEFS["tavern"]["name"] = "Офицерский клуб"
+	BUILDING_DEFS["marketplace"]["name"] = "Биржа ресурсов"
+	BUILDING_DEFS["fort"]["name"] = "Форт"
+	BUILDING_DEFS["fort"]["stage_names"] = ["Форт", "Форт", "Форт"]
+	BUILDING_DEFS["mage_guild"]["name"] = "Академия протоколов"
+	if FREE_CONSTRUCTION_TEST:
+		for kind in BUILDING_DEFS:
+			var free_costs: Array[Dictionary] = []
+			for level in range(int(BUILDING_DEFS[kind]["max_level"])):
+				free_costs.append({})
+			BUILDING_DEFS[kind]["costs"] = free_costs
 	super._ready()
 	background.texture = load(ART_DIR + master_name + ".png")
 	terrain_foreground.hide()
@@ -157,6 +179,9 @@ func _ready() -> void:
 	elif town_faction == "earth":
 		$Root/TopBar/Margin/HBox/Title.text = "ЗЕМЛЯ · СТОЛИЦА"
 		$Root/TopBar/Margin/HBox/Owner.text = "ВЛАДЕЛЕЦ: ЗЕМЛЯНЕ"
+	elif town_faction == "pirate":
+		$Root/TopBar/Margin/HBox/Title.text = "СИНДИКАТ · ОРБИТАЛЬНАЯ СТАНЦИЯ"
+		$Root/TopBar/Margin/HBox/Owner.text = "ВЛАДЕЛЕЦ: КОСМИЧЕСКИЕ ПИРАТЫ"
 	get_viewport().size_changed.connect(_layout_town)
 	call_deferred("_layout_town")
 
@@ -252,7 +277,9 @@ func _place_composition_building(region: Dictionary) -> void:
 		outline.resize(32)
 		material.set_shader_parameter("outline", outline)
 		material.set_shader_parameter("count", points.size())
+		material.set_shader_parameter("canvas_size", COMPOSITION.SIZE)
 		fragment.material = material
+		fragment.set_meta("kind", kind)
 		building_layer.add_child(fragment)
 		state_patches.append(fragment)
 	if level < int(region.get("min_level", 1)):
@@ -318,6 +345,22 @@ func _grant_construction_bonus(state: Dictionary, kind: String, level: int) -> v
 		state["bonus_daily_income"] = int(state.get("bonus_daily_income", 0)) + 500
 
 func _building_hint(kind: String, level: int, unit_id: String) -> String:
+	if kind == "fort":
+		return "Форт %s уровня. Недельный прирост кораблей: +%d%%." % [_roman_level(level), roundi(HumanPlanetState.FORT_GROWTH_BONUS_BY_LEVEL[level] * 100)]
 	if kind == "bank":
 		return "Банк обеспечивает дополнительно 500 кредитов в сол."
 	return super._building_hint(kind, level, unit_id)
+
+func _battery_texture() -> Texture2D:
+	var path := ART_DIR + "missile_battery_v4.png"
+	if not texture_cache.has(path):
+		var source := Image.load_from_file(ProjectSettings.globalize_path(path))
+		var atlas := AtlasTexture.new()
+		atlas.atlas = ImageTexture.create_from_image(source)
+		atlas.region = source.get_used_rect()
+		texture_cache[path] = atlas
+	return texture_cache[path]
+
+func _university_description(level: int) -> String:
+	var description := super._university_description(level)
+	return description.replace(UNIVERSITY_DEFS.LEVEL_NAMES[level], _building_display_name("mage_guild", level))

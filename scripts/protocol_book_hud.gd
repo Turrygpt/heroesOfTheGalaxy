@@ -173,7 +173,7 @@ func _row(protocol_id: String, cooldowns: Dictionary) -> Control:
 	row.add_child(info)
 	info.add_child(_line_label(String(protocol["name"]), 17, ink))
 	info.add_child(_wrap_label(String(protocol["hint"]), 12, muted))
-	info.add_child(_wrap_label(PROTOCOLS.describe_effect(protocol_id, power), 13, GOLD if affordable else muted))
+	info.add_child(_wrap_label(PROTOCOLS.describe_effect(protocol_id, power, int(hero.get("protocol_bonus_percent", 0))), 13, GOLD if affordable else muted))
 
 	var action := VBoxContainer.new()
 	action.add_theme_constant_override("separation", 6)

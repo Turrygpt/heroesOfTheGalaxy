@@ -26,12 +26,10 @@ const ORC_DEFS := preload("res://scripts/orc_defs.gd")
 ## и нейтралы (kind == "guardian" ниже) корпус НЕ получили — это и есть
 ## рычаг: игрок стал крепче относительно уже откалиброванных стражей.
 ##
-## Потолок редких ресурсов в цене корабля: не больше его ранга единиц каждого
-## ресурса (V ранг — максимум 5 Руды, 5 Топлива, 5 Энергокристаллов и
-## 5 Радиоизотопов). Раньше эсминец стоил 35/24/15/16, и недельного прихода
-## редких ресурсов не хватало даже на один корабль — вся цена ранга снова
-## живёт в кредитах, ресурсы остались лимитом «сколько штук за неделю», а не
-## непроходимой стеной. Правило проверяет tools/ship_buildings_regression.gd.
+## Найм конкурирует со строительством за кредиты: цены удвоены.
+## Корабли I–IV рангов нанимаются только за кредиты. Обычные и элитные
+## эсминцы дополнительно требуют по 2 Топлива и Радиоизотопов за корабль.
+## Руда, продукты и прочие ресурсы остаются затратами на строительство.
 const UNITS := {
 # --- Покупаемые юниты Земного флота ----------------------------------------
 	"interceptor": {
@@ -40,7 +38,7 @@ const UNITS := {
 		"move": 7, "range": 2, "initiative": 12, "sprite_width": 104.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/human_new/interceptor.png"), "region": Rect2(220, 356, 1290, 382),
 		"kind": "dwelling", "dwelling": "fighter_yard", "dwelling_level": 1,
-		"cost": {"credits": 50}, "weekly_growth": 10,
+		"cost": {"credits": 100}, "weekly_growth": 10,
 	},
 	"heavy_interceptor": {
 		"label": "Элитный истребитель", "role": "элитный истребитель 1 ранга (короткая дистанция)", "tier": 1,
@@ -48,7 +46,7 @@ const UNITS := {
 		"move": 6, "range": 2, "initiative": 10, "sprite_width": 112.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/human_new/heavy_interceptor.png"), "region": Rect2(218, 358, 1292, 432),
 		"kind": "dwelling", "dwelling": "fighter_yard", "dwelling_level": 2,
-		"cost": {"credits": 90}, "weekly_growth": 8,
+		"cost": {"credits": 180}, "weekly_growth": 8,
 	},
 	"gunship": {
 		"label": "Штурмовик", "role": "обычный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
@@ -56,7 +54,7 @@ const UNITS := {
 		"move": 6, "range": 2, "initiative": 10, "sprite_width": 124.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/human_new/corvette.png"), "region": Rect2(236, 316, 1420, 540),
 		"kind": "dwelling", "dwelling": "gunship_yard", "dwelling_level": 1,
-		"cost": {"credits": 150}, "weekly_growth": 6,
+		"cost": {"credits": 300}, "weekly_growth": 6,
 	},
 	"elite_gunship": {
 		"label": "Элитный штурмовик", "role": "элитный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
@@ -64,7 +62,7 @@ const UNITS := {
 		"move": 6, "range": 2, "initiative": 11, "sprite_width": 132.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/human_new/elite_corvette.png"), "region": Rect2(72, 336, 1592, 508),
 		"kind": "dwelling", "dwelling": "gunship_yard", "dwelling_level": 2,
-		"cost": {"credits": 250}, "weekly_growth": 5,
+		"cost": {"credits": 500}, "weekly_growth": 5,
 	},
 	"corvette": {
 		"label": "Корвет", "role": "обычный корвет 3 ранга (дальнобойный)", "tier": 3,
@@ -72,7 +70,7 @@ const UNITS := {
 		"move": 5, "range": 3, "initiative": 8, "sprite_width": 140.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/frigate.png"), "region": Rect2(60, 304, 1602, 466),
 		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 1,
-		"cost": {"credits": 400, "Топливо": 3}, "weekly_growth": 4,
+		"cost": {"credits": 800}, "weekly_growth": 4,
 	},
 	"elite_corvette": {
 		"label": "Элитный корвет", "role": "элитный корвет 3 ранга (дальнобойный)", "tier": 3,
@@ -80,7 +78,7 @@ const UNITS := {
 		"move": 5, "range": 4, "initiative": 8, "sprite_width": 150.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/elite_frigate.png"), "region": Rect2(62, 304, 1598, 468),
 		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 2,
-		"cost": {"credits": 650, "Топливо": 3, "Радиоизотопы": 2}, "weekly_growth": 3,
+		"cost": {"credits": 1300}, "weekly_growth": 3,
 	},
 	"frigate": {
 		"label": "Фрегат", "role": "обычный фрегат 4 ранга (дальнобойный)", "tier": 4,
@@ -88,7 +86,7 @@ const UNITS := {
 		"move": 4, "range": 3, "initiative": 6, "sprite_width": 155.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/cruiser.png"), "region": Rect2(34, 200, 1712, 514),
 		"kind": "dwelling", "dwelling": "frigate_yard", "dwelling_level": 1,
-		"cost": {"credits": 900, "Топливо": 4, "Радиоизотопы": 3}, "weekly_growth": 2,
+		"cost": {"credits": 1800}, "weekly_growth": 2,
 	},
 	"elite_frigate": {
 		"label": "Элитный фрегат", "role": "элитный фрегат 4 ранга (дальнобойный)", "tier": 4,
@@ -96,7 +94,7 @@ const UNITS := {
 		"move": 4, "range": 4, "initiative": 6, "sprite_width": 165.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/elite_cruiser.png"), "region": Rect2(30, 194, 1722, 526),
 		"kind": "dwelling", "dwelling": "frigate_yard", "dwelling_level": 2,
-		"cost": {"credits": 1600, "Топливо": 4, "Радиоизотопы": 4}, "weekly_growth": 1,
+		"cost": {"credits": 3200}, "weekly_growth": 1,
 	},
 	"destroyer": {
 		"label": "Эсминец", "role": "обычный эсминец 5 ранга (дальнобойный)", "tier": 5,
@@ -104,7 +102,7 @@ const UNITS := {
 		"move": 3, "range": 4, "initiative": 5, "sprite_width": 170.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/destroyer.png"), "region": Rect2(36, 44, 1734, 788),
 		"kind": "dwelling", "dwelling": "destroyer_yard", "dwelling_level": 1,
-		"cost": {"credits": 1800, "Руда": 5, "Топливо": 5, "Энергокристаллы": 5, "Радиоизотопы": 5}, "weekly_growth": 1,
+		"cost": {"credits": 3600, "Топливо": 2, "Радиоизотопы": 2}, "weekly_growth": 1,
 	},
 	"elite_destroyer": {
 		"label": "Элитный эсминец", "role": "элитный эсминец 5 ранга (дальнобойный)", "tier": 5,
@@ -112,7 +110,7 @@ const UNITS := {
 		"move": 4, "range": 5, "initiative": 6, "sprite_width": 180.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/elite_destroyer.png"), "region": Rect2(34, 42, 1740, 792),
 		"kind": "dwelling", "dwelling": "destroyer_yard", "dwelling_level": 2,
-		"cost": {"credits": 2600, "Руда": 5, "Топливо": 5, "Энергокристаллы": 5, "Радиоизотопы": 5}, "weekly_growth": 1,
+		"cost": {"credits": 5200, "Топливо": 2, "Радиоизотопы": 2}, "weekly_growth": 1,
 	},
 	# --- Стражи (только для составов нейтралов на карте) ---------------------
 	"raider": {
@@ -352,11 +350,30 @@ const UNITS := {
 }
 
 
+static var elite_textures: Dictionary = {}
+
 static func get_unit(unit_id: String) -> Dictionary:
-	if unit_id.begins_with("league_"):
+	if unit_id.begins_with("bandit_"):
 		var elite := unit_id.ends_with("_elite")
-		var base_id := unit_id.trim_prefix("league_").trim_suffix("_elite")
-		var neutral_id := "trader_" + base_id
+		var hull := unit_id.trim_prefix("bandit_").trim_suffix("_elite")
+		var source_id := "ork_" + ("elite_" if elite else "") + hull
+		if not ORC_DEFS.UNITS.has(source_id):
+			return {}
+		var unit: Dictionary = ORC_DEFS.UNITS[source_id].duplicate(true)
+		var tier := int(unit.tier)
+		unit["kind"] = "dwelling"
+		unit["dwelling"] = ["fighter_yard", "gunship_yard", "corvette_yard", "frigate_yard", "destroyer_yard"][tier - 1]
+		unit["dwelling_level"] = 2 if elite else 1
+		unit["faction"] = "bandit"
+		unit["damage_hint"] = "Бандитские орудия: +10% урона"
+		return unit
+	if unit_id.begins_with("league_") or unit_id.begins_with("syndicate_"):
+		var pirate := unit_id.begins_with("syndicate_")
+		var elite := unit_id.ends_with("_elite")
+		var base_id := unit_id.trim_prefix("syndicate_" if pirate else "league_").trim_suffix("_elite")
+		var neutral_id := ("pirate_" if pirate else "trader_") + base_id
+		if pirate and base_id == "fighter":
+			neutral_id = "raider"
 		if not UNITS.has(neutral_id):
 			return {}
 		var unit: Dictionary = UNITS[neutral_id].duplicate(true)
@@ -371,11 +388,17 @@ static func get_unit(unit_id: String) -> Dictionary:
 		# Конвойная серия сохраняет вооружение и силу нейтрального прототипа.
 		# Эскортная модернизация — отдельный покупаемый корабль той же модели.
 		if elite:
-			unit["label"] = String(unit.label) + " · эскорт"
+			unit["label"] = String(unit.label) + (" · Синдикат" if pirate else " · эскорт")
 			unit["hull"] = roundi(float(unit.hull) * 1.5)
 			unit["attack"] = int(unit.attack) + 2
 			unit["defense"] = int(unit.defense) + 2
 			unit["cost"]["credits"] = roundi(float(unit.cost.credits) * 1.6)
+			var path := "res://assets/ships/%s/tier_%d_elite.png" % ["pirates" if pirate else "traders", tier]
+			if not elite_textures.has(path):
+				elite_textures[path] = load(path)
+			var texture: Texture2D = elite_textures[path]
+			unit["texture"] = texture
+			unit["region"] = Rect2(Vector2.ZERO, texture.get_size())
 		return unit
 	return UNITS.get(unit_id, ORC_DEFS.UNITS.get(unit_id, {}))
 
@@ -400,10 +423,16 @@ static func display_name_from_unit(unit: Dictionary) -> String:
 ## считает ИИ (см. orc_ai.gd), а не HumanPlanetState.
 static func recruitable_ids(faction: String = "earth") -> Array:
 	var result: Array = []
-	if faction == "trader":
+	if faction == "mars":
 		for hull in ["fighter", "gunship", "corvette", "frigate", "destroyer"]:
-			result.append("league_" + hull)
-			result.append("league_" + hull + "_elite")
+			result.append("bandit_" + hull)
+			result.append("bandit_" + hull + "_elite")
+		return result
+	if faction in ["trader", "pirate"]:
+		var prefix := "syndicate_" if faction == "pirate" else "league_"
+		for hull in ["fighter", "gunship", "corvette", "frigate", "destroyer"]:
+			result.append(prefix + hull)
+			result.append(prefix + hull + "_elite")
 		return result
 	for unit_id in UNITS:
 		if UNITS[unit_id]["kind"] == "dwelling":
@@ -440,7 +469,7 @@ static func production_source_matches(unit_id: String, dwelling_kind: String, le
 
 
 static func upgrade_target(unit_id: String) -> String:
-	if unit_id.begins_with("league_"):
+	if unit_id.begins_with("league_") or unit_id.begins_with("syndicate_") or unit_id.begins_with("bandit_"):
 		return "" if unit_id.ends_with("_elite") else unit_id + "_elite"
 	var unit := get_unit(unit_id)
 	if unit.is_empty() or int(unit.get("dwelling_level", 0)) != 1:

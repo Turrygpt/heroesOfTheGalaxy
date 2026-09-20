@@ -1,0 +1,93 @@
+{
+  "station_prompt": "Use case: stylized-concept. FINAL fully upgraded SPACE PIRATE ORBITAL STATION town screen, wide 2:1 landscape 2048x1024. Beautiful richly detailed painted realistic strategy game panorama, elevated three-quarter camera looking over the EXPOSED UPPER DECK of a gigantic interconnected orbital habitat in deep space. No planet surface, no water ocean mountains, NO nautical pirate theme: no sails wood galleons rigging tavern tents skulls. Dark titanium, burgundy ceramic armor, industrial brass details, purple ion glow, restrained amber windows. Deep starfield and distant nebula behind, giant curved structural station rim below, cables conduits metal bridges and illuminated deck lanes connect modules organically. ELEVEN large clearly separated facilities fully visible, significant empty deck margins between for construction masks. Three rear modules: left squat armored FORT with PHYSICAL shield emitter on roof (no projected force field, no rocket battery), center grand stepped COMMAND NEXUS of stacked armored operations modules and glass bridge (not a ship), right tall PROTOCOL ACADEMY with enclosed fusion laboratory and antenna. Middle deck four facilities: far left fighter fabrication hangar, center-left gunship manufacturing hangar, center-right corvette assembly dock, far right secure rectangular treasure data vault. Front deck four facilities: far left compact OFFICERS LOUNGE with warm enclosed windows, center-left BLACK MARKET EXCHANGE with arched industrial glass roof, center-right long FRIGATE ASSEMBLY DOCK, far right massive DESTROYER ASSEMBLY DOCK. Five production facilities distinctly different sizes, small utilitarian angular spacecraft hulls only IN docks, not architecture shaped like ships. Asymmetric functional composition, no tiled grid. Every building on exact own connected deck pad, no overlapping silhouettes. Rim foreground framing. Readable high-quality final town art, warm directional light top left and subtle cool space fill, no UI no text no labels watermark. City fills canvas. This exact complete station will be final construction state.",
+  "station": [
+    {
+      "destination": "master_v1",
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-bca57815-e8c2-470e-8234-6db5bced0dc7.png"
+    },
+    {
+      "destination": "empty_v2",
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-c17ab8f5-5f0c-4f9d-b1d0-afe3b91025e8.png"
+    },
+    {
+      "destination": "basic_v2",
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-1c84ffec-dd73-4c86-9a48-23a6fc60f38a.png"
+    },
+    {
+      "destination": "middle_v2",
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-81e939fb-7b86-4b4e-9743-d98f3d13dc78.png"
+    },
+    {
+      "destination": "advanced_v2",
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-b07d095c-8bea-4d70-b41e-756e27a4980e.png"
+    },
+    {
+      "destination": "map_icon",
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-8520e100-69cd-4c22-8c3f-dcfcda10eb53.png"
+    }
+  ],
+  "ships": [
+    {
+      "faction": "trader",
+      "tier": 1,
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-df81efff-0d83-4b76-94d8-fb78c654130d.png",
+      "destination": "assets/ships/traders/tier_1_elite.png"
+    },
+    {
+      "faction": "trader",
+      "tier": 2,
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-8882edf4-ffd5-4108-91da-a613e044c6b1.png",
+      "destination": "assets/ships/traders/tier_2_elite.png"
+    },
+    {
+      "faction": "trader",
+      "tier": 3,
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-5655cf83-192f-47a8-8241-b110774b3656.png",
+      "destination": "assets/ships/traders/tier_3_elite.png"
+    },
+    {
+      "faction": "trader",
+      "tier": 4,
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-bf6889c6-458c-4e52-b05c-ef2fa1363f64.png",
+      "destination": "assets/ships/traders/tier_4_elite.png"
+    },
+    {
+      "faction": "trader",
+      "tier": 5,
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-12f0e991-ec98-4fdf-b9fe-1bf6f7972b98.png",
+      "destination": "assets/ships/traders/tier_5_elite.png"
+    },
+    {
+      "faction": "pirate",
+      "tier": 1,
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-55955df3-6d63-4457-8628-b0b6f1fce25e.png",
+      "destination": "assets/ships/pirates/tier_1_elite.png"
+    },
+    {
+      "faction": "pirate",
+      "tier": 2,
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-685ddf7e-7572-4fb6-a545-b8f400c0e1d0.png",
+      "destination": "assets/ships/pirates/tier_2_elite.png"
+    },
+    {
+      "faction": "pirate",
+      "tier": 3,
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-b5c1af3c-8b9f-422e-9dfe-e53fcdb709be.png",
+      "destination": "assets/ships/pirates/tier_3_elite.png"
+    },
+    {
+      "faction": "pirate",
+      "tier": 4,
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-ca7a75b6-d4db-4519-9f8f-ac11687550d6.png",
+      "destination": "assets/ships/pirates/tier_4_elite.png"
+    },
+    {
+      "faction": "pirate",
+      "tier": 5,
+      "source": "C:\\Users\\agran\\.codex\\generated_images\\01a0bf82-ac2c-73e0-ade8-0f3410af85b4\\exec-2f87194a-846d-43d9-8289-7e0a90250bee.png",
+      "destination": "assets/ships/pirates/tier_5_elite.png"
+    }
+  ],
+  "ship_edit_requirements": "Preserve original left-facing profile, hull identity, perspective and footprint. Transparent background, no long exhaust or text. Elite trader: reinforced ivory ceramic armor, teal and gold detailing, weapon pods and engine enhancements. Elite pirate: titanium armor, crimson panels, violet energy details, reinforced weapons and engines, remove cloth flags and nautical elements.",
+  "station_stage_requirements": "Identical canvas, camera, lighting, deck and facility positions. Empty: replace all eleven buildings with empty pads. Basic: simpler finished operational facilities with reduced roof equipment, trims and armor. Middle: fewer gold facade details and smaller fort emitter. Advanced: fewer roof antenna accessories on command nexus and academy. No scaffolding or tarps in accepted final stages."
+}

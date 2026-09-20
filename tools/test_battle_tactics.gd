@@ -177,11 +177,42 @@ func _test_defensive_ignores_mid_round_approach() -> void:
 
 
 func _run() -> void:
+	_test_detour_to_firing_position()
 	_test_dead_attacker_still_advances_turn()
 	_test_leaves_only_encirclement()
 	_test_ai_repositions_before_shot()
 	_test_defensive_ignores_mid_round_approach()
 	_test_orbital_wall_blocks_and_breaks()
+	for player: Node in root.find_children("*", "AudioStreamPlayer", true, false):
+		(player as AudioStreamPlayer).stop()
+		(player as AudioStreamPlayer).stream = null
+	await create_timer(2.0).timeout
 	if failures == 0:
 		print("PASS: гибель активного отряда от ответки не вешает ход, выход из окружения, защитный автобой держит строй до начала-раунда угрозы, орбитальная стена блокирует огонь и разрушается")
 	quit(1 if failures else 0)
+
+
+## За грядой надо временно удалиться от цели: жадное сближение висело 200 раундов.
+func _test_detour_to_firing_position() -> void:
+	var battle = _make_battle("interceptor", 10, "raider", 10)
+	battle.obstacle_at.clear()
+	var active: Dictionary = battle.units[0]
+	var target: Dictionary = battle.units[1]
+	battle.active_unit_index = 0
+	active.cell = Vector2i(4, 4)
+	target.cell = Vector2i(10, 4)
+	active.move = 1
+	active.range = 1
+	battle.heroes.clear()
+	for y in range(battle.GRID_ROWS - 1):
+		battle.obstacle_at[Vector2i(5, y)] = "asteroid_field"
+	var reached := false
+	for step in range(30):
+		var next: Vector2i = battle._best_enemy_move_cell(1)
+		_check(not battle.obstacle_at.has(next), "Обход пересёк препятствие")
+		active.cell = next
+		if battle._attack_cell_for_target(active, target) != battle.INVALID_CELL:
+			reached = true
+			break
+	_check(reached, "ИИ не обошёл гряду до позиции залпа")
+	battle.free()

@@ -30,6 +30,12 @@ func _check(condition: bool, message: String) -> void:
 
 
 func _run() -> void:
+	var medium_fleet := GUARDS.fleet_for("medium")
+	_check(medium_fleet.size() == 2, "Во втором поясе два ранга кораблей")
+	_check(int(medium_fleet[0].count) == 15 and int(UNITS.get_unit(medium_fleet[0].unit_id).tier) == 1,
+		"Во втором поясе 15 кораблей I ранга")
+	_check(int(medium_fleet[1].count) == 5 and int(UNITS.get_unit(medium_fleet[1].unit_id).tier) == 2,
+		"Во втором поясе 5 кораблей II ранга")
 	var previous_power := 0
 	for template in GUARDS.DISTANCE_TEMPLATES:
 		var power := 0
@@ -57,6 +63,10 @@ func _run() -> void:
 	root.add_child(host)
 	var map := host.get_node("SpaceStrategyMap")
 	map.set_process(false)
+	var nearby_resource_template: String = map.map_generation.production_guard_template(
+		{"resource": "Руда"}, map.HUMAN_PLANET_CENTER + Vector2i(5, 0))
+	_check(nearby_resource_template == "trader_medium",
+		"Ближайшее охраняемое производство начинается со второго пояса")
 	var pirate_base_kinds := {}
 	var production_traders := 0
 	var production_others := 0
@@ -97,6 +107,11 @@ func _run() -> void:
 			while not battle.battle_finished and battle.quick_battle and Time.get_ticks_msec() < deadline_ms:
 				battle._process(0.016)
 			_check(battle.battle_finished, "Пробный бой завершился")
+			if not battle.battle_finished:
+				print("Незавершённый бой: ", template, ", раунд ", battle.round_number, ", режим ", battle.auto_battle_mode)
+				for unit in battle.units:
+					if unit.hp > 0:
+						print("  ", unit.label, " сторона=", unit.side, " клетка=", unit.cell, " корпус=", unit.hp, " ход=", unit.move, " дальность=", unit.range)
 			if battle._side_alive(1):
 				wins += 1
 			for unit in battle.units:
