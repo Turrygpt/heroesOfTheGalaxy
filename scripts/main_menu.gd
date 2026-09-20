@@ -322,44 +322,22 @@ func _try_apply_pending_scene() -> void:
 
 
 func _random_game() -> void:
-	if transition_started:
+	if transition_started or get_node_or_null("FactionSelection") != null:
 		return
-	var dialog := ConfirmationDialog.new()
-	dialog.title = "Неизведанный сектор"
-	dialog.ok_button_text = "Начать экспедицию"
-	dialog.cancel_button_text = "Назад"
-	dialog.min_size = Vector2i(540, 300)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 18)
-	var description := Label.new()
-	description.text = "Девять космических биомов, охраняемые фарватеры\nи забытые схроны Древних. Разведывайте обходы,\nищите обсерватории и собирайте флот."
-	column.add_child(description)
-	var label := Label.new()
-	label.text = "Сид карты — сохраните число, чтобы повторить экспедицию"
-	column.add_child(label)
-	var seed_input := LineEdit.new()
-	seed_input.placeholder_text = "Случайный, если оставить пустым"
-	seed_input.max_length = 10
-	column.add_child(seed_input)
-	var error := Label.new()
-	error.add_theme_color_override("font_color", Color("efaa72"))
-	column.add_child(error)
-	dialog.add_child(column)
-	dialog.dialog_hide_on_ok = false
-	dialog.confirmed.connect(func() -> void:
-		var value := seed_input.text.strip_edges()
-		if not value.is_empty() and (not value.is_valid_int() or value.to_int() < 1 or value.to_int() > 2147483646):
-			error.text = "Введите число от 1 до 2147483646 или оставьте поле пустым."
-			return
-		CampaignSave.random_map_seed = value.to_int() if not value.is_empty() else 0
-		dialog.queue_free()
+	var chooser := preload("res://scripts/faction_selection.gd").new()
+	chooser.name = "FactionSelection"
+	add_child(chooser)
+	chooser.chosen.connect(func(faction: String) -> void:
+		CampaignSave.selected_faction = faction
+		CampaignSave.random_map_seed = 0
+		chooser.queue_free()
 		requested_load = false
 		_fade_out_and_change_scene("res://scenes/StrategicMain.tscn", true)
 	)
-	dialog.canceled.connect(dialog.queue_free)
-	add_child(dialog)
-	dialog.popup_centered()
-	seed_input.grab_focus()
+	chooser.canceled.connect(func() -> void:
+		chooser.queue_free()
+		menu_buttons[2].grab_focus()
+	)
 
 
 func _load_game() -> void:

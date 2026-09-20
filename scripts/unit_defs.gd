@@ -353,6 +353,30 @@ const UNITS := {
 
 
 static func get_unit(unit_id: String) -> Dictionary:
+	if unit_id.begins_with("league_"):
+		var elite := unit_id.ends_with("_elite")
+		var base_id := unit_id.trim_prefix("league_").trim_suffix("_elite")
+		var neutral_id := "trader_" + base_id
+		if not UNITS.has(neutral_id):
+			return {}
+		var unit: Dictionary = UNITS[neutral_id].duplicate(true)
+		var tier := int(unit.tier)
+		var human_ids := ["interceptor", "gunship", "corvette", "frigate", "destroyer"]
+		var economy: Dictionary = UNITS[human_ids[tier - 1]]
+		unit["kind"] = "dwelling"
+		unit["dwelling"] = ["fighter_yard", "gunship_yard", "corvette_yard", "frigate_yard", "destroyer_yard"][tier - 1]
+		unit["dwelling_level"] = 2 if elite else 1
+		unit["cost"] = economy.cost.duplicate()
+		unit["weekly_growth"] = int(economy.weekly_growth)
+		# Конвойная серия сохраняет вооружение и силу нейтрального прототипа.
+		# Эскортная модернизация — отдельный покупаемый корабль той же модели.
+		if elite:
+			unit["label"] = String(unit.label) + " · эскорт"
+			unit["hull"] = roundi(float(unit.hull) * 1.5)
+			unit["attack"] = int(unit.attack) + 2
+			unit["defense"] = int(unit.defense) + 2
+			unit["cost"]["credits"] = roundi(float(unit.cost.credits) * 1.6)
+		return unit
 	return UNITS.get(unit_id, ORC_DEFS.UNITS.get(unit_id, {}))
 
 
@@ -374,17 +398,22 @@ static func display_name_from_unit(unit: Dictionary) -> String:
 ## Юниты, доступные к найму в ангарах игрока (kind == "dwelling"). Орочьи
 ## корабли помечены "orc_dwelling" и сюда не попадают — их недельный прирост
 ## считает ИИ (см. orc_ai.gd), а не HumanPlanetState.
-static func recruitable_ids() -> Array:
+static func recruitable_ids(faction: String = "earth") -> Array:
 	var result: Array = []
+	if faction == "trader":
+		for hull in ["fighter", "gunship", "corvette", "frigate", "destroyer"]:
+			result.append("league_" + hull)
+			result.append("league_" + hull + "_elite")
+		return result
 	for unit_id in UNITS:
 		if UNITS[unit_id]["kind"] == "dwelling":
 			result.append(unit_id)
 	return result
 
 
-static func recruitable_for_dwelling(dwelling_kind: String, level: int) -> String:
-	for unit_id in UNITS:
-		if UNITS[unit_id]["kind"] == "dwelling" and production_source_matches(unit_id, dwelling_kind, level):
+static func recruitable_for_dwelling(dwelling_kind: String, level: int, faction: String = "earth") -> String:
+	for unit_id in recruitable_ids(faction):
+		if production_source_matches(unit_id, dwelling_kind, level):
 			return unit_id
 	return ""
 
@@ -411,6 +440,8 @@ static func production_source_matches(unit_id: String, dwelling_kind: String, le
 
 
 static func upgrade_target(unit_id: String) -> String:
+	if unit_id.begins_with("league_"):
+		return "" if unit_id.ends_with("_elite") else unit_id + "_elite"
 	var unit := get_unit(unit_id)
 	if unit.is_empty() or int(unit.get("dwelling_level", 0)) != 1:
 		return ""

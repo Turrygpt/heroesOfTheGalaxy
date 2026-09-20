@@ -33,6 +33,7 @@ static func council_income(level: int) -> int:
 static func default_state() -> Dictionary:
 	return {
 		"built_levels": {"townhall": 1},
+		"faction": "earth",
 		"garrison": {},
 		"garrison_slots": _empty_slots(GARRISON_SLOT_COUNT),
 		"available_growth": {},
@@ -70,6 +71,7 @@ static func load_state() -> Dictionary:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return state
 	var built_levels = parsed.get("built_levels", {})
+	state["faction"] = String(parsed.get("faction", "earth"))
 	if built_levels is Dictionary:
 		state["built_levels"] = _int_dict(built_levels)
 	var garrison = parsed.get("garrison", {})
@@ -187,7 +189,7 @@ static func scaled_weekly_growth(unit_id: String, built_levels: Dictionary) -> i
 static func apply_weekly_growth(state: Dictionary, current_day: int) -> Dictionary:
 	var built_levels: Dictionary = state.get("built_levels", {})
 	var growth: Dictionary = state.get("available_growth", {})
-	for unit_id in UnitDefs.recruitable_ids():
+	for unit_id in UnitDefs.recruitable_ids(String(state.get("faction", "earth"))):
 		var active_sources := 0
 		for source in UnitDefs.production_sources(unit_id):
 			var dwelling: String = source["dwelling"]

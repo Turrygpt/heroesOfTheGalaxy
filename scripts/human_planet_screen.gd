@@ -87,7 +87,7 @@ const BUILDING_CATALOG := [
 ##   - Совет: как в HoMM, экономические постройки стоят чистым золотом, без
 ##     ресурсов вовсе (Village Hall бесплатен, Town Hall 2500, City Hall 5000,
 ##     Capitol 10000).
-##   - Форт/Цитадель/Замок: 5000+20 дерева+20 руды / 2500+5 руды /
+##   - Форт/Цитадель/Замок: 1500+10 продуктов+10 руды / 2500+5 руды /
 ##     5000+10 дерева+10 руды — Цитадель канонично дешевле соседей по золоту.
 ##   - Университет — это и есть Mage Guild: I без редких, II-IV требуют
 ##     ВСЕ четыре редких сразу, по 4/6/8 единиц — ровно как в оригинале
@@ -117,7 +117,7 @@ var BUILDING_DEFS := {
 	"fort": {
 		"name": "Форт", "max_level": 3, "level_names": ["I", "II", "III"],
 		"costs": [
-			{"credits": 5000, "Продукты": 20, "Руда": 20},
+			{"credits": 1500, "Продукты": 10, "Руда": 10},
 			{"credits": 2500, "Руда": 5},
 			{"credits": 5000, "Продукты": 10, "Руда": 10},
 		],
@@ -961,7 +961,7 @@ func _open_building_modal(building: Sprite2D) -> void:
 	modal_icon.texture = building.texture
 	modal_title.text = String(definition["name"])
 	modal_level.text = "УРОВЕНЬ %s" % level_names[clampi(level - 1, 0, level_names.size() - 1)]
-	var unit_id := UnitDefs.recruitable_for_dwelling(kind, level)
+	var unit_id := UnitDefs.recruitable_for_dwelling(kind, level, String(HumanPlanetState.load_state().get("faction", "earth")))
 	if kind == "mage_guild":
 		modal_description.text = _university_description(level)
 		modal_ship_icon.hide()
@@ -1181,6 +1181,9 @@ func _dismiss_exchange_screen() -> void:
 func _build_exchange_screen() -> PanelContainer:
 	var offers_recruitment := trading_post_mode and trading_post_index >= 0
 	var panel := PanelContainer.new()
+	# Биржа создаётся после _ready, поэтому не попадает в начальную настройку
+	# слоёв. Держим её выше масок и спрайтов зданий панорамы.
+	panel.z_index = 300
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(900, 680 + (190 if offers_recruitment else 0))
 	panel.size = panel.custom_minimum_size
@@ -1739,7 +1742,7 @@ func _active_production_ids(state: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	var levels: Dictionary = state.get("built_levels", {})
 	var unlocked: Array = state.get("unlocked_dwellings", [])
-	for raw_id in UnitDefs.recruitable_ids():
+	for raw_id in UnitDefs.recruitable_ids(String(state.get("faction", "earth"))):
 		var unit_id := String(raw_id)
 		var active := unlocked.has(unit_id)
 		for source in UnitDefs.production_sources(unit_id):
@@ -2636,7 +2639,7 @@ func _roman_level(level: int) -> String:
 ## отдаёт половину своего недельного прироста, а не заставляет ждать
 ## понедельника ради первого корабля.
 func _grant_construction_bonus(state: Dictionary, kind: String, level: int) -> void:
-	var unit_id := UnitDefs.recruitable_for_dwelling(kind, level)
+	var unit_id := UnitDefs.recruitable_for_dwelling(kind, level, String(state.get("faction", "earth")))
 	if unit_id == "":
 		return
 	var growth: Dictionary = state.get("available_growth", {})

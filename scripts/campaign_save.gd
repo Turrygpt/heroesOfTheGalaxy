@@ -23,6 +23,7 @@ var save_on_start := false
 var random_map_requested := false
 ## Ноль выбирает новый сид; положительное число воспроизводит приключение.
 var random_map_seed := 0
+var selected_faction := "earth"
 var error_message := ""
 
 
@@ -50,6 +51,7 @@ func save_campaign(map: Node, path: String = SAVE_PATH) -> bool:
 	for field in MAP_FIELDS:
 		snapshot[field] = map.get(field)
 	snapshot["campaign_map_id"] = map.campaign_map_id
+	snapshot["player_faction"] = map.player_faction
 	snapshot["random_map_layout"] = map.random_map_layout
 	snapshot["story_state"] = map.story_state
 	snapshot["random_state"] = map.map_random.state
@@ -93,12 +95,25 @@ func prepare_load(path: String = SAVE_PATH) -> bool:
 
 
 func prepare_new_game(random_map: bool = false) -> void:
+	if not random_map:
+		selected_faction = "earth"
 	save_on_start = true
 	random_map_requested = random_map
 	pending_map.clear()
 	HeroRoster.reset_to_default()
+	if random_map and selected_faction == "trader":
+		var admiral: Hero = HeroRoster.heroes.get("player_admiral")
+		if admiral != null:
+			admiral.set_army_from_slots([
+				{"unit_id": "league_fighter", "count": 15},
+				{"unit_id": "league_gunship", "count": 6},
+				{"unit_id": "league_corvette", "count": 2},
+			])
 	HeroRoster.save_state()
 	load(PLANET_PATH).reset_to_default()
+	var planet_state: Dictionary = load(PLANET_PATH).load_state()
+	planet_state["faction"] = selected_faction
+	load(PLANET_PATH).save_state(planet_state)
 
 
 func take_map() -> Dictionary:

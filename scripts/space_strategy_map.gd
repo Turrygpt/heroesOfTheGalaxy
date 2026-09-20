@@ -65,6 +65,10 @@ const HERO_SHIP_SCALE := 0.16
 ## размера (по большей стороне холста), а не просто одной scale-константы.
 const ORC_HERO_SHIP_SCALE := HERO_SHIP_SCALE * 518.0 / 1301.0
 const HUMAN_PLANET_SCREEN := preload("res://scenes/HumanPlanetScreen.tscn")
+const HUMAN_PLANET_TOWN := preload("res://scenes/HumanPlanetTown.tscn")
+## Временная визуальная подмена: человеческая планета открывает орочью панораму.
+const ORC_PLANET_SCREEN := preload("res://scenes/OrcPlanetScreen.tscn")
+const ORC_PLANET_TEXTURE := preload("res://assets/planets/orc.png")
 ## Фоновая музыка карты. На время тактического боя ставится на паузу
 ## (см. _swap_to_battle) и возобновляется при возврате (tactical_battle.gd:_return_to_map).
 ## Папка со всеми треками — любое количество mp3, _start_music берёт случайный
@@ -260,7 +264,7 @@ var far_planet_camera_origin := Vector2.ZERO
 var obstacle_sprites: Node2D
 var music_player: AudioStreamPlayer
 ## Стартовый запас новой кампании; при загрузке заменяется сохранённым.
-var player_one_credits := 10000
+var player_one_credits := 2000
 var player_two_credits := 0
 var human_planet_owner := 1
 var orc_planet_owner := 2
@@ -276,6 +280,7 @@ var campaign_outcome := ""
 var fog_enabled := FOG_ENABLED
 ## Режим приключения; в старых сохранениях без метаданных узнаётся по сиду 0.
 var random_map_mode := false
+var player_faction := "earth"
 ## Описание случайного приключения сохраняется отдельно от авторской миссии.
 var random_map_layout: Dictionary = {}
 ## Истина только для фиксированной простой карты новой кампании. Случайная
@@ -305,6 +310,7 @@ func _ready() -> void:
 	# здесь - иначе проверка "не случайная карта" перед брифингом всегда
 	# видела бы уже сброшенное false и показывала вступление и на ней.
 	var was_random_map_request := CampaignSave.random_map_requested
+	player_faction = CampaignSave.selected_faction if was_random_map_request else "earth"
 	if was_random_map_request:
 		map_seed = CampaignSave.random_map_seed
 		CampaignSave.random_map_requested = false
@@ -340,6 +346,7 @@ func _ready() -> void:
 		for field in CampaignSave.MAP_FIELDS:
 			set(field, snapshot[field])
 		campaign_map_id = String(snapshot.get("campaign_map_id", ""))
+		player_faction = String(snapshot.get("player_faction", "earth"))
 		random_map_layout = snapshot.get("random_map_layout", {}).duplicate(true)
 		story_state = snapshot.get("story_state", {}).duplicate(true)
 		random_map_mode = not random_map_layout.is_empty() or map_seed == 0
@@ -361,11 +368,23 @@ func _ready() -> void:
 	_build_navigation_grid()
 	_sync_human_planet_state()
 	_setup_orc_ai(snapshot)
+	_apply_home_planet_faction()
 	next_cell = current_cell
 	_reveal_around(current_cell, FOG_REVEAL_RADIUS)
 	ship_position = _cell_center(current_cell)
 	human_planet.position = _cell_center(HUMAN_PLANET_CENTER)
 	orc_planet.position = _cell_center(ORC_PLANET_CENTER)
+	var human_planet_hit_area := Area2D.new()
+	human_planet_hit_area.name = "HumanPlanetHitArea"
+	human_planet_hit_area.position = human_planet.position
+	human_planet_hit_area.input_pickable = true
+	var human_planet_hit_shape := CollisionShape2D.new()
+	var human_planet_circle := CircleShape2D.new()
+	human_planet_circle.radius = 80.0
+	human_planet_hit_shape.shape = human_planet_circle
+	human_planet_hit_area.add_child(human_planet_hit_shape)
+	add_child(human_planet_hit_area)
+	human_planet_hit_area.input_event.connect(_on_human_planet_input)
 	planet_nameplate.size = Vector2(CELL_SIZE * 2.5, CELL_SIZE * 0.7)
 	planet_nameplate.position = human_planet.position + Vector2(
 		-planet_nameplate.size.x * 0.5,
@@ -751,7 +770,33 @@ func _swap_to_battle(battle: Node) -> void:
 func _open_human_planet() -> void:
 	if human_planet_owner != 1:
 		return
-	_open_planet_screen(false)
+	var planet_screen = load("res://scenes/TraderPlanetTown.tscn").instantiate() if player_faction == "trader" else HUMAN_PLANET_TOWN.instantiate()
+	planet_screen.town_faction = player_faction
+	planet_screen.strategy_map = self
+	planet_screen.close_requested.connect(_close_human_planet.bind(planet_screen))
+	pause_music()
+	add_child(planet_screen)
+	set_process(false)
+	set_process_unhandled_input(false)
+
+
+func _apply_home_planet_faction() -> void:
+	# Кампания всегда земная, включая сохранения временного марсианского прототипа.
+	if starter_map_mode:
+		player_faction = "earth"
+	var is_mars := player_faction == "mars"
+	human_planet.texture = ORC_PLANET_TEXTURE if is_mars else preload("res://assets/planets/human.png")
+	if player_faction == "trader":
+		human_planet.texture = load("res://assets/planets/league.png")
+	side_planet_portrait.texture = human_planet.texture
+	human_planet_name_button.text = "Марс" if is_mars else "Земля"
+	if player_faction == "trader":
+		human_planet_name_button.text = "Торговая лига"
+
+
+func _on_human_planet_input(_viewport: Node, event: InputEvent, _shape_index: int) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_open_human_planet()
 
 
 func _open_hero_fleet_window() -> void:
@@ -1378,7 +1423,7 @@ func _update_right_menu_lists() -> void:
 	if hero != null:
 		side_hero_list.add_item("%s · ур. %d" % [_short_hero_name(hero.hero_name), hero.level])
 	side_planet_list.clear()
-	side_planet_list.add_item("Земля · Совет %d" % human_planetary_council_level)
+	side_planet_list.add_item(("%s · Совет %d" % [human_planet_name_button.text, human_planetary_council_level]))
 
 
 func _on_side_hero_selected(_index: int) -> void:
@@ -1914,7 +1959,7 @@ func _resolve_orc_defeat(kind: String) -> void:
 func _retreat_player_home(message: String) -> void:
 	var hero := _player_hero()
 	if hero != null:
-		hero.set_army_from_dict(RETREAT_ARMY)
+		hero.set_army_from_dict({"league_fighter": 1} if player_faction == "trader" else RETREAT_ARMY)
 	_consume_movement_after_retreat()
 	current_cell = HUMAN_PLANET_CENTER
 	next_cell = current_cell
