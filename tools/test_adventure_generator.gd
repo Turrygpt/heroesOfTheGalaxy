@@ -106,7 +106,29 @@ func _run() -> void:
 		root.add_child(map)
 		var occupied := {}
 		_check(map.production_sites.size() == 12, "Нарушена стартовая экономика")
-		_check(map.map_objects.size() == 44, "Потеряны объекты приключений: %d" % map.map_objects.size())
+		_check(map.map_objects.size() == 71, "Потеряны объекты приключений: %d" % map.map_objects.size())
+		# Карта наполнена ровно. Раньше вся экономика жалась к своей планете, и
+		# домашние трети были забиты, а середина пустовала.
+		var density := {}
+		var patrols := 0
+		var targets: Array[Vector2i] = []
+		for object: Dictionary in map.map_objects:
+			targets.append(object.cell)
+		for site: Dictionary in map.production_sites:
+			targets.append(site.cell)
+		for guardian: Dictionary in map.guardians:
+			targets.append(guardian.cell)
+			if String(guardian.get("kind", "")) == "patrol":
+				patrols += 1
+		for cell: Vector2i in targets:
+			var block := Vector2i(mini(cell.x / 22, 2), mini(cell.y / 22, 2))
+			density[block] = int(density.get(block, 0)) + 1
+		for x in range(3):
+			for y in range(3):
+				var count := int(density.get(Vector2i(x, y), 0))
+				_check(count >= 6, "Пустая треть карты %s: целей — %d" % [Vector2i(x, y), count])
+				_check(count <= 32, "Переполненная треть карты %s: целей — %d" % [Vector2i(x, y), count])
+		_check(patrols >= 5, "Патрулей на карте почти нет: %d" % patrols)
 		for site: Dictionary in map.production_sites:
 			_check_target(map, occupied, site.cell, 2)
 		for object: Dictionary in map.map_objects:

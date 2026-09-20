@@ -11,6 +11,7 @@
 extends RefCounted
 
 const Defs := preload("res://scripts/random_sector_defs.gd")
+const GuardianDefs := preload("res://scripts/guardian_defs.gd")
 const SIZE := 64
 const VERSION := 1
 ## Три клетки фарватера помещаются внутри зоны контроля стража 5×5.
@@ -33,6 +34,25 @@ const NEUTRAL_CLEARING := 4
 ## Сколько препятствий ставится и какой их разброс по размеру. Крупных мало,
 ## мелких много — иначе карта выглядит одинаково плотной везде.
 const CLUMP_COUNT := 118
+## Набор целей в каждой области. Объём у всех девяти одинаковый — здание
+## прокачки, станция с охраной, свой особый объект, пять-шесть мелочей и
+## патруль. Различаются области тем, ЧТО в них стоит, а не сколько: раньше вся
+## экономика жалась к своей планете, у домашних углов оказывалось вдвое больше
+## остального, а середина карты пустовала.
+const HERO_SITES := ["training_ground", "veteran_outpost", "upgrade_lab", "combat_simulator"]
+const GUARDED_SITES := ["derelict_station", "abandoned_shipyard", "listening_post", "smuggler_cache", "derelict_ship"]
+const REGION_SPECIALS := ["archive_station", "stellar_observatory", "knowledge_relay",
+	"trading_post", "ancient_relic", "trading_post", "knowledge_relay", "stellar_observatory",
+	"archive_station"]
+## Маяков должно быть не меньше OBELISK_TARGET, иначе древнее хранилище не
+## открыть вовсе. Стоят они в четырёх областях вокруг домашних, поровну у
+## каждой стороны.
+const OBELISK_REGIONS := [1, 3, 5, 7]
+## Области без производства получают мелочь взамен, чтобы плотность целей не
+## проваливалась в середине карты.
+const PICKUP_ROTATION := ["flotsam_wreck", "artifact_cache", "crashed_probe", "signal_post",
+	"emergency_buoy", "beacon"]
+const PRODUCTION_REGIONS := [[0, 1, 3], [8, 7, 5]]
 const THEMED_PICKUPS := {"ice": "crashed_probe", "crystal": "artifact_cache", "dead": "flotsam_wreck",
 	"volcanic": "distress_signal", "ion": "beacon", "pirate": "emergency_buoy", "trader": "signal_post"}
 const DIRECTIONS: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
@@ -634,17 +654,16 @@ func populate(map: Node2D) -> void:
 		_reserve(center - Vector2i.ONE, 6)
 	for link in links:
 		_reserve(link.cell - Vector2i.ONE * 3, 7)
-	# Одинаковый набор экономики у обеих сторон: базовые ресурсы дома,
-	# редкие — в двух ближайших областях, по две цели в каждой. Площадка
-	# выбирается ближе к своей планете — это окрестности дома, а не дальний
-	# угол области.
+	# Одинаковый набор экономики у обеих сторон: базовые ресурсы дома, редкие —
+	# в двух ближайших областях, по две цели в каждой. Внутри области площадка
+	# берётся где угодно: пока месторождения тянуло к самой планете, все шесть
+	# сбивались в угол, и домашний сектор выглядел застроенным.
 	for side in range(2):
-		var home: Vector2i = HOME_CENTERS[side]
 		var local_regions: Array[int] = []
-		local_regions.assign([0, 1, 3] if side == 0 else [8, 7, 5])
+		local_regions.assign(PRODUCTION_REGIONS[side])
 		for resource_index in range(6):
 			var region_index := local_regions[resource_index / 2]
-			var cell := _slot(region_index, 2, home)
+			var cell := _slot(region_index, 2)
 			if cell.x < 0:
 				push_error("Не хватило места для производства в секторе %d" % region_index)
 				continue
@@ -674,28 +693,25 @@ func populate(map: Node2D) -> void:
 		map.guardians[-1]["adventure_secret"] = true
 	var destinations := [secrets[0].cell, secrets[1].cell]
 	for region_index in range(9):
-		var local: bool = region_index in [0, 8]
-		_place(map, region_index, "training_ground" if local else "obelisk")
-		if not local:
-			_place(map, region_index, "derelict_station" if region_index % 2 else "abandoned_shipyard")
-		if region_index in [1, 7]:
-			var observatory := _place(map, region_index, "stellar_observatory")
-			if observatory >= 0:
-				map.map_objects[observatory]["secret_cell"] = destinations[0 if region_index == 1 else 1]
-		if region_index in [3, 5]:
-			_place(map, region_index, "trading_post")
-		if region_index in [2, 6]:
-			_place(map, region_index, "knowledge_relay")
+		_place(map, region_index, HERO_SITES[region_index % HERO_SITES.size()])
+		_place(map, region_index, GUARDED_SITES[region_index % GUARDED_SITES.size()])
+		var special: String = REGION_SPECIALS[region_index]
+		var placed := _place(map, region_index, special)
+		if special == "stellar_observatory" and placed >= 0:
+			map.map_objects[placed]["secret_cell"] = destinations[0 if region_index == 1 else 1]
+		if region_index in OBELISK_REGIONS:
+			_place(map, region_index, "obelisk")
+		# Пиратская твердыня в центре: тяжёлая охрана и постоянный доход тому,
+		# кто её снимет. Аналог банка существ из HoMM III.
 		if region_index == 4:
-			_place(map, region_index, "ancient_relic")
-			# Пиратская твердыня в центре: тяжёлая охрана и постоянный доход
-			# тому, кто её снимет. Аналог банка существ из HoMM III.
 			_place(map, region_index, "pirate_base")
-		for i in range(3):
-			var kind := "cargo_container" if i == 0 else "resource_cache"
-			if i == 0 and not local:
-				kind = String(THEMED_PICKUPS.get(regions[region_index].id, kind))
-			_place(map, region_index, kind)
+		var pickups := 5 if _has_production(region_index) else 6
+		for slot_index in range(pickups):
+			_place(map, region_index, _pickup_kind(region_index, slot_index))
+		# У своего угла игрок должен разворачиваться свободно, поэтому патруля
+		# в домашних областях нет.
+		if region_index not in [0, 8]:
+			_add_patrol(map, region_index)
 	# Врата связывают дальние боковые ветви, не дают прыжок к чужому дому.
 	var first := _slot(2, 1)
 	var second := _slot(6, 1)
@@ -709,6 +725,42 @@ func populate(map: Node2D) -> void:
 	generation._place_neutral_planets()
 	map.guardian_overlay.queue_redraw()
 	map.map_object_overlay.queue_redraw()
+
+
+func _has_production(region_index: int) -> bool:
+	for side: Array in PRODUCTION_REGIONS:
+		if region_index in side:
+			return true
+	return false
+
+
+## Мелочь области. Два стака ресурсов в каждой — ресурсы должны попадаться по
+## всей карте, а не кучей у дома; остальное задаёт области характер. Больше
+## двух стаков на область не ставим: у ресурсного тайника нет своего спрайта,
+## и десятки одинаковых значков читаются как шум, а не как добыча.
+func _pickup_kind(region_index: int, slot_index: int) -> String:
+	if slot_index < 2:
+		return "resource_cache"
+	if slot_index == 2:
+		return "cargo_container"
+	if slot_index == 3:
+		return String(THEMED_PICKUPS.get(regions[region_index].id, "flotsam_wreck"))
+	var step := slot_index - 4
+	return PICKUP_ROTATION[(region_index + step * 3) % PICKUP_ROTATION.size()]
+
+
+## Патруль: флот с зоной перехвата вокруг себя — космический аналог бродячего
+## отряда из HoMM III. Стоит в каждой области, кроме двух домашних, и делает
+## обжитой даже ту, где целей немного.
+func _add_patrol(map: Node2D, region_index: int) -> void:
+	var cell := _slot(region_index, 1)
+	if cell.x < 0:
+		return
+	var distance: int = mini(
+		map._chebyshev_distance(cell, HOME_CENTERS[0]),
+		map._chebyshev_distance(cell, HOME_CENTERS[1]))
+	map.map_generation.add_guardian(cell, GuardianDefs.patrol_template_for_distance(distance), -1)
+	map.guardians[-1]["display_name"] = "Патруль"
 
 
 func _place(map: Node2D, region_index: int, kind: String) -> int:
@@ -729,16 +781,14 @@ func _place(map: Node2D, region_index: int, kind: String) -> int:
 	return -1
 
 
-## Площадка под цель похода. bias — точка, к которой площадку тянет: у
-## экономики это своя планета, у остальных целей смещения нет и площадка
-## берётся где угодно внутри области.
+## Площадка под цель похода: свободное место внутри своей области.
 ##
 ## Заходов четыре, от самого строгого к самому терпимому: сначала просторная
 ## площадка в чистом месте, потом впритык, потом то же самое, но по
 ## разреженному газу — по нему летают, просто медленнее, и запрещать цели на
 ## нём незачем. Без последних двух заходов в тесной области не находилось
 ## места даже под торговый пост.
-func _slot(region_index: int, size: int, bias: Vector2i = Vector2i(-1, -1)) -> Vector2i:
+func _slot(region_index: int, size: int) -> Vector2i:
 	for attempt in range(4):
 		var margin := 1 if attempt % 2 == 0 else 0
 		var allow_gas := attempt >= 2
@@ -758,10 +808,6 @@ func _slot(region_index: int, size: int, bias: Vector2i = Vector2i(-1, -1)) -> V
 				candidates.append(cell)
 		if candidates.is_empty():
 			continue
-		if bias.x >= 0:
-			candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-				return Vector2(a - bias).length_squared() < Vector2(b - bias).length_squared())
-			candidates = candidates.slice(0, maxi(6, candidates.size() / 5))
 		var selected := candidates[rng.randi_range(0, candidates.size() - 1)]
 		_reserve(selected - Vector2i.ONE, size + 2)
 		return selected
