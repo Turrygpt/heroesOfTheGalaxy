@@ -52,7 +52,31 @@
 python tools/make_orc_placeholders.py
 ```
 
-Веб-сборка: пресет `Web` в `export_presets.cfg`, вывод в `build/web/` (не в гите).
+## Сборка игры
+
+```bash
+sh tools/build_game.sh                  # Windows -> build/windows/HeroesOfTheGalaxy.exe
+sh tools/build_game.sh Web              # веб      -> build/web/index.html
+sh tools/build_game.sh Web --no-intro   # можно и без ролика
+```
+
+Пресеты лежат в `export_presets.cfg` (`Windows Desktop` и `Web`), вывод — в
+`build/` (не в гите). Windows-сборка одним файлом: `binary_format/embed_pck`,
+`tools/*` в сборку не попадает. Нужны установленные шаблоны экспорта той же
+версии, что и движок (в редакторе: Проект > Установить шаблоны экспорта).
+
+**Интро-ролик.** `video/intro.ogv` — Theora, играется `VideoStreamPlayer`
+в `scripts/intro_video_player.gd`. Файл НЕ хранится в гите: он больше лимита
+GitHub в 100 МБ (см. `.gitignore`), поэтому в свежем клоне его нет, и игра
+тогда стартует сразу с карты — молча, как будто синематика и не было.
+`tools/build_game.sh` поэтому отказывается собирать без него; `--no-intro`
+разрешает. В саму сборку ролик попадает сам (`export_filter="all_resources"`),
+плюс он назван в `include_filter` обоих пресетов явно. Theora проверена и в
+одиночном (без потоков) веб-экспорте — играет.
+
+Ключи запуска игры: `--intro` показывает ролик и на "Случайной карте",
+`--no-intro` не показывает вовсе. Те же решения можно зашить в отдельный
+пресет тегами фич `intro` / `no_intro` в `custom_features`.
 
 ---
 

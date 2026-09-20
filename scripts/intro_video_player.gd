@@ -9,6 +9,13 @@ extends CanvasLayer
 signal finished
 
 const VIDEO_PATH := "res://video/intro.ogv"
+## Ключи запуска: ролик можно потребовать или запретить, не пересобирая игру.
+##   HeroesOfTheGalaxy.exe --intro      показывать и на "Случайной карте"
+##   HeroesOfTheGalaxy.exe --no-intro   не показывать вовсе
+## Те же решения умеет принимать сама сборка: теги фич "intro" и "no_intro"
+## в custom_features пресета экспорта работают как эти ключи.
+const FORCE_FLAG := "--intro"
+const SKIP_FLAG := "--no-intro"
 ## Дорожка ролика заметно тише музыки меню, поэтому поднимаем её.
 const VOLUME_DB := 6.0
 ## Страховка от зависшего вступления. Битый поток Theora останавливается
@@ -22,6 +29,17 @@ const MAX_SECONDS := 600.0
 var player: VideoStreamPlayer
 var _elapsed := 0.0
 var _done := false
+
+
+## Нужно ли показывать вступление для этого старта. Обычная новая кампания
+## показывает его всегда, "Случайная карта" — только по требованию: это
+## отладочный быстрый старт, и минута видео там только мешает.
+static func should_play(random_map: bool, args: PackedStringArray = OS.get_cmdline_args()) -> bool:
+	if SKIP_FLAG in args or OS.has_feature("no_intro"):
+		return false
+	if FORCE_FLAG in args or OS.has_feature("intro"):
+		return true
+	return not random_map
 
 
 func _ready() -> void:
@@ -51,6 +69,11 @@ func _ready() -> void:
 	add_child(hint)
 
 	if not ResourceLoader.exists(VIDEO_PATH):
+		# Файл ролика не хранится в гите (лимит GitHub), поэтому сборка из
+		# свежего клона легко оказывается без него. Молча пропускать нельзя:
+		# со стороны это выглядит как сломанный синематик, а не как
+		# отсутствующий файл.
+		push_warning("Вступление пропущено: нет файла %s" % VIDEO_PATH)
 		_finish()
 		return
 	player.stream = load(VIDEO_PATH) as VideoStream
