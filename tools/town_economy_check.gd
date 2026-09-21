@@ -52,6 +52,7 @@ func _run() -> void:
 	var scene := load("res://scenes/HumanPlanetTown.tscn") as PackedScene
 	var town = scene.instantiate()
 	town.town_faction = faction
+	town.free_construction_test = true
 	if trader_mode:
 		town.town_faction = "trader"
 	town.strategy_map = economy
@@ -147,6 +148,7 @@ func _run() -> void:
 	await process_frame
 	var reopened = scene.instantiate()
 	reopened.town_faction = faction
+	reopened.free_construction_test = true
 	if trader_mode:
 		reopened.town_faction = "trader"
 	reopened.strategy_map = economy

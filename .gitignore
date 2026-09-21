@@ -20,6 +20,6 @@ Thumbs.db
 
 # Scratch output (UI screenshots/logs from tools/ui_shot.gd).
 /tmp/
-
-# Большие локальные видеоресурсы не отправляются в GitHub (лимит 100 МБ).
-/video/intro.ogv
+/.chrome-overflow/
+/overflow*.png
+/website-deploy*.tar.gz

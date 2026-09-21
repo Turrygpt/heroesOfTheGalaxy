@@ -4,6 +4,16 @@
 extends Control
 
 const LAYER_DIR := "res://assets/ui/main_menu_layers"
+## Явные ссылки обязательны для автономного экспорта. Поиск по каталогу
+## работает в редакторе благодаря `.godot/imported`, но установленная игра
+## не обязана хранить исходные PNG рядом с импортированными текстурами.
+const LAYER_TEXTURES := {
+	"ring.png": preload("res://assets/ui/main_menu_layers/ring.png"),
+	"moons.png": preload("res://assets/ui/main_menu_layers/moons.png"),
+	"planet_surface.png": preload("res://assets/ui/main_menu_layers/planet_surface.png"),
+	"asteroids.png": preload("res://assets/ui/main_menu_layers/asteroids.png"),
+	"logo.png": preload("res://assets/ui/main_menu_layers/logo.png"),
+}
 const SPACE_SHADER := preload("res://shaders/menu_space.gdshader")
 const PLANET_SHADER := preload("res://shaders/menu_planet_surface.gdshader")
 const SUN_SHADER := preload("res://shaders/menu_sun.gdshader")
@@ -74,15 +84,10 @@ func _ready() -> void:
 ## Тяжёлые PNG-слои не грузим синхронно в _ready(): меню должно показать
 ## процедурный космос и кнопки сразу, а картинка доклеится за несколько кадров.
 func _build_layers_deferred() -> void:
-	# Все файлы читаются рабочим потоком; готовые слои появляются вместе.
-	var files: Array[String] = ["ring.png", "moons.png", "planet_surface.png", "asteroids.png", "logo.png"]
-	for file in files:
-		ResourceLoader.load_threaded_request(LAYER_DIR.path_join(file))
-	for file in files:
-		while ResourceLoader.load_threaded_get_status(LAYER_DIR.path_join(file)) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-			await get_tree().process_frame
-		if ResourceLoader.load_threaded_get_status(LAYER_DIR.path_join(file)) == ResourceLoader.THREAD_LOAD_LOADED:
-			loaded_layers[file] = ResourceLoader.load_threaded_get(LAYER_DIR.path_join(file))
+	# Даём кнопкам отрисоваться первым кадром, затем подключаем уже импортированные
+	# ресурсы. Они перечислены явно, поэтому экспортёр гарантированно кладёт их в PCK.
+	await get_tree().process_frame
+	loaded_layers = LAYER_TEXTURES.duplicate()
 	ring_layer = _make_layer("ring.png")
 	_make_warp_ships_layer()
 	moons_layer = _make_layer("moons.png")

@@ -9,6 +9,7 @@ extends CanvasLayer
 signal finished
 
 const VIDEO_PATH := "res://video/intro.ogv"
+const VIDEO_STREAM := preload("res://video/intro.ogv")
 ## Дорожка ролика заметно тише музыки меню, поэтому поднимаем её.
 const VOLUME_DB := 6.0
 ## Страховка от зависшего вступления. Битый поток Theora останавливается
@@ -50,10 +51,7 @@ func _ready() -> void:
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(hint)
 
-	if not ResourceLoader.exists(VIDEO_PATH):
-		_finish()
-		return
-	player.stream = load(VIDEO_PATH) as VideoStream
+	player.stream = VIDEO_STREAM
 	player.play()
 
 

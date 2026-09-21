@@ -7,7 +7,7 @@ signal close_requested
 ## и ресурсы игрока. Без неё найм просто недоступен.
 var strategy_map: Node2D
 var music_player: AudioStreamPlayer
-var music_playlist: Array[String] = []
+var music_playlist: Array[AudioStreamMP3] = []
 var music_playlist_index := 0
 var music_random := RandomNumberGenerator.new()
 var music_releasing := false
@@ -30,6 +30,9 @@ var garrison_preview_state: Dictionary = {}
 ## закрытии экрана плейлист затухает симметрично (см. fade_out_music).
 ## Все mp3 в этой папке автоматически попадают в перемешанную очередь.
 const PLANET_MUSIC_DIR := "res://music"
+const PLANET_MUSIC_TRACKS: Array[AudioStreamMP3] = [
+	preload("res://music/Human Castle.mp3"),
+]
 const PLANET_MUSIC_VOLUME_DB := -8.0
 ## Общая длительность кроссфейда — тот же интервал, что у карты и боя
 ## (space_strategy_map.gd:MUSIC_FADE_DURATION, tactical_battle.gd:BATTLE_MUSIC_FADE_DURATION).
@@ -399,21 +402,8 @@ func _ready() -> void:
 
 
 func _start_music() -> void:
-	var dir := DirAccess.open(PLANET_MUSIC_DIR)
-	if dir == null:
-		return
-	var candidates: Array[String] = []
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "mp3":
-			candidates.append(file_name)
-		file_name = dir.get_next()
-	dir.list_dir_end()
-	if candidates.is_empty():
-		return
 	music_random.randomize()
-	music_playlist = candidates
+	music_playlist = PLANET_MUSIC_TRACKS.duplicate()
 	_shuffle_music_playlist()
 	music_playlist_index = 0
 	music_player = AudioStreamPlayer.new()
@@ -444,13 +434,9 @@ func _play_next_music_track() -> void:
 	if music_playlist_index >= music_playlist.size():
 		_shuffle_music_playlist()
 		music_playlist_index = 0
-	var chosen := music_playlist[music_playlist_index]
+	var chosen: AudioStreamMP3 = music_playlist[music_playlist_index]
 	music_playlist_index += 1
-	var loaded := load(PLANET_MUSIC_DIR.path_join(chosen)) as AudioStreamMP3
-	if loaded == null:
-		_play_next_music_track()
-		return
-	var stream: AudioStreamMP3 = loaded.duplicate()
+	var stream: AudioStreamMP3 = chosen.duplicate()
 	stream.loop = false
 	music_player.stream = stream
 	music_player.play()

@@ -143,6 +143,15 @@ var protocol_banner_style := StyleBoxFlat.new()
 ## Папка со всеми треками — любое количество mp3. Треки перемешиваются при
 ## старте боя и проигрываются по одному без повторов до конца очереди.
 const BATTLE_MUSIC_DIR := "res://music/battle"
+const BATTLE_MUSIC_TRACKS: Array[AudioStreamMP3] = [
+	preload("res://music/battle/Battle of the Titans.mp3"),
+	preload("res://music/battle/Market Pulse (Fight Rhythm Mix).mp3"),
+]
+const BACKDROP_OBJECTS := [
+	{"name": "lava_world.png", "texture": preload("res://assets/space/backdrops/lava_world.png")},
+	{"name": "moon.png", "texture": preload("res://assets/space/backdrops/moon.png")},
+	{"name": "ringed_world.png", "texture": preload("res://assets/space/backdrops/ringed_world.png")},
+]
 const BATTLE_MUSIC_VOLUME_DB := -8.0
 ## Общая длительность кроссфейда, тот же интервал, что у карты
 ## (space_strategy_map.gd:MUSIC_FADE_DURATION) — оба перехода звучат синхронно.
@@ -230,7 +239,7 @@ var auto_battle_used := false
 var hud: CanvasLayer
 var battle_camera: Camera2D
 var music_player: AudioStreamPlayer
-var music_playlist: Array[String] = []
+var music_playlist: Array[AudioStreamMP3] = []
 var music_playlist_index := 0
 var music_random := RandomNumberGenerator.new()
 var music_releasing := false
@@ -356,21 +365,8 @@ func _ready() -> void:
 ## Список файлов не кешируется — сканируется один раз за бой, дороговизна не
 ## имеет значения. Пустая папка не ломает бой — просто нет музыки.
 func _start_music() -> void:
-	var dir := DirAccess.open(BATTLE_MUSIC_DIR)
-	if dir == null:
-		return
-	var candidates: Array[String] = []
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "mp3":
-			candidates.append(file_name)
-		file_name = dir.get_next()
-	dir.list_dir_end()
-	if candidates.is_empty():
-		return
 	music_random.randomize()
-	music_playlist = candidates
+	music_playlist = BATTLE_MUSIC_TRACKS.duplicate()
 	_shuffle_music_playlist()
 	music_playlist_index = 0
 	music_player = AudioStreamPlayer.new()
@@ -403,13 +399,9 @@ func _play_next_music_track() -> void:
 	if music_playlist_index >= music_playlist.size():
 		_shuffle_music_playlist()
 		music_playlist_index = 0
-	var chosen := music_playlist[music_playlist_index]
+	var chosen: AudioStreamMP3 = music_playlist[music_playlist_index]
 	music_playlist_index += 1
-	var loaded := load(BATTLE_MUSIC_DIR.path_join(chosen)) as AudioStreamMP3
-	if loaded == null:
-		_play_next_music_track()
-		return
-	var stream: AudioStreamMP3 = loaded.duplicate()
+	var stream: AudioStreamMP3 = chosen.duplicate()
 	stream.loop = false
 	music_player.stream = stream
 	music_player.play()
@@ -2539,32 +2531,17 @@ func _corner_center(anchor_axis: float, viewport_axis: float, size: float, peek:
 ## наличие ассетов, просто ничего не рисует. Список файлов не кешируется:
 ## вызывается один раз за бой, дороговизна не имеет значения.
 func _pick_backdrop_object() -> void:
-	var dir := DirAccess.open(BACKDROP_OBJECTS_DIR)
-	if dir == null:
-		return
-	var candidates: Array[String] = []
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "png" \
-			and file_name != "strategic_nebula_background.png":
-			candidates.append(file_name)
-		file_name = dir.get_next()
-	dir.list_dir_end()
-	if candidates.is_empty():
-		return
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	if rng.randf() > BACKDROP_OBJECT_CHANCE:
 		return
-	var chosen: String = candidates[rng.randi_range(0, candidates.size() - 1)]
-	var texture := load(BACKDROP_OBJECTS_DIR.path_join(chosen)) as Texture2D
-	if texture == null:
-		return
+	var chosen: Dictionary = BACKDROP_OBJECTS[rng.randi_range(0, BACKDROP_OBJECTS.size() - 1)]
+	var chosen_name := String(chosen.name)
+	var texture := chosen.texture as Texture2D
 	var corners := [Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0), Vector2(1.0, 1.0)]
 	backdrop_object = {
 		"texture": texture,
-		"is_planet": chosen.to_lower().contains("world") or chosen.to_lower() == "moon.png",
+		"is_planet": chosen_name.to_lower().contains("world") or chosen_name.to_lower() == "moon.png",
 		"anchor": corners[rng.randi_range(0, corners.size() - 1)],
 		"scale": rng.randf_range(0.55, 0.95),
 		"peek": rng.randf_range(0.4, 0.65),

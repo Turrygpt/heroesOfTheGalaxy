@@ -4,8 +4,9 @@ extends "res://scripts/human_planet_screen.gd"
 ## Все слои используют координаты цельного рисунка, без сдвига отдельных зданий.
 var COMPOSITION = preload("res://scripts/mars_town_composition.gd")
 const BUILDING_NAMES := preload("res://scripts/town_building_names.gd")
-## Временный режим для ручной проверки всех построек; исходные цены сохранены.
-const FREE_CONSTRUCTION_TEST := true
+## Только тесты экономики включают этот режим на экземпляре сцены.
+## В игре строительство всегда оплачивается по каталогу.
+@export var free_construction_test := false
 const TOWN_DIR := "res://assets/planet_surface/human/town/"
 var ART_DIR := "res://assets/planet_surface/mars/town/"
 var master_name := "master_v1"
@@ -60,6 +61,36 @@ var preview_levels: Dictionary = {}
 var sky: TextureRect
 var state_patches: Array[Node] = []
 const PATCH_SHADER := preload("res://shaders/town_patch.gdshader")
+## Источники стадий перечислены явно: Image.load_from_file() видел их только
+## рядом с проектом и в установленной игре молча подставлял master-панораму.
+## Preload гарантирует наличие импортированных текстур внутри PCK.
+const STAGE_TEXTURES := {
+	"res://assets/planet_surface/human/town/clean_plate_v3.png": preload("res://assets/planet_surface/human/town/clean_plate_v3.png"),
+	"res://assets/planet_surface/human/town/basic_v4.png": preload("res://assets/planet_surface/human/town/basic_v4.png"),
+	"res://assets/planet_surface/human/town/middle_v4.png": preload("res://assets/planet_surface/human/town/middle_v4.png"),
+	"res://assets/planet_surface/human/town/advanced_v4.png": preload("res://assets/planet_surface/human/town/advanced_v4.png"),
+	"res://assets/planet_surface/human/town/master_v3.png": preload("res://assets/planet_surface/human/town/master_v3.png"),
+	"res://assets/planet_surface/mars/town/empty_v2.png": preload("res://assets/planet_surface/mars/town/empty_v2.png"),
+	"res://assets/planet_surface/mars/town/basic_v2.png": preload("res://assets/planet_surface/mars/town/basic_v2.png"),
+	"res://assets/planet_surface/mars/town/middle_v2.png": preload("res://assets/planet_surface/mars/town/middle_v2.png"),
+	"res://assets/planet_surface/mars/town/advanced_v2.png": preload("res://assets/planet_surface/mars/town/advanced_v2.png"),
+	"res://assets/planet_surface/mars/town/master_v1.png": preload("res://assets/planet_surface/mars/town/master_v1.png"),
+	"res://assets/planet_surface/trader/town/empty_v3.png": preload("res://assets/planet_surface/trader/town/empty_v3.png"),
+	"res://assets/planet_surface/trader/town/basic_v3.png": preload("res://assets/planet_surface/trader/town/basic_v3.png"),
+	"res://assets/planet_surface/trader/town/middle_v3.png": preload("res://assets/planet_surface/trader/town/middle_v3.png"),
+	"res://assets/planet_surface/trader/town/advanced_v3.png": preload("res://assets/planet_surface/trader/town/advanced_v3.png"),
+	"res://assets/planet_surface/trader/town/master_v3.png": preload("res://assets/planet_surface/trader/town/master_v3.png"),
+	"res://assets/planet_surface/pirate/town/empty_v2.png": preload("res://assets/planet_surface/pirate/town/empty_v2.png"),
+	"res://assets/planet_surface/pirate/town/basic_v2.png": preload("res://assets/planet_surface/pirate/town/basic_v2.png"),
+	"res://assets/planet_surface/pirate/town/middle_v2.png": preload("res://assets/planet_surface/pirate/town/middle_v2.png"),
+	"res://assets/planet_surface/pirate/town/advanced_v2.png": preload("res://assets/planet_surface/pirate/town/advanced_v2.png"),
+	"res://assets/planet_surface/pirate/town/master_v1.png": preload("res://assets/planet_surface/pirate/town/master_v1.png"),
+}
+const BATTERY_TEXTURES := {
+	"earth": preload("res://assets/planet_surface/human/town/missile_battery_v4.png"),
+	"mars": preload("res://assets/planet_surface/mars/town/missile_battery_v4.png"),
+	"trader": preload("res://assets/planet_surface/trader/town/missile_battery_v4.png"),
+}
 
 func _stage_texture(kind: String, level: int, part: String = "") -> Texture2D:
 	var stage := master_name
@@ -74,12 +105,16 @@ func _stage_texture(kind: String, level: int, part: String = "") -> Texture2D:
 		stage = stage.replace("_v2", "_v3")
 	var path := ART_DIR + stage + ".png"
 	if not texture_cache.has(path):
-		var source := Image.load_from_file(ProjectSettings.globalize_path(path))
-		if source == null:
-			return load(ART_DIR + master_name + ".png")
+		var packed := STAGE_TEXTURES.get(path) as Texture2D
+		if packed == null:
+			push_error("Нет стадии города в PCK: %s" % path)
+			return STAGE_TEXTURES.get(ART_DIR + master_name + ".png") as Texture2D
+		var source := packed.get_image()
 		if source.get_size() != Vector2i(COMPOSITION.SIZE):
 			source.resize(int(COMPOSITION.SIZE.x), int(COMPOSITION.SIZE.y), Image.INTERPOLATE_LANCZOS)
-		texture_cache[path] = ImageTexture.create_from_image(source)
+			texture_cache[path] = ImageTexture.create_from_image(source)
+		else:
+			texture_cache[path] = packed
 	return texture_cache[path]
 
 func _ready() -> void:
@@ -135,14 +170,14 @@ func _ready() -> void:
 	BUILDING_DEFS["fort"]["name"] = "Форт"
 	BUILDING_DEFS["fort"]["stage_names"] = ["Форт", "Форт", "Форт"]
 	BUILDING_DEFS["mage_guild"]["name"] = "Академия протоколов"
-	if FREE_CONSTRUCTION_TEST:
+	if free_construction_test:
 		for kind in BUILDING_DEFS:
 			var free_costs: Array[Dictionary] = []
 			for level in range(int(BUILDING_DEFS[kind]["max_level"])):
 				free_costs.append({})
 			BUILDING_DEFS[kind]["costs"] = free_costs
 	super._ready()
-	background.texture = load(ART_DIR + master_name + ".png")
+	background.texture = STAGE_TEXTURES.get(ART_DIR + master_name + ".png") as Texture2D
 	terrain_foreground.hide()
 	cloud_layer.hide() # Небо и передние ветви пока сохранены в цельной иллюстрации.
 	background.z_index = -20
@@ -256,7 +291,7 @@ func _rebuild_building_visuals() -> void:
 	for region in COMPOSITION.REGIONS:
 		_place_composition_building(region)
 	if is_instance_valid(background):
-		background.texture = load(ART_DIR + master_name + ".png")
+		background.texture = STAGE_TEXTURES.get(ART_DIR + master_name + ".png") as Texture2D
 
 func _place_composition_building(region: Dictionary) -> void:
 	var kind := String(region.kind)
@@ -352,14 +387,7 @@ func _building_hint(kind: String, level: int, unit_id: String) -> String:
 	return super._building_hint(kind, level, unit_id)
 
 func _battery_texture() -> Texture2D:
-	var path := ART_DIR + "missile_battery_v4.png"
-	if not texture_cache.has(path):
-		var source := Image.load_from_file(ProjectSettings.globalize_path(path))
-		var atlas := AtlasTexture.new()
-		atlas.atlas = ImageTexture.create_from_image(source)
-		atlas.region = source.get_used_rect()
-		texture_cache[path] = atlas
-	return texture_cache[path]
+	return BATTERY_TEXTURES.get(town_faction) as Texture2D
 
 func _university_description(level: int) -> String:
 	var description := super._university_description(level)

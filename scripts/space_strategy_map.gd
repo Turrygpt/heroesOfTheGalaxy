@@ -88,6 +88,12 @@ const ORC_PLANET_TEXTURE := preload("res://assets/planets/orc.png")
 ## при каждом входе на карту (см. music/map/README.md, тот же приём, что и
 ## main_menu.gd / tactical_battle.gd).
 const SPACE_MUSIC_DIR := "res://music/map"
+const SPACE_MUSIC_TRACKS: Array[AudioStreamMP3] = [
+	preload("res://music/map/Distant Star Oath.mp3"),
+	preload("res://music/map/Galactic Map Remix.mp3"),
+	preload("res://music/map/Star Map Overture.mp3"),
+	preload("res://music/map/Starlit Echoes (Main Theme).mp3"),
+]
 const SPACE_MUSIC_VOLUME_DB := -8.0
 ## Длительность плавного перехода громкости при входе/выходе из боя — общая
 ## с BATTLE_MUSIC_FADE_DURATION в tactical_battle.gd, обе темы затухают/
@@ -525,26 +531,10 @@ func _create_hero_engine_exhaust_overlay() -> void:
 ## музыки; music_player тогда остаётся невалидным, pause_music/resume_music
 ## это учитывают.
 func _start_music() -> void:
-	var dir := DirAccess.open(SPACE_MUSIC_DIR)
-	if dir == null:
-		return
-	var candidates: Array[String] = []
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "mp3":
-			candidates.append(file_name)
-		file_name = dir.get_next()
-	dir.list_dir_end()
-	if candidates.is_empty():
-		return
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	var chosen: String = candidates[rng.randi_range(0, candidates.size() - 1)]
-	var loaded := load(SPACE_MUSIC_DIR.path_join(chosen)) as AudioStreamMP3
-	if loaded == null:
-		return
-	var stream: AudioStreamMP3 = loaded.duplicate()
+	var chosen: AudioStreamMP3 = SPACE_MUSIC_TRACKS[rng.randi_range(0, SPACE_MUSIC_TRACKS.size() - 1)]
+	var stream: AudioStreamMP3 = chosen.duplicate()
 	stream.loop = true
 	music_player = AudioStreamPlayer.new()
 	music_player.stream = stream

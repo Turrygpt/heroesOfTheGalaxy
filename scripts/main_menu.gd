@@ -5,6 +5,7 @@ extends Control
 ## сканирует её при старте и берёт случайный (см. `music/main_menu/README.md`).
 ## Пустая папка не ломает меню — просто нет музыки.
 const MENU_MUSIC_DIR := "res://music/main_menu"
+const MENU_MUSIC := preload("res://music/main_menu/Space march (Section).mp3")
 const MENU_MUSIC_VOLUME_DB := -8.0
 ## Меню уходит в карту без жёсткого обрыва: плеер переносится в корень дерева
 ## и затухает уже поверх загрузки новой сцены.
@@ -16,6 +17,8 @@ const MUSIC_FADED_VOLUME_DB := -40.0
 const MENU_LAYERS_DIR := "res://assets/ui/main_menu_layers"
 const MENU_BACKGROUNDS_DIR := "res://assets/ui/main_menu_backgrounds"
 const GAME_VERSION := "0.1.0"
+## Экспорт установочной демоверсии добавляет пользовательскую возможность
+## `demo`. В редакторе и полной сборке случайная карта остаётся доступной.
 const IntroVideoPlayer := preload("res://scripts/intro_video_player.gd")
 
 var status: Label
@@ -34,6 +37,7 @@ var menu_buttons: Array[Button] = []
 var safe_area: MarginContainer
 var version_label: Label
 var space_backdrop: Control
+var demo_mode := OS.has_feature("demo")
 
 
 func _ready() -> void:
@@ -91,7 +95,10 @@ func _ready() -> void:
 	primary.grab_focus()
 	var load_button := _button(column, "Загрузить игру", _load_game)
 	load_button.disabled = CampaignSave.read_save().is_empty()
-	_button(column, "Случайная карта", _random_game)
+	var random_button := _button(column, "Случайная карта", _random_game)
+	random_button.disabled = demo_mode
+	if demo_mode:
+		random_button.tooltip_text = "Доступно в полной версии игры"
 	_button(column, "Настройки", GameSettings.open_menu)
 	_button(column, "Выход", get_tree().quit)
 
@@ -124,7 +131,7 @@ func set_logo_visible(is_visible: bool) -> void:
 func _build_version_label() -> void:
 	var label := Label.new()
 	version_label = label
-	label.text = "Ранняя версия · %s" % GAME_VERSION
+	label.text = "%s · %s" % ["Демо" if demo_mode else "Ранняя версия", GAME_VERSION]
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	label.offset_left = -220
@@ -177,9 +184,9 @@ func _build_background() -> void:
 
 
 func _menu_layers_available() -> bool:
-	for file_name in ["planet_surface.png", "ring.png", "moons.png", "asteroids.png", "logo.png"]:
-		if not FileAccess.file_exists(MENU_LAYERS_DIR.path_join(file_name)):
-			return false
+	# menu_space_backdrop.gd держит явные preload-ссылки на все пять слоёв.
+	# Проверка исходных PNG ломалась в установленной игре: внутри PCK находятся
+	# импортированные текстуры, а не редакторская файловая раскладка.
 	return true
 
 
@@ -216,33 +223,7 @@ func _pick_random_background_texture() -> Texture2D:
 ## Список файлов не кешируется — сканируется один раз при входе в меню,
 ## дороговизна не имеет значения.
 func _start_music() -> void:
-	var dir := DirAccess.open(MENU_MUSIC_DIR)
-	if dir == null:
-		return
-	var candidates: Array[String] = []
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.get_extension().to_lower() == "mp3":
-			candidates.append(file_name)
-		file_name = dir.get_next()
-	dir.list_dir_end()
-	if candidates.is_empty():
-		return
-	var rng := RandomNumberGenerator.new()
-	rng.randomize()
-	var chosen: String = candidates[rng.randi_range(0, candidates.size() - 1)]
-	var path := MENU_MUSIC_DIR.path_join(chosen)
-	if ResourceLoader.load_threaded_request(path) != OK:
-		return
-	while ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-		await get_tree().process_frame
-	if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_LOADED:
-		return
-	var loaded := ResourceLoader.load_threaded_get(path) as AudioStreamMP3
-	if loaded == null:
-		return
-	var stream: AudioStreamMP3 = loaded.duplicate()
+	var stream: AudioStreamMP3 = MENU_MUSIC.duplicate()
 	stream.loop = true
 	music_player = AudioStreamPlayer.new()
 	music_player.stream = stream
@@ -324,7 +305,7 @@ func _try_apply_pending_scene() -> void:
 
 
 func _random_game() -> void:
-	if transition_started or get_node_or_null("FactionSelection") != null:
+	if demo_mode or transition_started or get_node_or_null("FactionSelection") != null:
 		return
 	_preload_scene("res://scenes/StrategicMain.tscn")
 	var chooser := preload("res://scripts/faction_selection.gd").new()

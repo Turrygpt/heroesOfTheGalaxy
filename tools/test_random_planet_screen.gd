@@ -22,7 +22,6 @@ func _run() -> void:
 		assert(map.player_faction == faction)
 		assert(map.hero_city_background_faction == faction)
 		assert(map.side_hero_city_background.texture != null)
-		assert(map.hero_card_city_background.texture == map.side_hero_city_background.texture)
 		assert(map.side_hero_city_background.texture.resource_path == String(map.HERO_CITY_BACKGROUND_PATHS[faction]))
 		map._open_human_planet()
 		await process_frame

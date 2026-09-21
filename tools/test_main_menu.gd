@@ -38,6 +38,9 @@ func run() -> void:
 	check(not paused, "Настройки закрываются")
 	menu._new_game()
 	check(menu.transition_started and menu.menu_buttons[0].disabled, "Повторный старт заблокирован")
+	# В репозитории теперь лежит настоящее интро. Тесту не нужно ждать весь
+	# ролик: это эквивалент пользовательского пропуска любой клавишей.
+	menu._on_intro_finished()
 	await _await_scene_change(menu)
 	check(current_scene != null and current_scene.name == "StrategicMain", "Кампания загружена")
 	check(not root.get_node("CampaignSave").read_save().is_empty(), "Стартовое сохранение создано")
