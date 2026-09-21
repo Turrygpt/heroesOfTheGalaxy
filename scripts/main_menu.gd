@@ -265,10 +265,11 @@ func _button(parent: Node, text: String, action: Callable) -> Button:
 
 
 ## Интро-трейлер перед стартом обычной новой кампании - пропускается любой
-## клавишей/кликом. "Случайная карта" и загрузка сохранения ролик не
-## показывают: это либо отладочный быстрый старт, либо продолжение уже идущей
-## партии, а не её начало. Брифинг адмирала с Павловой идёт уже НА КАРТЕ,
-## поверх неё (см. space_strategy_map.gd:_show_intro_briefing), а не здесь.
+## клавишей/кликом. Загрузка сохранения ролик не показывает (это продолжение
+## уже идущей партии, а не её начало), "Случайная карта" - только с ключом
+## запуска --intro: это отладочный быстрый старт. Брифинг адмирала с
+## Павловой идёт уже НА КАРТЕ, поверх неё (см. space_strategy_map.gd:
+## _show_intro_briefing), а не здесь.
 ## Загрузка карты запускается СРАЗУ, параллельно ролику (а не после него),
 ## поэтому к концу трейлера сцена обычно уже готова и переход мгновенный.
 ## Если ролик кончится раньше загрузки, смена сцены просто ждёт её
@@ -277,12 +278,22 @@ func _new_game() -> void:
 	if transition_started:
 		return
 	requested_load = false
-	intro_active = true
+	_start_intro(false)
+	_fade_out_and_change_scene("res://scenes/StrategicMain.tscn")
+
+
+## Ставит вступление поверх меню, если оно положено этому старту
+## (см. IntroVideoPlayer.should_play). Пока ролик в дереве, intro_active
+## держит смену сцены.
+func _start_intro(random_map: bool) -> void:
+	if not IntroVideoPlayer.should_play(random_map):
+		return
+	# Музыка меню под вступлением не нужна: у ролика своя дорожка.
 	_fade_music()
+	intro_active = true
 	var intro := IntroVideoPlayer.new()
 	intro.finished.connect(_on_intro_finished)
 	add_child(intro)
-	_fade_out_and_change_scene("res://scenes/StrategicMain.tscn")
 
 
 func _on_intro_finished() -> void:
@@ -310,16 +321,17 @@ func _random_game() -> void:
 		CampaignSave.random_map_seed = 0
 		chooser.queue_free()
 		requested_load = false
+		_start_intro(true)
 		CampaignSave.random_map_requested = true
 		transition_started = true
 		status.text = "Открываем галактику…"
 		for button in menu_buttons:
 			button.disabled = true
-		if pending_packed_scene != null:
+		if pending_packed_scene != null and not intro_active:
 			var packed := pending_packed_scene
 			pending_packed_scene = null
 			_finish_scene_change(packed)
-		else:
+		elif pending_packed_scene == null:
 			preload_only = false
 			_fade_out_and_change_scene("res://scenes/StrategicMain.tscn", true)
 	)

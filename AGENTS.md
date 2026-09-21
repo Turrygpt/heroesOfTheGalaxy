@@ -92,10 +92,11 @@ sh tools/run_tests.sh orc battle   # только те, чьё имя содер
 | `tools/ship_buildings_regression.gd` | каталог верфей, цены, отрисовка и недельный прирост |
 | `tools/test_game_settings.gd` | шины громкости, mute на нуле, сохранение настроек |
 | `tools/test_main_menu.gd` | меню в отдельном профиле: редактор, настройки, переход и возврат |
+| `tools/test_intro_video.gd` | интро-ролик: включён в "Новой игре", играет, пропускается; без файла игра всё равно стартует |
 
 Снимки экрана, отладочные прогоны (`debug_orc_turns.gd`, `debug_map_objects.gd`),
-балансовый измеритель `balance_sim.gd`, генерация плейсхолдеров и веб-сборка —
-`docs/tools.md`.
+балансовый измеритель `balance_sim.gd`, генерация плейсхолдеров и сборка игры
+(`tools/build_game.sh`, интро-ролик) — `docs/tools.md`.
 
 ---
 

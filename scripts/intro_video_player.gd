@@ -9,7 +9,17 @@ extends CanvasLayer
 signal finished
 
 const VIDEO_PATH := "res://video/intro.ogv"
-const VIDEO_STREAM := preload("res://video/intro.ogv")
+## Если ролик не попал в готовую сборку, ищем файл СНАРУЖИ: рядом с самим exe
+## и в профиле игрока. Так вступление можно подложить, не пересобирая игру.
+## Порядок: сначала то, что запаковано, потом внешнее.
+const EXTERNAL_NAME := "intro.ogv"
+## Ключи запуска: ролик можно потребовать или запретить, не пересобирая игру.
+##   HeroesOfTheGalaxy.exe --intro      показывать и на "Случайной карте"
+##   HeroesOfTheGalaxy.exe --no-intro   не показывать вовсе
+## Те же решения умеет принимать сама сборка: теги фич "intro" и "no_intro"
+## в custom_features пресета экспорта работают как эти ключи.
+const FORCE_FLAG := "--intro"
+const SKIP_FLAG := "--no-intro"
 ## Дорожка ролика заметно тише музыки меню, поэтому поднимаем её.
 const VOLUME_DB := 6.0
 ## Страховка от зависшего вступления. Битый поток Theora останавливается
@@ -23,6 +33,38 @@ const MAX_SECONDS := 600.0
 var player: VideoStreamPlayer
 var _elapsed := 0.0
 var _done := false
+
+
+## Есть ли вообще что проигрывать — в сборке или рядом с ней.
+static func has_video() -> bool:
+	return ResourceLoader.exists(VIDEO_PATH) or not find_external().is_empty()
+
+
+## Первый существующий файл ролика рядом со сборкой, иначе пустая строка.
+static func find_external() -> String:
+	for path in external_paths():
+		if FileAccess.file_exists(path):
+			return path
+	return ""
+
+
+## Куда мы смотрим за роликом, кроме самой сборки.
+static func external_paths() -> PackedStringArray:
+	return PackedStringArray([
+		OS.get_executable_path().get_base_dir().path_join(EXTERNAL_NAME),
+		"user://" + EXTERNAL_NAME,
+	])
+
+
+## Нужно ли показывать вступление для этого старта. Обычная новая кампания
+## показывает его всегда, "Случайная карта" — только по требованию: это
+## отладочный быстрый старт, и минута видео там только мешает.
+static func should_play(random_map: bool, args: PackedStringArray = OS.get_cmdline_args()) -> bool:
+	if SKIP_FLAG in args or OS.has_feature("no_intro"):
+		return false
+	if FORCE_FLAG in args or OS.has_feature("intro"):
+		return true
+	return not random_map
 
 
 func _ready() -> void:
@@ -51,7 +93,15 @@ func _ready() -> void:
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(hint)
 
-	player.stream = VIDEO_STREAM
+	var stream := _resolve_stream()
+	if stream == null:
+		# Молча пропускать нельзя: со стороны это выглядит как сломанный
+		# синематик, а не как отсутствующий файл.
+		push_warning("Вступление пропущено: нет ни %s, ни %s рядом со сборкой"
+			% [VIDEO_PATH, EXTERNAL_NAME])
+		_finish()
+		return
+	player.stream = stream
 	player.play()
 
 
@@ -85,3 +135,17 @@ func _finish() -> void:
 		player.stop()
 	finished.emit()
 	queue_free()
+
+
+## Поток ролика: из сборки, иначе из файла рядом с ней. Внешний файл читаем
+## через VideoStreamTheora.file — ResourceLoader такие пути не открывает.
+func _resolve_stream() -> VideoStream:
+	if ResourceLoader.exists(VIDEO_PATH):
+		return load(VIDEO_PATH) as VideoStream
+	var external := find_external()
+	if external.is_empty():
+		return null
+	print("Вступление берём снаружи сборки: ", external)
+	var stream := VideoStreamTheora.new()
+	stream.file = external
+	return stream
