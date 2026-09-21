@@ -95,7 +95,7 @@ const BUILDING_CATALOG := [
 ## Потолок 20 базового ресурса / 10 редкого за постройку — оставлен как
 ## инвариант (все цифры ниже внутри него) и проверяется
 ## tools/ship_buildings_regression.gd.
-var BUILDING_DEFS := {
+const BUILDING_DEFS := {
 	"townhall": {
 		"name": "Планетарный совет", "max_level": 4, "level_names": ["I", "II", "III", "IV"],
 		"costs": [
