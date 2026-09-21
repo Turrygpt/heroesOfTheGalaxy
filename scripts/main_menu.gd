@@ -17,8 +17,6 @@ const MUSIC_FADED_VOLUME_DB := -40.0
 const MENU_LAYERS_DIR := "res://assets/ui/main_menu_layers"
 const MENU_BACKGROUNDS_DIR := "res://assets/ui/main_menu_backgrounds"
 const GAME_VERSION := "0.1.0"
-## Экспорт установочной демоверсии добавляет пользовательскую возможность
-## `demo`. В редакторе и полной сборке случайная карта остаётся доступной.
 const IntroVideoPlayer := preload("res://scripts/intro_video_player.gd")
 
 var status: Label
@@ -37,7 +35,6 @@ var menu_buttons: Array[Button] = []
 var safe_area: MarginContainer
 var version_label: Label
 var space_backdrop: Control
-var demo_mode := OS.has_feature("demo")
 
 
 func _ready() -> void:
@@ -95,10 +92,7 @@ func _ready() -> void:
 	primary.grab_focus()
 	var load_button := _button(column, "Загрузить игру", _load_game)
 	load_button.disabled = CampaignSave.read_save().is_empty()
-	var random_button := _button(column, "Случайная карта", _random_game)
-	random_button.disabled = demo_mode
-	if demo_mode:
-		random_button.tooltip_text = "Доступно в полной версии игры"
+	_button(column, "Случайная карта", _random_game)
 	_button(column, "Настройки", GameSettings.open_menu)
 	_button(column, "Выход", get_tree().quit)
 
@@ -131,7 +125,7 @@ func set_logo_visible(is_visible: bool) -> void:
 func _build_version_label() -> void:
 	var label := Label.new()
 	version_label = label
-	label.text = "%s · %s" % ["Демо" if demo_mode else "Ранняя версия", GAME_VERSION]
+	label.text = "Ранняя версия · %s" % GAME_VERSION
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	label.offset_left = -220
@@ -305,7 +299,7 @@ func _try_apply_pending_scene() -> void:
 
 
 func _random_game() -> void:
-	if demo_mode or transition_started or get_node_or_null("FactionSelection") != null:
+	if transition_started or get_node_or_null("FactionSelection") != null:
 		return
 	_preload_scene("res://scenes/StrategicMain.tscn")
 	var chooser := preload("res://scripts/faction_selection.gd").new()

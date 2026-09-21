@@ -31,6 +31,7 @@ func run() -> void:
 	root.add_child(menu)
 	current_scene = menu
 	await process_frame
+	check(not menu.menu_buttons[2].disabled, "Случайная карта доступна в полной версии")
 	var settings: Node = root.get_node("GameSettings")
 	settings.open_menu()
 	check(paused and settings.is_open(), "Настройки открываются")
