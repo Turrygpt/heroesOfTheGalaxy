@@ -93,7 +93,6 @@ func _test_leaves_only_encirclement() -> void:
 	var battle = _make_battle()
 	var active: Dictionary = battle.units[0]
 	var target: Dictionary = battle.units[1]
-	var shot_range: int = battle._stat(active, "range")
 	var contact: Vector2i = battle._hex_neighbors(target["cell"])[0]
 	_check(battle._adjacent_enemies(contact, int(active["side"])) == 1,
 		"Рядом с целью ровно один враг")
@@ -118,8 +117,8 @@ func _test_leaves_only_encirclement() -> void:
 			free_cell = candidate
 			break
 	_check(free_cell != contact, "Нашлась клетка вне клещей")
-	var crowded_score: float = battle._move_cell_score(contact, active, target, shot_range)
-	var free_score: float = battle._move_cell_score(free_cell, active, target, shot_range)
+	var crowded_score: float = battle._move_cell_score(contact, active, target)
+	var free_score: float = battle._move_cell_score(free_cell, active, target)
 	_check(free_score > crowded_score,
 		"Из окружения пачка уходит (%.1f против %.1f)" % [free_score, crowded_score])
 	battle.free()
@@ -160,19 +159,164 @@ func _test_defensive_ignores_mid_round_approach() -> void:
 	var battle = _make_battle("frigate", 4, "frigate", 4)
 	var active: Dictionary = battle.units[0]
 	var target: Dictionary = battle.units[1]
-	var shot_range: int = battle._stat(active, "range")
 	var start_cell: Vector2i = active["cell"]
 	# На начало раунда цель была далеко (контакт не гарантирован), но уже
 	# успела сходить в этот же раунд и приблизиться. Обе кандидатные клетки
-	# всё ещё вне дальности залпа (target_distance > shot_range), чтобы сравнение
+	# всё ещё вне дальности залпа, чтобы сравнение
 	# не зависело от значения "можно выстрелить" и обстрела.
 	target["round_start_cell"] = Vector2i(start_cell.x + 30, start_cell.y)
 	target["cell"] = Vector2i(start_cell.x + 5, start_cell.y)
-	var stay_score: float = battle._defensive_move_cell_score(start_cell, active, target, shot_range, start_cell)
+	var stay_score: float = battle._defensive_move_cell_score(start_cell, active, target, start_cell)
 	var advance_cell := Vector2i(start_cell.x + 1, start_cell.y)
-	var advance_score: float = battle._defensive_move_cell_score(advance_cell, active, target, shot_range, start_cell)
+	var advance_score: float = battle._defensive_move_cell_score(advance_cell, active, target, start_cell)
 	_check(stay_score > advance_score,
 		"Защитный отряд не обязан догонять уже приблизившегося врага, если контакт не был неизбежен на начало раунда")
+	battle.free()
+
+
+
+## Чистое поле под сценарий выбора цели: стартовые пачки убираются, вместо них
+## расставляются ровно те, что проверяет тест. Препятствия тоже снимаем —
+## иначе случайная кучка астероидов ломает геометрию сценария.
+func _empty_field():
+	var battle = _make_battle("interceptor", 1, "raider", 1)
+	battle.quick_battle = true
+	battle.obstacle_at.clear()
+	battle.path_distance_cache.clear()
+	battle.units[0]["hp"] = 0
+	battle.units[1]["hp"] = 0
+	return battle
+
+
+func _place(battle, unit_id: String, count: int, cell: Vector2i, side: int) -> int:
+	battle.units.append(battle._finalize_unit(UnitDefs.make_blueprint(unit_id, count, cell, side)))
+	return battle.units.size() - 1
+
+
+## Ранг цели — вес, а не вето. Добиваемый корвет III ранга вплотную обязан
+## перевесить целую пачку истребителей I ранга на другом конце поля: прежний
+## порядок "сначала ранг" уводил охотника с гарантированного добивания в поход
+## через всё поле под обстрелом.
+func _test_finishing_blow_beats_low_tier() -> void:
+	var battle = _empty_field()
+	var hunter := _place(battle, "raider", 6, Vector2i(7, 4), 2)
+	var almost_dead := _place(battle, "corvette", 3, Vector2i(8, 4), 1)
+	battle.units[almost_dead]["hp"] = 5
+	var fresh := _place(battle, "interceptor", 20, Vector2i(1, 4), 1)
+	battle.active_unit_index = hunter
+	var reach: int = battle._stat(battle.units[hunter], "move") + battle._stat(battle.units[hunter], "range")
+	_check(battle._hex_distance(battle.units[hunter]["cell"], battle.units[fresh]["cell"]) <= reach,
+		"Сценарий имеет смысл, только пока обе цели формально в пределах манёвра и залпа")
+	_check(battle._best_target_for(hunter) == almost_dead,
+		"ИИ обязан добить подранка под боком, а не уходить за целой пачкой рангом ниже")
+	_check(battle._best_enemy_move_cell(almost_dead) == battle.units[hunter]["cell"],
+		"Ради добивания вплотную никуда ехать не нужно")
+	battle.free()
+
+
+## При прочих равных приоритет ранга сохраняется: две одинаково целые пачки на
+## одной дистанции — ИИ берёт ту, что рангом ниже.
+func _test_low_tier_still_preferred() -> void:
+	var battle = _empty_field()
+	var hunter := _place(battle, "raider", 6, Vector2i(7, 4), 2)
+	var heavy := _place(battle, "corvette", 3, Vector2i(4, 2), 1)
+	var light := _place(battle, "interceptor", 3, Vector2i(4, 6), 1)
+	battle.active_unit_index = hunter
+	_check(battle._best_target_for(hunter) == light,
+		"Из двух одинаково доступных целых пачек ИИ выбирает низший ранг (ранг %d против %d)"
+			% [int(battle.units[light]["tier"]), int(battle.units[heavy]["tier"])])
+	battle.free()
+
+
+## Метание между равноранговыми целями. Союзники по очереди подранивают то
+## одну пачку, то другую; раньше ИИ разворачивался вслед за каждым попаданием
+## и не доходил ни до одной. Цель держится, пока новая не станет ощутимо
+## выгоднее (TARGET_SCORE_KEEP).
+func _test_target_does_not_flip_flop() -> void:
+	var battle = _empty_field()
+	var hunter := _place(battle, "raider", 10, Vector2i(7, 4), 2)
+	var north := _place(battle, "interceptor", 10, Vector2i(3, 2), 1)
+	var south := _place(battle, "interceptor", 10, Vector2i(3, 6), 1)
+	battle.active_unit_index = hunter
+	var first: int = battle._best_target_for(hunter)
+	var switches := 0
+	for step in range(6):
+		if step % 2 == 0:
+			battle.units[north]["hp"] -= 25
+		else:
+			battle.units[south]["hp"] -= 30
+		if battle._best_target_for(hunter) != first:
+			switches += 1
+	_check(switches == 0,
+		"ИИ не должен разворачиваться на каждое попадание союзника по соседней пачке (смен цели: %d)" % switches)
+	_check(first == north or first == south, "Цель выбрана из двух выставленных пачек")
+	battle.free()
+
+
+## Корма пачки IV+ ранга — такая же цель, как нос. Клетка рядом с кормой уже
+## огневая, и ИИ обязан это видеть: раньше оценка клетки мерила дальность
+## только до головного гекса и гнала корабль в обход вместо залпа в упор.
+func _test_scoring_sees_target_tail() -> void:
+	var battle = _empty_field()
+	var shooter := _place(battle, "raider", 8, Vector2i(11, 4), 2)
+	var frigate := _place(battle, "frigate", 2, Vector2i(8, 4), 1)
+	battle.active_unit_index = shooter
+	var footprint: Array = battle._footprint_cells(battle.units[frigate])
+	_check(footprint.size() == 2, "Фрегат IV ранга занимает два гекса")
+	var tail_side := Vector2i(10, 4)
+	battle.units[shooter]["cell"] = tail_side
+	_check(battle._can_shoot_unit(frigate), "С клетки у кормы залп реально проходит")
+	var tail_score: float = battle._move_cell_score(
+		tail_side, battle.units[shooter], battle.units[frigate], tail_side)
+	_check(tail_score > 0.0,
+		"Оценка клетки обязана засчитать залп по корме, а не гнать корабль в обход (оценка %.1f)" % tail_score)
+	battle.units[shooter]["cell"] = Vector2i(11, 4)
+	battle.path_distance_cache.clear()
+	_check(battle._best_enemy_move_cell(frigate) == tail_side,
+		"Один шаг к корме выгоднее объезда вокруг корпуса")
+	battle.free()
+
+
+## Дрожание на месте: пачка вплотную к цели каждый ход прыгала между двумя
+## одинаковыми соседними гексами из-за бонуса за сам факт манёвра. Манёвр
+## должен что-то давать, иначе отряд стоит и стреляет.
+func _test_ai_holds_position_without_gain() -> void:
+	var battle = _empty_field()
+	var hunter := _place(battle, "raider", 6, Vector2i(7, 4), 2)
+	var victim := _place(battle, "interceptor", 6, Vector2i(8, 4), 1)
+	battle.active_unit_index = hunter
+	var start_cell: Vector2i = battle.units[hunter]["cell"]
+	for step in range(4):
+		battle.units[hunter]["moved"] = false
+		var destination: Vector2i = battle._best_enemy_move_cell(victim)
+		_check(destination == start_cell,
+			"Пачка не должна дёргаться между равноценными гексами (шаг %d: %s)" % [step, destination])
+		battle.units[hunter]["cell"] = destination
+		battle.path_distance_cache.clear()
+	battle.free()
+
+
+## Цель за чужими корпусами и препятствиями недостижима в этот ход, даже если
+## по прямой она в пределах "манёвр + дальность". Достижимость меряется тем же
+## BFS, что и выбор клетки, иначе ход уходит в упор в стену.
+func _test_blocked_target_is_not_engageable() -> void:
+	var battle = _empty_field()
+	var hunter := _place(battle, "raider", 6, Vector2i(7, 4), 2)
+	var behind := _place(battle, "interceptor", 4, Vector2i(3, 4), 1)
+	battle.active_unit_index = hunter
+	var reachable: Dictionary = battle._reachable_cells(hunter)
+	_check(reachable.size() > 1, "BFS обязан находить клетки для манёвра на чистом поле")
+	_check(battle._best_firing_distance(battle.units[hunter], hunter, battle.units[behind], reachable) >= 0,
+		"На чистом поле цель в пределах манёвра достижима")
+	# Запечатываем охотника препятствиями со всех сторон.
+	for neighbor in battle._hex_neighbors(battle.units[hunter]["cell"]):
+		if battle._cell_in_grid(neighbor):
+			battle.obstacle_at[neighbor] = "asteroid_field"
+	battle.path_distance_cache.clear()
+	var boxed: Dictionary = battle._reachable_cells(hunter)
+	_check(boxed.size() == 1, "Запечатанная пачка никуда не доезжает")
+	_check(battle._best_firing_distance(battle.units[hunter], hunter, battle.units[behind], boxed) < 0,
+		"Цель за препятствиями не должна считаться достижимой в этот ход")
 	battle.free()
 
 
@@ -183,12 +327,18 @@ func _run() -> void:
 	_test_ai_repositions_before_shot()
 	_test_defensive_ignores_mid_round_approach()
 	_test_orbital_wall_blocks_and_breaks()
+	_test_finishing_blow_beats_low_tier()
+	_test_low_tier_still_preferred()
+	_test_target_does_not_flip_flop()
+	_test_scoring_sees_target_tail()
+	_test_ai_holds_position_without_gain()
+	_test_blocked_target_is_not_engageable()
 	for player: Node in root.find_children("*", "AudioStreamPlayer", true, false):
 		(player as AudioStreamPlayer).stop()
 		(player as AudioStreamPlayer).stream = null
 	await create_timer(2.0).timeout
 	if failures == 0:
-		print("PASS: гибель активного отряда от ответки не вешает ход, выход из окружения, защитный автобой держит строй до начала-раунда угрозы, орбитальная стена блокирует огонь и разрушается")
+		print("PASS: гибель активного отряда от ответки не вешает ход, выход из окружения, защитный автобой держит строй до начала-раунда угрозы, орбитальная стена блокирует огонь и разрушается, выбор цели добивает подранка и держит ранг весом, не мечется между целями, видит корму IV+ ранга, не дёргается без выгоды и не считает целью недостижимое")
 	quit(1 if failures else 0)
 
 

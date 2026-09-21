@@ -67,9 +67,13 @@ const CUBE_DIRECTIONS := [
 ##
 ## Возможность отстреляться в этот же ход дороже всего остального вместе.
 const MOVE_SCORE_CAN_SHOOT := 1000.0
-## Небольшой бонус за сам факт манёвра перед атакой: если две клетки почти
-## равноценны, ИИ предпочитает перестроиться, а не стрелять с места.
-const MOVE_SCORE_REPOSITION := 24.0
+## Небольшой бонус клетке, на которой пачка уже стоит. Раньше тут был
+## обратный по смыслу бонус за сам факт манёвра, и из-за него отряд вплотную к
+## цели каждый ход перепрыгивал между двумя одинаковыми соседними гексами —
+## дрожание на месте без единой выгоды. Манёвр перед залпом никуда не делся:
+## пачка сходит, как только клетка даёт больше урона, меньше ответки или
+## выводит из клещей хотя бы на эту величину.
+const MOVE_SCORE_HOLD := 24.0
 ## Вес ожидаемого урона. Главная разница сейчас — полный урон в упор против
 ## штрафа дальнего залпа, но формула оставлена общей для будущих эффектов.
 const MOVE_SCORE_DAMAGE := 2.0
@@ -86,6 +90,36 @@ const MOVE_SCORE_DISTANCE := 1.0
 ## всего: иначе обе стороны пятятся друг от друга и бой не заканчивается
 ## вовсе (ровно это и произошло на первом прогоне).
 const MOVE_SCORE_APPROACH := 50.0
+## --- Веса выбора цели (см. _best_target_for) -------------------------------
+## Цель, по которой пачка успевает отработать прямо в этот ход, дороже любой
+## недосягаемой: залп здесь и сейчас лучше похода через полполя под обстрелом.
+## Достижимость считается честно — по клеткам, куда пачка реально доезжает
+## (BFS в обход препятствий и чужих корпусов), и по клетке, с которой залп
+## реально проходит (дальность, слепая зона патруля, линия огня).
+const TARGET_SCORE_ENGAGEABLE := 900.0
+## Низкий ранг остаётся главным ориентиром — у него слабее корпус и защита, —
+## но это вес, а не вето. Абсолютный приоритет ранга заставлял ИИ бросать
+## добиваемую пачку под боком и уходить через всё поле за целой пачкой I ранга.
+const TARGET_SCORE_TIER := 140.0
+## Верхний ранг в справочниках (unit_defs.gd/orc_defs.gd) — нужен, чтобы
+## перевести ранг в надбавку "чем ниже, тем ценнее".
+const TARGET_MAX_TIER := 7
+## Сбитые корабли и доля снятой прочности — то, ради чего залп и делается.
+const TARGET_SCORE_KILL := 60.0
+const TARGET_SCORE_POOL := 200.0
+## Добить пачку до конца ценнее, чем подранить две: мёртвая пачка больше не
+## стреляет в ответ.
+const TARGET_SCORE_FINISH := 400.0
+## Каждый гекс похода — это раунд под чужим залпом.
+const TARGET_SCORE_DISTANCE := 12.0
+## Гистерезис смены цели. Без него отряд разворачивался на полпути каждый раз,
+## когда союзники подранивали соседнюю равноранговую пачку, и так и метался
+## между двумя целями, не дойдя ни до одной.
+const TARGET_SCORE_KEEP := 150.0
+## Сколько клеток на одну дистанцию проверять линией огня в оценке цели:
+## перебирать все доступные клетки дорого, а одной мало — её прострел может
+## перекрывать астероид, тогда как соседняя с той же дистанции бьёт свободно.
+const FIRING_CELL_SAMPLES := 3
 ## Режимы поведения флота игрока в автобою.
 const AUTO_MODE_AGGRESSIVE := "aggressive"
 const AUTO_MODE_BALANCED := "balanced"
@@ -1289,46 +1323,149 @@ func _finish_enemy_turn(target_index: int) -> void:
 		turn_pending = true
 
 
-# ИИ по умолчанию метит в самую уязвимую цель — прежде всего это низкий ранг
-# (слабый корпус и защита), при равном ранге — подранная пачка с меньшим
-# остатком прочности. Приоритет отдаётся целям, реально достижимым в этот ход
-# (манёвр + дальность); среди недосягаемых действует тот же порядок — так ИИ
-# целеустремлённо идёт добивать слабейшего, а не мечется между целями.
+# ИИ метит в самую выгодную цель одной оценкой (см. веса TARGET_SCORE_*).
+# Низкий ранг (слабый корпус и защита) остаётся главным ориентиром, но теперь
+# это слагаемое, а не абсолютное вето: пачка, которую залп добивает прямо
+# сейчас, перевешивает целую пачку рангом ниже на другом конце поля. Прежний
+# порядок "ранг → остаток прочности" давал две беды, обе воспроизводились в
+# tools/test_battle_tactics.gd: охотник уходил от добиваемого корвета под
+# боком за целыми истребителями, и разворачивался на полпути каждый раз,
+# когда союзники подранивали соседнюю равноранговую пачку.
 func _best_target_for(attacker_index: int) -> int:
 	var attacker: Dictionary = units[attacker_index]
 	var enemy_side: int = 2 if attacker["side"] == 1 else 1
-	var reach: int = _stat(attacker, "move") + _stat(attacker, "range")
+	var reachable_cells := _reachable_cells(attacker_index)
+	var previous_target := int(attacker.get("ai_target", -1))
 	var best_index := -1
-	var best_reachable := false
-	var best_tier := 999
-	var best_hp := 0
-	var best_score := -1.0
+	var best_score := -INF
 	for index in range(units.size()):
 		var target: Dictionary = units[index]
 		if target["side"] != enemy_side or target["hp"] <= 0:
 			continue
-		var distance := _hex_distance(attacker["cell"], target["cell"])
-		var reachable := distance <= reach
-		var tier := int(target.get("tier", 1))
-		var score := float(_expected_stack_damage(attacker, target, distance))
-		if distance > _stat(attacker, "range"):
-			score *= 0.35
-		var better := false
-		if reachable != best_reachable:
-			better = reachable
-		elif tier != best_tier:
-			better = tier < best_tier
-		elif target["hp"] != best_hp:
-			better = target["hp"] < best_hp
-		else:
-			better = score > best_score
-		if better or best_index < 0:
-			best_index = index
-			best_reachable = reachable
-			best_tier = tier
-			best_hp = target["hp"]
+		var score := _target_score(attacker, attacker_index, target, reachable_cells)
+		# Гистерезис: прежняя цель держится, пока новая не станет ощутимо выгоднее.
+		if index == previous_target:
+			score += TARGET_SCORE_KEEP
+		if score > best_score:
 			best_score = score
-	return best_index if best_index >= 0 else _nearest_living_unit(enemy_side)
+			best_index = index
+	if best_index < 0:
+		best_index = _nearest_living_unit(enemy_side)
+	attacker["ai_target"] = best_index
+	return best_index
+
+
+## Насколько выгодна цель: залп в этот ход, ранг, сбитые корабли, снятая доля
+## прочности, добивание пачки и цена похода до неё.
+func _target_score(
+	attacker: Dictionary,
+	attacker_index: int,
+	target: Dictionary,
+	reachable_cells: Dictionary
+) -> float:
+	var firing_distance := _best_firing_distance(attacker, attacker_index, target, reachable_cells)
+	var engageable := firing_distance >= 0
+	# Недосягаемую цель оцениваем по тому залпу, который получится после
+	# сближения, иначе ИИ сравнивал бы её по нулевому урону и никогда не
+	# выбирал бы дальнюю цель осмысленно.
+	var distance := _distance_to_unit(attacker["cell"], target)
+	var damage_distance := firing_distance if engageable else maxi(
+		int(attacker.get("min_engage_range", 0)), POINT_BLANK_DISTANCE)
+	var damage := _expected_stack_damage(attacker, target, damage_distance)
+	var kills := _casualties_for(target, damage)
+	var pool_share := clampf(float(damage) / float(maxi(1, int(target["hp"]))), 0.0, 1.0)
+	var score := TARGET_SCORE_TIER * float(TARGET_MAX_TIER - int(target.get("tier", 1)))
+	score += TARGET_SCORE_KILL * float(kills)
+	score += TARGET_SCORE_POOL * pool_share
+	score -= TARGET_SCORE_DISTANCE * float(distance)
+	if engageable:
+		score += TARGET_SCORE_ENGAGEABLE
+		if damage >= int(target["hp"]):
+			score += TARGET_SCORE_FINISH
+	return score
+
+
+## Клетки, куда пачка реально доезжает за этот ход: BFS в обход препятствий и
+## чужих корпусов. Вынесен из _best_enemy_move_cell, потому что выбор цели
+## обязан мерить достижимость тем же способом, что и выбор клетки, — иначе ИИ
+## назначает целью того, до кого не доедет, и весь ход уходит в пустой манёвр.
+func _reachable_cells(unit_index: int) -> Dictionary:
+	var unit: Dictionary = units[unit_index]
+	var current_cell: Vector2i = unit["cell"]
+	var move_budget: int = _stat(unit, "move")
+	var blocked: Dictionary = {}
+	for cell in obstacle_at:
+		blocked[cell] = true
+	for other in units:
+		if other["hp"] <= 0 or _footprint_cells(other).has(current_cell):
+			continue
+		for occupied in _footprint_cells(other):
+			blocked[occupied] = true
+	var reachable: Dictionary = {current_cell: 0}
+	var frontier: Array[Vector2i] = [current_cell]
+	var distance: int = 0
+	while not frontier.is_empty() and distance < move_budget:
+		distance += 1
+		var next_frontier: Array[Vector2i] = []
+		for cell in frontier:
+			for neighbor in _hex_neighbors(cell):
+				if not _cell_in_grid(neighbor) or reachable.has(neighbor) or blocked.has(neighbor):
+					continue
+				reachable[neighbor] = distance
+				next_frontier.append(neighbor)
+		frontier = next_frontier
+	return reachable
+
+
+## С какой дистанции пачка отработает по цели в этот ход; -1, если ниоткуда.
+## Дистанции перебираются по убыванию ожидаемого урона (у патруля с
+## min_engage_range пик силы у ближней границы дальности, у обычного орудия —
+## в упор), линия огня проверяется только для кандидатов — она дороже всего
+## остального в этой оценке.
+func _best_firing_distance(
+	attacker: Dictionary,
+	attacker_index: int,
+	target: Dictionary,
+	reachable_cells: Dictionary
+) -> int:
+	var max_range := _stat(attacker, "range")
+	var min_range := int(attacker.get("min_engage_range", 0))
+	var footprint := _footprint_cells(target)
+	# Для каждой дистанции держим несколько клеток-представителей: если линию
+	# огня одной перекрыл астероид, другая с той же дистанции может её иметь.
+	var by_distance: Dictionary = {}
+	for cell in reachable_cells:
+		if not _footprint_valid(_footprint_for_move(attacker, cell), attacker_index):
+			continue
+		for target_cell in footprint:
+			var distance := _hex_distance(cell, target_cell)
+			if distance > max_range or (min_range > 0 and distance < min_range):
+				continue
+			var slots: Array = by_distance.get(distance, [])
+			if slots.size() < FIRING_CELL_SAMPLES:
+				slots.append([cell, target_cell])
+				by_distance[distance] = slots
+	if by_distance.is_empty():
+		return -1
+	var distances: Array = by_distance.keys()
+	distances.sort_custom(func(first: int, second: int) -> bool:
+		return _expected_stack_damage(attacker, target, first) \
+			> _expected_stack_damage(attacker, target, second))
+	var ignores_cover := bool(attacker.get("unlimited_range", false))
+	for distance in distances:
+		for pair in by_distance[distance]:
+			if ignores_cover or _has_line_of_sight(pair[0], pair[1]):
+				return int(distance)
+	return -1
+
+
+## Дистанция до ближайшей клетки корпуса цели: у пачки IV+ ранга их две, и
+## считать только до головы — значит обходить корабль вместо залпа по корме.
+func _distance_to_unit(cell: Vector2i, unit: Dictionary) -> int:
+	var best := 999
+	for target_cell in _footprint_cells(unit):
+		best = mini(best, _hex_distance(cell, target_cell))
+	return best
 
 
 func _best_enemy_target() -> int:
@@ -1373,8 +1510,6 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 	var active := _active_unit()
 	var current_cell: Vector2i = active["cell"]
 	var move_budget: int = _stat(active, "move")
-	var shot_range: int = _stat(active, "range")
-	var target_cell: Vector2i = units[target_index]["cell"]
 	var blocked: Dictionary = {}
 	for cell in obstacle_at:
 		blocked[cell] = true
@@ -1383,21 +1518,7 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 			continue
 		for occupied in _footprint_cells(unit):
 			blocked[occupied] = true
-
-	var reachable: Dictionary = {current_cell: 0}
-	var frontier: Array[Vector2i] = [current_cell]
-	var distance: int = 0
-	while not frontier.is_empty() and distance < move_budget:
-		distance += 1
-		var next_frontier: Array[Vector2i] = []
-		for cell in frontier:
-			for neighbor in _hex_neighbors(cell):
-				if not _cell_in_grid(neighbor) or reachable.has(neighbor) or blocked.has(neighbor):
-					continue
-				reachable[neighbor] = distance
-				next_frontier.append(neighbor)
-		frontier = next_frontier
-
+	var reachable := _reachable_cells(active_unit_index)
 	var target: Dictionary = units[target_index]
 	var best_cell: Vector2i = current_cell
 	var best_score := -INF
@@ -1409,7 +1530,7 @@ func _best_enemy_move_cell(target_index: int) -> Vector2i:
 			continue
 		simulated_attacker["cell"] = cell
 		firing_cell_available = firing_cell_available or _attack_cell_for_target(simulated_attacker, target) != INVALID_CELL
-		var score := _move_cell_score(cell, active, target, shot_range, current_cell)
+		var score := _move_cell_score(cell, active, target, current_cell)
 		if score > best_score:
 			best_score = score
 			best_cell = cell
@@ -1453,38 +1574,44 @@ func _path_to_firing_position(active: Dictionary, target: Dictionary, blocked: D
 ## Оценка клетки для манёвра. Возможность отстреляться перевешивает всё, но
 ## среди стрелковых клеток ИИ ищет лучшую позицию: больше ожидаемый урон,
 ## меньше риск ответного залпа, меньше окружение. Если несколько вариантов
-## близки, корабль предпочитает перестроиться перед атакой.
+## равноценны, корабль остаётся на месте и стреляет (MOVE_SCORE_HOLD) — манёвр
+## должен что-то давать. Дальность залпа берётся из самого отряда
+## (_attack_cell_from), отдельным параметром её не передают: иначе оценка и
+## настоящий выстрел могут разъехаться.
 func _move_cell_score(
 	cell: Vector2i,
 	active: Dictionary,
 	target: Dictionary,
-	shot_range: int,
 	start_cell: Vector2i = Vector2i(-999, -999)
 ) -> float:
-	var target_cell: Vector2i = target["cell"]
-	var target_distance := _hex_distance(cell, target_cell)
-	var min_range := int(active.get("min_engage_range", 0))
-	var can_shoot := target_distance <= shot_range and target_distance >= min_range \
-		and _has_line_of_sight(cell, target_cell)
+	# Дистанция и возможность залпа считаются по всему корпусу цели и по тем же
+	# правилам, что и настоящий выстрел (_attack_cell_from): у пачки IV+ ранга
+	# корма — такая же цель, как нос, и клетка рядом с кормой уже огневая.
+	var target_distance := _distance_to_unit(cell, target)
+	var attack_cell := _attack_cell_from(active, cell, target)
+	var can_shoot := attack_cell != INVALID_CELL
+	var shot_distance := _hex_distance(cell, attack_cell) if can_shoot else target_distance
 	var encircled := _encirclement_penalty(cell, int(active["side"]))
 	var use_auto_mode := auto_battle and int(active["side"]) == 1
 	if use_auto_mode and auto_battle_mode == AUTO_MODE_DEFENSIVE:
-		return _defensive_move_cell_score(cell, active, target, shot_range, start_cell)
+		return _defensive_move_cell_score(cell, active, target, start_cell)
 	if not can_shoot:
 		# Стрелять неоткуда: сближаемся, окружение — лишь уточнение между
 		# одинаково близкими клетками.
 		return -MOVE_SCORE_APPROACH * float(target_distance) - encircled
-	var expected_damage := float(_expected_stack_damage(active, target, target_distance))
+	var expected_damage := float(_expected_stack_damage(active, target, shot_distance))
 	var retaliation_risk := _retaliation_risk(cell, active, target)
-	var reposition_bonus := MOVE_SCORE_REPOSITION if cell != start_cell else 0.0
+	# Стоять на месте чуть выгоднее, чем переехать: манёвр должен что-то давать,
+	# иначе пачка вплотную к цели прыгает между соседними гексами каждый ход.
+	var hold_bonus := MOVE_SCORE_HOLD if cell == start_cell else 0.0
 	var score := MOVE_SCORE_CAN_SHOOT \
 		+ expected_damage * MOVE_SCORE_DAMAGE \
-		+ reposition_bonus \
+		+ hold_bonus \
 		- retaliation_risk \
 		- encircled \
-		- MOVE_SCORE_DISTANCE * float(target_distance)
+		- MOVE_SCORE_DISTANCE * float(shot_distance)
 	if use_auto_mode and auto_battle_mode == AUTO_MODE_AGGRESSIVE:
-		score += AGGRESSIVE_DISTANCE_WEIGHT * float(_hex_distance(start_cell, target_cell) - target_distance)
+		score += AGGRESSIVE_DISTANCE_WEIGHT * float(_distance_to_unit(start_cell, target) - target_distance)
 		if target_distance <= POINT_BLANK_DISTANCE:
 			score += AGGRESSIVE_POINT_BLANK_BONUS
 	return score
@@ -1496,19 +1623,17 @@ func _defensive_move_cell_score(
 	cell: Vector2i,
 	active: Dictionary,
 	target: Dictionary,
-	shot_range: int,
 	start_cell: Vector2i
 ) -> float:
-	var target_cell: Vector2i = target["cell"]
-	var target_distance := _hex_distance(cell, target_cell)
-	var defensive_min_range := int(active.get("min_engage_range", 0))
-	var can_shoot := target_distance <= shot_range and target_distance >= defensive_min_range \
-		and _has_line_of_sight(cell, target_cell)
-	var current_distance := _hex_distance(start_cell, target_cell)
+	var target_distance := _distance_to_unit(cell, target)
+	var attack_cell := _attack_cell_from(active, cell, target)
+	var can_shoot := attack_cell != INVALID_CELL
+	var shot_distance := _hex_distance(cell, attack_cell) if can_shoot else target_distance
+	var current_distance := _distance_to_unit(start_cell, target)
 	var inevitable_range := _stat(target, "move") + _stat(target, "range")
 	# Неизбежность мерим по расстоянию на начало раунда (round_start_cell), а не
 	# по уже сдвинувшейся в этот же раунд цели — см. комментарий в _begin_round.
-	var target_round_start_cell: Vector2i = target.get("round_start_cell", target_cell)
+	var target_round_start_cell: Vector2i = target.get("round_start_cell", target["cell"])
 	var round_start_distance := _hex_distance(start_cell, target_round_start_cell)
 	var inevitable := round_start_distance <= inevitable_range
 	# Защита удерживает свой эшелон, а не пытается бесконечно отступать:
@@ -1524,7 +1649,7 @@ func _defensive_move_cell_score(
 		return score
 	if can_shoot:
 		score += MOVE_SCORE_CAN_SHOOT
-		score += float(_expected_stack_damage(active, target, target_distance)) * MOVE_SCORE_DAMAGE
+		score += float(_expected_stack_damage(active, target, shot_distance)) * MOVE_SCORE_DAMAGE
 		score -= _retaliation_risk(cell, active, target)
 	else:
 		score -= MOVE_SCORE_APPROACH * float(target_distance)
@@ -1754,7 +1879,12 @@ func _can_shoot_unit(target_index: int) -> bool:
 ## Для IV+ ранга это может быть нос или хвост: обе клетки считаются целью,
 ## поэтому препятствие/дальность до одной половины не закрывает вторую.
 func _attack_cell_for_target(attacker: Dictionary, target: Dictionary) -> Vector2i:
-	var attacker_cell: Vector2i = attacker["cell"]
+	return _attack_cell_from(attacker, attacker["cell"], target)
+
+
+## То же самое, но из произвольной клетки: нужно оценке манёвра, чтобы ИИ
+## судил о залпе ровно по тем же правилам, по которым он потом состоится.
+func _attack_cell_from(attacker: Dictionary, attacker_cell: Vector2i, target: Dictionary) -> Vector2i:
 	var max_range := _stat(attacker, "range")
 	# Космический патруль (min_engage_range) не может навести орудие в упор —
 	# это не штраф к урону, а полный запрет залпа на такой дистанции.

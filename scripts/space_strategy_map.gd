@@ -2403,6 +2403,9 @@ func _award_quick_battle_experience(battle_units: Array, enemy_commanded: bool) 
 		var player_experience := BATTLE_REWARDS.experience_for_battle(battle_units, 1, true)
 		roster.award_experience(hero, player_experience)
 	if enemy_commanded and roster != null:
+		# roster приходит из get_node_or_null и типизирован как Node, поэтому
+		# вывести тип из enemy_hero() нельзя — аннотация обязательна, иначе
+		# скрипт не парсится (headless-тесты падали именно здесь).
 		var enemy_hero: Hero = roster.enemy_hero()
 		var enemy_experience := BATTLE_REWARDS.experience_for_battle(battle_units, 2)
 		roster.award_experience(enemy_hero, enemy_experience)
