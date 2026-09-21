@@ -16,7 +16,7 @@ const MUSIC_FADED_VOLUME_DB := -40.0
 ## картинками остаётся фолбэком, если слоёв нет.
 const MENU_LAYERS_DIR := "res://assets/ui/main_menu_layers"
 const MENU_BACKGROUNDS_DIR := "res://assets/ui/main_menu_backgrounds"
-const GAME_VERSION := "0.1.0"
+const GAME_VERSION := "0.2.0"
 const IntroVideoPlayer := preload("res://scripts/intro_video_player.gd")
 
 var status: Label
