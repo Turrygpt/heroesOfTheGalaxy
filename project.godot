@@ -22,6 +22,7 @@ HeroRoster="*res://scripts/hero_roster.gd"
 CampaignSave="*res://scripts/campaign_save.gd"
 ProceduralSfx="*res://scripts/procedural_sfx.gd"
 SampleSfx="*res://scripts/sample_sfx.gd"
+LanSession="*res://scripts/lan_session.gd"
 
 [display]
 

@@ -94,6 +94,7 @@ func _ready() -> void:
 	load_button.disabled = CampaignSave.read_save().is_empty()
 	_button(column, "Случайная карта", _random_game)
 	_button(column, "Настройки", GameSettings.open_menu)
+	_button(column, "Сетевая игра (LAN)", func() -> void: get_tree().change_scene_to_file("res://scenes/LanGame.tscn"))
 	_button(column, "Выход", get_tree().quit)
 
 	status = Label.new()
