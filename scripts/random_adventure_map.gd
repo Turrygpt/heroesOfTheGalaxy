@@ -295,16 +295,6 @@ func _production_owner_color(owner: int) -> Color:
 	return SIDE_COLORS[clampi(owner, 0, SIDE_COLORS.size() - 1)]
 
 
-func _draw_production_owner_markers() -> void:
-	for i in range(production_sites.size()):
-		if i >= production_owners.size() or production_owners[i] == 0:
-			continue
-		var color := _production_owner_color(production_owners[i])
-		var center := _footprint_center(production_sites[i].cell)
-		draw_circle(center, CELL_SIZE * 0.92, Color(color, 0.10))
-		draw_arc(center, CELL_SIZE * 0.92, 0.0, TAU, 48, color, 3.0, true)
-
-
 func _refresh_production_nameplate(index: int) -> void:
 	super._refresh_production_nameplate(index)
 	if index < 0 or index >= production_nameplates.size() or index >= production_owners.size():

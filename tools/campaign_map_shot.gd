@@ -21,7 +21,10 @@ func _run() -> void:
 			child.queue_free()
 	map.get_node("HUD").hide()
 	map.route_overlay.hide()
-	map._reveal_around(Vector2i(32, 32), 64)
+	# Обзорный снимок показывает и несюжетные флоты, скрытые в игре туманом.
+	map.fog_enabled = false
+	map.fog_overlay.hide()
+	map.guardian_overlay.queue_redraw()
 	await process_frame
 	await process_frame
 	map.camera.zoom = Vector2.ONE * (0.245 if overview else float(args[1]))

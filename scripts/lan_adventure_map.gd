@@ -322,9 +322,6 @@ func close_windows_for_battle() -> void:
 		if child is CanvasLayer and not child.is_queued_for_deletion() and child.get("strategy_map") == self:
 			_close_human_planet(child)
 
-func _draw_production_owner_markers() -> void:
-	pass
-
 func _refresh_production_nameplate(index: int) -> void:
 	if index < 0 or index >= production_nameplates.size() or index >= production_owners.size():
 		return

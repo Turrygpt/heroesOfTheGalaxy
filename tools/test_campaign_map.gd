@@ -66,6 +66,41 @@ func _run() -> void:
 			_check_footprint(map, occupied, guardian.cell, guardian.get("size", 1))
 		elif int(guardian.get("site_index", -1)) < 0:
 			_check_footprint(map, occupied, guardian.cell, 1)
+	var encounters: Array[Dictionary] = []
+	var pirate_encounters := 0
+	var trader_encounters := 0
+	var quadrants := {}
+	for guardian in map.guardians:
+		if not String(guardian.get("mission_id", "")).begins_with("encounter_"):
+			continue
+		encounters.append(guardian)
+		pirate_encounters += int(guardian.kind == "pirate")
+		trader_encounters += int(guardian.kind == "trader")
+		var quadrant := Vector2i(int(guardian.cell.x >= 32), int(guardian.cell.y >= 32))
+		quadrants[quadrant] = int(quadrants.get(quadrant, 0)) + 1
+		_check(not guardian.get("fleet", []).is_empty(), "Пустой встречный флот")
+	for i in range(encounters.size()):
+		for j in range(i + 1, encounters.size()):
+			_check(map._chebyshev_distance(encounters[i].cell, encounters[j].cell) >= 7,
+				"Встречные флоты стоят слишком тесно")
+	_check(encounters.size() == 11 and pirate_encounters == 6 and trader_encounters == 5,
+		"В первой миссии не хватает рассеянных пиратов и торговцев")
+	_check(quadrants.size() == 4, "Флоты не распределены по четырём районам")
+	for object in map.map_objects:
+		_check(String(object.kind) != "signal_post", "Удалённый сломанный маяк появился на карте")
+	# Новые встречи необязательны: их можно обойти, сохранив доступ к сюжету.
+	for guardian in encounters:
+		var radius := int(guardian.get("aggro_radius", 0))
+		for y in range(guardian.cell.y - radius, guardian.cell.y + radius + 1):
+			for x in range(guardian.cell.x - radius, guardian.cell.x + radius + 1):
+				var cell := Vector2i(x, y)
+				if map._cell_is_inside_map(cell):
+					map.navigation_grid.set_point_solid(cell, true)
+	for destination in [Vector2i(54, 4), Vector2i(5, 53), map.ORC_PLANET_CENTER]:
+		_check(not map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, destination).is_empty(),
+			"Дополнительные флоты перекрыли обязательный маршрут к " + str(destination))
+	map.navigation_grid.clear()
+	map._build_navigation_grid()
 	_check(not map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, map.ORC_PLANET_CENTER).is_empty(), "Марс недоступен")
 	var central_index := guardian_index(map, "central_patrol")
 	_check(central_index >= 0 and int(map.guardians[central_index].aggro_radius) == 2, "Центральный патруль должен контролировать квадрат 5×5")

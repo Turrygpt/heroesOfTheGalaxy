@@ -390,6 +390,12 @@ func _ready() -> void:
 	else:
 		for field in CampaignSave.MAP_FIELDS:
 			set(field, snapshot[field])
+		# Удалённый объект не возвращается из сохранений прежних версий.
+		for object in map_objects:
+			if String(object.get("kind", "")) == "signal_post":
+				object["consumed"] = true
+				for occupied_cell in _footprint_cells(object["cell"], int(object.get("size", 1))):
+					map_object_at.erase(occupied_cell)
 		weekly_movement_bonus = int(snapshot.get("weekly_movement_bonus", 0))
 		campaign_map_id = String(snapshot.get("campaign_map_id", ""))
 		player_faction = String(snapshot.get("player_faction", "earth"))
@@ -1069,7 +1075,6 @@ func _draw() -> void:
 	for row in range(MAP_SIZE.y + 1):
 		var y := row * CELL_SIZE
 		draw_line(Vector2(0.0, y), Vector2(map_pixel_size.x, y), Color(GRID_COLOR, 0.35) if not random_map_layout.is_empty() else GRID_COLOR, 2.0)
-	_draw_production_owner_markers()
 	if campaign_story != null and campaign_story.has_seen("pirate_complete"):
 		_draw_secret_passage_marker(Vector2i(22, 40), "Секретный фарватер")
 	if campaign_story != null and campaign_story.has_seen("trader_complete"):
@@ -1141,28 +1146,6 @@ func _on_ping_button_input(event: InputEvent) -> void:
 	elif event.button_index == MOUSE_BUTTON_LEFT:
 		$HUD/RightSidebar/Margin/VBox/MinimapFrame/Margin/Minimap.open_ping_dialog()
 		ping_button.accept_event()
-
-
-## Цветное кольцо показывает владельца захваченного месторождения прямо под
-## зданием: синий — игрок, красный — орки. Нейтральные здания не выделяются.
-func _draw_production_owner_markers() -> void:
-	for index in range(production_sites.size()):
-		if index >= production_owners.size():
-			continue
-		var owner := int(production_owners[index])
-		var color: Color
-		match owner:
-			1:
-				color = PLAYER_ONE_COLOR
-			2:
-				color = PLAYER_TWO_COLOR
-			_:
-				continue
-		var center := _footprint_center(production_sites[index]["cell"])
-		var radius := CELL_SIZE * 0.92
-		draw_circle(center, radius, Color(color, 0.10))
-		draw_arc(center, radius, 0.0, TAU, 48, Color(color, 0.9), 3.0, true)
-		draw_arc(center, radius + 5.0, 0.0, TAU, 48, Color(color, 0.35), 1.5, true)
 
 
 ## Маршрут огибает астероидные поля и прочие препятствия, а туманности
@@ -1368,10 +1351,17 @@ func _update_navigation_hud() -> void:
 		visible_guardian = bool(guardian["alive"]) and (String(guardian.get("object_kind", "")) != "" or is_cell_visible(hovered_cell))
 		if visible_guardian:
 			var object_kind := String(guardian.get("object_kind", ""))
+			var fleet_label := "Пиратский флот"
+			if String(guardian.get("kind", "")) == "trader":
+				fleet_label = "Торговый конвой"
+			elif String(guardian.get("kind", "")) == "patrol":
+				fleet_label = "Космический патруль"
 			var label: String = String(MapObjectDefs.get_kind(object_kind).get("name", "")) if object_kind != "" \
-				else ("Пиратский флот" if guardian["kind"] == "pirate" else "Торговый конвой")
+				else fleet_label
 			label = String(guardian.get("display_name", label))
 			terrain.text = "⚔ %s охраняет клетку · подойдите, чтобы завязать бой" % label
+			if object_kind.is_empty() and String(guardian.get("kind", "")) in ["pirate", "patrol"]:
+				terrain.text += " · радиус перехвата: %d" % int(guardian.get("aggro_radius", GUARDIAN_CONTROL_RADIUS))
 			if not object_kind.is_empty():
 				terrain.text += "\n" + String(MapObjectDefs.get_kind(object_kind).get("description", ""))
 			if guardian.get("mission_id", "") == "kowalski":
@@ -4318,9 +4308,6 @@ func _trigger_info(index: int) -> void:
 	if kind == "emergency_buoy":
 		_trigger_emergency_buoy(index)
 		return
-	if kind == "signal_post":
-		_trigger_signal_post(index)
-		return
 	if kind == "trading_post":
 		_open_trading_post("map_object", index)
 		return
@@ -4333,48 +4320,6 @@ func _trigger_info(index: int) -> void:
 	var description: String = pool[map_random.randi_range(0, pool.size() - 1)]
 	navigation_message = description
 	_show_object_reward_dialog(String(def.get("name", "Объект")), description, def.get("texture"))
-
-
-## Сломанный маяк передаёт фрагмент карты из ещё не исследованной области.
-## Если больших скрытых участков не осталось, раскрываем любой оставшийся.
-const SIGNAL_POST_REVEAL_RADIUS := 3
-const SIGNAL_POST_MIN_NEW_CELLS := 10
-
-
-func _trigger_signal_post(index: int) -> void:
-	if bool(map_objects[index].get("consumed", false)):
-		return
-	var candidates: Array[Vector2i] = []
-	var fallback: Array[Vector2i] = []
-	for x in range(MAP_SIZE.x):
-		for y in range(MAP_SIZE.y):
-			var center := Vector2i(x, y)
-			if explored_cells.has(center):
-				continue
-			fallback.append(center)
-			var hidden_count := 0
-			for dx in range(-SIGNAL_POST_REVEAL_RADIUS, SIGNAL_POST_REVEAL_RADIUS + 1):
-				for dy in range(-SIGNAL_POST_REVEAL_RADIUS, SIGNAL_POST_REVEAL_RADIUS + 1):
-					var cell := center + Vector2i(dx, dy)
-					if cell.x < 0 or cell.y < 0 or cell.x >= MAP_SIZE.x or cell.y >= MAP_SIZE.y:
-						continue
-					if Vector2i(dx, dy).length_squared() <= SIGNAL_POST_REVEAL_RADIUS * SIGNAL_POST_REVEAL_RADIUS and not explored_cells.has(cell):
-						hidden_count += 1
-			if hidden_count >= SIGNAL_POST_MIN_NEW_CELLS:
-				candidates.append(center)
-	map_objects[index]["consumed"] = true
-	var description := "На маяке сохранился фрагмент карты: открыт небольшой участок неисследованного космоса."
-	if candidates.is_empty():
-		candidates = fallback
-	if not candidates.is_empty():
-		var center: Vector2i = candidates[map_random.randi_range(0, candidates.size() - 1)]
-		_reveal_around(center, SIGNAL_POST_REVEAL_RADIUS)
-		fog_overlay.queue_redraw()
-		$HUD/RightSidebar/Margin/VBox/MinimapFrame/Margin/Minimap.queue_redraw()
-	else:
-		description = "Маяк передал фрагмент карты, но весь космос уже исследован."
-	navigation_message = description
-	_show_object_reward_dialog("Сломанный маяк", description, MapObjectDefs.get_kind("signal_post").get("texture"))
 
 
 func _trigger_archive_station(index: int) -> void:

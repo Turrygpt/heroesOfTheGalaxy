@@ -34,11 +34,6 @@ func _draw() -> void:
 		if object.get("consumed", false):
 			continue
 		_draw_object(strategy_map, object)
-		if MapObjectDefs.family(String(object["kind"])) == "weekly_site":
-			var size := int(object.get("size", 1))
-			var center: Vector2 = strategy_map._object_footprint_center(object["cell"], size)
-			var color := Color(String(MapObjectDefs.get_kind(String(object["kind"]))["color"]))
-			draw_arc(center, size * CELL_SIZE * 0.36, 0.0, TAU, 56, Color(color, 0.8), 3.0, true)
 		if _visited_this_week(object, hero_id, week):
 			var size := int(object.get("size", 1))
 			var center: Vector2 = strategy_map._object_footprint_center(object["cell"], size)

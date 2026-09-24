@@ -2288,11 +2288,6 @@ Vector2i(61, 52): 68
 "kind": "crashed_probe",
 "size": 1
 }, {
-"cell": Vector2i(17, 27),
-"consumed": false,
-"kind": "signal_post",
-"size": 1
-}, {
 "cell": Vector2i(45, 33),
 "consumed": false,
 "kind": "veteran_outpost",
@@ -2415,11 +2410,6 @@ Vector2i(61, 52): 68
 "cell": Vector2i(12, 48),
 "consumed": false,
 "kind": "flotsam_wreck",
-"size": 1
-}, {
-"cell": Vector2i(5, 50),
-"consumed": false,
-"kind": "signal_post",
 "size": 1
 }, {
 "cell": Vector2i(43, 56),

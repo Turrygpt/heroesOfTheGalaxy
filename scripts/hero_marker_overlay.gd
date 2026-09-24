@@ -1,16 +1,7 @@
 extends Node2D
 
-## Кольца-маркеры под флагманами (наш герой + вождь орков) — без них корабли
-## визуально терялись среди мин/строений на карте, хотя это самые важные
-## юниты. Перерисовывается каждый кадр (см. _process) — оба спрайта двигаются
-## из десятка мест в space_strategy_map.gd, дешевле всегда перерисовывать два
-## кольца, чем ловить каждую точку, где меняется ship_position/orc_ship_sprite.
-
-const RING_RADIUS := 46.0
-const GLOW_RADIUS := 60.0
-const RING_WIDTH := 5.0
-const INNER_RING_RADIUS := 38.0
-const INNER_RING_WIDTH := 2.0
+## Небольшая метка над кораблём помогает найти командующего без круговой
+## подложки, закрывающей станции и соседние клетки.
 
 
 func _process(_delta: float) -> void:
@@ -26,6 +17,7 @@ func _draw() -> void:
 
 
 func _draw_marker(center: Vector2, color: Color) -> void:
-	draw_circle(center, GLOW_RADIUS, Color(color, 0.14))
-	draw_arc(center, RING_RADIUS, 0.0, TAU, 48, color, RING_WIDTH, true)
-	draw_arc(center, INNER_RING_RADIUS, 0.0, TAU, 40, Color(color, 0.65), INNER_RING_WIDTH, true)
+	var tip := center + Vector2(0.0, -38.0)
+	draw_colored_polygon(PackedVector2Array([
+		tip, tip + Vector2(-9.0, -15.0), tip + Vector2(9.0, -15.0),
+	]), color)

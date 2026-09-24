@@ -224,12 +224,6 @@ const KINDS := {
 		"texture": preload("res://assets/map_objects/distress_signal.png"),
 	},
 	# --- Информация -----------------------------------------------------------
-	## Сломанный маяк один раз передаёт небольшой фрагмент неизведанной карты.
-	"signal_post": {
-		"description": "Один фрагмент неисследованной карты. После передачи маяк исчезает.",
-		"family": "info", "name": "Сломанный маяк", "glyph": "➤", "color": "8da7ba", "repeatable": false,
-		"texture": preload("res://assets/map_objects/signal_post.png"),
-	},
 	"emergency_buoy": {
 		"description": "Координаты скрытого охраняемого склада и небольшой аварийный запас. После сбора исчезает.",
 		"family": "info", "name": "Аварийный буй", "glyph": "i", "color": "8da7ba", "repeatable": false,
@@ -306,7 +300,6 @@ const SPAWN_COUNT := {
 	"distress_signal": 3,
 	"emergency_buoy": 3,
 	"archive_station": 2,
-	"signal_post": 4,
 }
 const WORMHOLE_PAIR_COUNT := 2
 

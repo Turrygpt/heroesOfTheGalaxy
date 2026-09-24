@@ -7,13 +7,13 @@ const FLEXIBLE_SITES := ["hero_strength_station", "hero_defense_station",
 	"hero_protocol_station", "hero_knowledge_station", "impulse_station", "observation_tower",
 	"weekly_shipyard", "weekly_resource_hub", "weekly_credit_terminal"]
 const OPTIONAL_PICKUPS := ["resource_cache", "cargo_container", "flotsam_wreck",
-	"artifact_cache", "crashed_probe", "signal_post", "emergency_buoy",
+	"artifact_cache", "crashed_probe", "emergency_buoy",
 	"beacon", "distress_signal"]
 ## Небольшие контейнеры не требуют площадки 3×3, как станции.
 const RESOURCE_PILE_AREA := 42.0
 const FLAVOR_PICKUP_AREA := 260.0
 const FLAVOR_PICKUPS := ["cargo_container", "flotsam_wreck", "crashed_probe",
-	"signal_post", "emergency_buoy", "beacon", "distress_signal"]
+	"emergency_buoy", "beacon", "distress_signal"]
 var options: Dictionary = {}
 var region_cells: Array = []
 var starting_production: Array[Dictionary] = []

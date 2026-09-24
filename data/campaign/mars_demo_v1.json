@@ -293,8 +293,8 @@
       "id": "landmark_3",
       "kind": "upgrade_lab",
       "cell": [
-        14,
-        11
+        21,
+        23
       ],
       "size": 2
     },
@@ -376,15 +376,6 @@
       "cell": [
         12,
         43
-      ],
-      "size": 1
-    },
-    {
-      "id": "landmark_13",
-      "kind": "signal_post",
-      "cell": [
-        24,
-        24
       ],
       "size": 1
     },
@@ -629,7 +620,7 @@
       "kind": "weekly_shipyard",
       "cell": [
         16,
-        12
+        29
       ],
       "size": 2,
       "ship_tier": 1,
@@ -639,8 +630,8 @@
       "id": "demo_resource_hub",
       "kind": "weekly_resource_hub",
       "cell": [
-        11,
-        18
+        14,
+        36
       ],
       "size": 2,
       "resource_name": "Энергокристаллы",
@@ -650,8 +641,8 @@
       "id": "demo_impulse",
       "kind": "impulse_station",
       "cell": [
-        16,
-        18
+        46,
+        41
       ],
       "size": 1
     },
@@ -659,8 +650,8 @@
       "id": "demo_observation",
       "kind": "observation_tower",
       "cell": [
-        23,
-        18
+        47,
+        20
       ],
       "size": 1
     },
@@ -678,8 +669,8 @@
       "id": "demo_forward_reactor",
       "kind": "archive_station",
       "cell": [
-        36,
-        38
+        44,
+        47
       ],
       "size": 1
     },
@@ -761,6 +752,83 @@
       "template": "weak",
       "name": "Охрана тайника",
       "aggro_radius": 1
+    },
+    {
+      "id": "encounter_earth_raiders",
+      "cell": [15, 20],
+      "template": "weak",
+      "name": "Пираты у контейнера",
+      "aggro_radius": 1
+    },
+    {
+      "id": "encounter_earth_traders",
+      "cell": [26, 13],
+      "template": "trader_weak",
+      "name": "Вольный караван",
+      "aggro_radius": 0
+    },
+    {
+      "id": "encounter_north_convoy",
+      "cell": [41, 18],
+      "template": "trader_medium",
+      "name": "Караван северного рукава",
+      "aggro_radius": 0
+    },
+    {
+      "id": "encounter_north_raiders",
+      "cell": [51, 18],
+      "template": "medium",
+      "name": "Пираты торгового пути",
+      "aggro_radius": 1
+    },
+    {
+      "id": "encounter_harbor_traders",
+      "cell": [51, 9],
+      "template": "trader_weak",
+      "name": "Гаванский караван",
+      "aggro_radius": 0
+    },
+    {
+      "id": "encounter_south_hub",
+      "cell": [16, 37],
+      "template": "medium",
+      "name": "Пираты добывающего узла",
+      "aggro_radius": 1
+    },
+    {
+      "id": "encounter_smuggler_traders",
+      "cell": [5, 42],
+      "template": "trader_weak",
+      "name": "Караван контрабандистов",
+      "aggro_radius": 0
+    },
+    {
+      "id": "encounter_south_raiders",
+      "cell": [16, 50],
+      "template": "medium",
+      "name": "Пираты южной дуги",
+      "aggro_radius": 1
+    },
+    {
+      "id": "encounter_mars_impulse",
+      "cell": [45, 41],
+      "template": "medium",
+      "name": "Налётчики импульсной станции",
+      "aggro_radius": 1
+    },
+    {
+      "id": "encounter_mars_convoy",
+      "cell": [52, 43],
+      "template": "trader_medium",
+      "name": "Марсианский караван",
+      "aggro_radius": 0
+    },
+    {
+      "id": "encounter_mars_raiders",
+      "cell": [44, 51],
+      "template": "strong",
+      "name": "Пираты марсианского рукава",
+      "aggro_radius": 1
     }
   ],
   "slow_zones": [
@@ -839,5 +907,5 @@
       "color": "e89979"
     }
   ],
-  "revision": 4
+  "revision": 5
 }

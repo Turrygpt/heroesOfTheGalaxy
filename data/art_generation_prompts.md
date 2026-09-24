@@ -112,14 +112,6 @@ PNG по пути, кружок заменится сам.
 > faction markings, semi-realistic 3D render, 3/4 top-down angle, fully
 > transparent background, no text, no UI, single object centered in frame.
 
-**Сигнальный маяк** — `assets/map_objects/signal_post.png`
-> A small free-floating sci-fi navigation buoy drifting in space (not
-> mounted on any post or pole — it has its own thruster pod and antenna
-> vanes so it holds position on its own), a slim hull with a rotating
-> beacon light, weathered pale metal, soft cyan-grey glow, semi-realistic
-> 3D render, 3/4 top-down angle, fully transparent background, no text,
-> no UI, single object centered in frame.
-
 ---
 
 ## 2. Патрульные корабли — механика уже есть, не хватает узнаваемости

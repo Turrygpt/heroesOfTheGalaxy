@@ -52,11 +52,11 @@ const REGION_SPECIALS := ["archive_station", "stellar_observatory", "knowledge_r
 const OBELISK_REGIONS := [1, 3, 5, 7]
 ## Области без производства получают мелочь взамен, чтобы плотность целей не
 ## проваливалась в середине карты.
-const PICKUP_ROTATION := ["flotsam_wreck", "artifact_cache", "crashed_probe", "signal_post",
+const PICKUP_ROTATION := ["flotsam_wreck", "artifact_cache", "crashed_probe",
 	"emergency_buoy", "beacon"]
 const PRODUCTION_REGIONS := [[0, 1, 3], [8, 7, 5]]
 const THEMED_PICKUPS := {"ice": "crashed_probe", "crystal": "artifact_cache", "dead": "flotsam_wreck",
-	"volcanic": "distress_signal", "ion": "beacon", "pirate": "emergency_buoy", "trader": "signal_post"}
+	"volcanic": "distress_signal", "ion": "beacon", "pirate": "emergency_buoy", "trader": "cargo_container"}
 const DIRECTIONS: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 const RESOURCES: Array[String] = ["Продукты", "Руда", "Научные данные", "Энергокристаллы", "Топливо", "Радиоизотопы"]
 var rng := RandomNumberGenerator.new()
