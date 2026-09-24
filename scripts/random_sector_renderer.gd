@@ -32,8 +32,9 @@ const PROP_POOLS := {
 const CELL := 96.0
 const MIN_PROP_WIDTH := 64.0
 const MAX_PROP_WIDTH := 104.0
-## Один акцент лишь у части препятствий, максимум 24 на всю карту.
-const MAX_ACCENTS := 24
+## Акценты масштабируются с площадью карты: области не остаются пустыми.
+const ACCENT_AREA_STEP := 90
+const MAX_ACCENTS := 160
 var props_count := 0
 var max_prop_width := 0.0
 var used_sheets := {}
@@ -42,6 +43,7 @@ var accent_cells: Array[Vector2i] = []
 
 func _ready() -> void:
 	var map: Node2D = get_parent().get_parent()
+	var accent_limit: int = mini(MAX_ACCENTS, maxi(24, map.MAP_SIZE.x * map.MAP_SIZE.y / ACCENT_AREA_STEP))
 	var forbidden: Dictionary = map.map_generation.build_reserved_cells().duplicate()
 	for source: Dictionary in [map.map_object_at, map.guardian_at, map.passage_at]:
 		for cell: Vector2i in source:
@@ -49,13 +51,13 @@ func _ready() -> void:
 				for y in range(-2, 3):
 					forbidden[cell + Vector2i(x, y)] = true
 	for feature: Dictionary in map.obstacles:
-		if props_count >= MAX_ACCENTS:
+		if props_count >= accent_limit:
 			break
 		if String(feature.kind) in ["rift", "nebula", "radiation_front"]:
 			continue
 		var rng := RandomNumberGenerator.new()
 		rng.seed = int(feature.seed)
-		if rng.randf() > 0.55:
+		if rng.randf() > 0.7:
 			continue
 		var biome := String(feature.get("biome", "human"))
 		if not Defs.THEMES.has(biome):
@@ -68,7 +70,7 @@ func _ready() -> void:
 				continue
 			var too_close := false
 			for other in accent_cells:
-				if Vector2(cell - other).length() < 4.0:
+				if Vector2(cell - other).length() < 3.0:
 					too_close = true
 			if too_close:
 				continue

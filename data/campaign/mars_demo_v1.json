@@ -245,6 +245,42 @@
       "size": 1
     },
     {
+      "id": "hero_strength_station",
+      "kind": "hero_strength_station",
+      "cell": [
+        18,
+        8
+      ],
+      "size": 1
+    },
+    {
+      "id": "hero_protocol_station",
+      "kind": "hero_protocol_station",
+      "cell": [
+        30,
+        10
+      ],
+      "size": 1
+    },
+    {
+      "id": "hero_defense_station",
+      "kind": "hero_defense_station",
+      "cell": [
+        10,
+        27
+      ],
+      "size": 1
+    },
+    {
+      "id": "hero_knowledge_station",
+      "kind": "hero_knowledge_station",
+      "cell": [
+        48,
+        33
+      ],
+      "size": 1
+    },
+    {
       "id": "landmark_2",
       "kind": "knowledge_relay",
       "cell": [

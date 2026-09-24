@@ -67,7 +67,7 @@ const UNITS := {
 		"move": 7, "range": 2, "initiative": 11, "sprite_width": 124.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/orc/piranha.png"), "region": Rect2(0, 0, 1330, 556),
 		"kind": "orc_dwelling", "dwelling": "ork_gunship_yard", "dwelling_level": 1,
-		"cost": {"credits": 300}, "weekly_growth": 6,
+		"cost": {"credits": 200}, "weekly_growth": 6,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	"ork_elite_gunship": {
@@ -76,7 +76,7 @@ const UNITS := {
 		"move": 7, "range": 2, "initiative": 12, "sprite_width": 132.0, "weapon_type": "rocket",
 		"texture": preload("res://assets/ships/orc/elite_piranha.png"), "region": Rect2(0, 0, 1336, 560),
 		"kind": "orc_dwelling", "dwelling": "ork_gunship_yard", "dwelling_level": 2,
-		"cost": {"credits": 500}, "weekly_growth": 5,
+		"cost": {"credits": 330}, "weekly_growth": 5,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	# --- III ранг: корветы --------------------------------------------------
@@ -86,7 +86,7 @@ const UNITS := {
 		"move": 6, "range": 3, "initiative": 9, "sprite_width": 140.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/shark.png"), "region": Rect2(0, 0, 1644, 583),
 		"kind": "orc_dwelling", "dwelling": "ork_corvette_yard", "dwelling_level": 1,
-		"cost": {"credits": 800}, "weekly_growth": 4,
+		"cost": {"credits": 350}, "weekly_growth": 4,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	"ork_elite_corvette": {
@@ -95,7 +95,7 @@ const UNITS := {
 		"move": 6, "range": 4, "initiative": 9, "sprite_width": 150.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/elite_shark.png"), "region": Rect2(0, 0, 1645, 584),
 		"kind": "orc_dwelling", "dwelling": "ork_corvette_yard", "dwelling_level": 2,
-		"cost": {"credits": 1300}, "weekly_growth": 3,
+		"cost": {"credits": 570}, "weekly_growth": 3,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	# --- IV ранг: фрегаты ---------------------------------------------------
@@ -105,7 +105,7 @@ const UNITS := {
 		"move": 5, "range": 3, "initiative": 7, "sprite_width": 155.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/katran.png"), "region": Rect2(0, 0, 1624, 576),
 		"kind": "orc_dwelling", "dwelling": "ork_frigate_yard", "dwelling_level": 1,
-		"cost": {"credits": 1800}, "weekly_growth": 2,
+		"cost": {"credits": 600}, "weekly_growth": 2,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	"ork_elite_frigate": {
@@ -114,7 +114,7 @@ const UNITS := {
 		"move": 5, "range": 4, "initiative": 7, "sprite_width": 165.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/orc/elite_katran.png"), "region": Rect2(0, 0, 1628, 576),
 		"kind": "orc_dwelling", "dwelling": "ork_frigate_yard", "dwelling_level": 2,
-		"cost": {"credits": 3200}, "weekly_growth": 1,
+		"cost": {"credits": 950}, "weekly_growth": 1,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	# --- V ранг: эсминцы ----------------------------------------------------
@@ -124,7 +124,7 @@ const UNITS := {
 		"move": 4, "range": 4, "initiative": 6, "sprite_width": 170.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/orc/dragon.png"), "region": Rect2(0, 0, 1582, 567),
 		"kind": "orc_dwelling", "dwelling": "ork_destroyer_yard", "dwelling_level": 1,
-		"cost": {"credits": 3600, "Топливо": 2, "Радиоизотопы": 2}, "weekly_growth": 1,
+		"cost": {"credits": 1000, "Топливо": 2, "Радиоизотопы": 2}, "weekly_growth": 1,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 	"ork_elite_destroyer": {
@@ -133,7 +133,7 @@ const UNITS := {
 		"move": 5, "range": 5, "initiative": 7, "sprite_width": 180.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/orc/elite_dragon.png"), "region": Rect2(0, 0, 1644, 565),
 		"kind": "orc_dwelling", "dwelling": "ork_destroyer_yard", "dwelling_level": 2,
-		"cost": {"credits": 5200, "Топливо": 2, "Радиоизотопы": 2}, "weekly_growth": 1,
+		"cost": {"credits": 1500, "Топливо": 2, "Радиоизотопы": 2}, "weekly_growth": 1,
 		"damage_factor": DAMAGE_FACTOR, "damage_hint": DAMAGE_HINT, "faction": "orc",
 	},
 }

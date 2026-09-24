@@ -8,14 +8,23 @@ const RESOURCES: Array[String] = ["ore", "fuel", "food", "crystals", "isotopes",
 const RESOURCE_NAMES := {"ore": "Руда", "fuel": "Топливо", "food": "Продукты", "crystals": "Энергокристаллы", "isotopes": "Радиоизотопы", "science": "Научные данные", "credits": "Кредиты"}
 const YARDS: Array[String] = ["fighter_yard", "gunship_yard", "corvette_yard", "frigate_yard", "destroyer_yard"]
 const BUILDINGS := {"townhall": "Штаб", "fort": "Форт", "fighter_yard": "Ангар истребителей", "gunship_yard": "Ангар штурмовиков", "corvette_yard": "Верфь корветов", "frigate_yard": "Верфь фрегатов", "destroyer_yard": "Верфь эсминцев"}
+const FIXED_MAP_PATH := "res://data/multiplayer/four_corners_v1.json"
 const MOVEMENT := 24
 var state: Dictionary = {}
 
 func generate(roster: Dictionary, side: int, map_seed: int) -> void:
+	var layout: Dictionary = {}
+	if side == 64:
+		layout = JSON.parse_string(FileAccess.get_file_as_string(FIXED_MAP_PATH))
+		map_seed = int(layout.seed)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = map_seed
 	state = {"size": side, "seed": map_seed, "day": 1, "turn": 0, "revision": 0, "players": [], "objects": {}, "blocked": {}, "battle": {}, "winner": -1, "message": "Экспедиция началась"}
 	var corners := [Vector2i(5, 5), Vector2i(side - 6, side - 6), Vector2i(side - 6, 5), Vector2i(5, side - 6)]
+	if not layout.is_empty():
+		corners.clear()
+		for point in layout.starts:
+			corners.append(Vector2i(int(point[0]), int(point[1])))
 	var reserved := {}
 	for peer in roster:
 		var slot: int = state.players.size()
@@ -31,12 +40,17 @@ func generate(roster: Dictionary, side: int, map_seed: int) -> void:
 			p.resources[resource] = 6000 if resource == "credits" else 15
 		state.players.append(p)
 		reserved[start] = true
+		if not layout.is_empty():
+			continue
 		# Каждый старт получает шесть своих предприятий, по одному каждого вида.
 		var offsets := [Vector2i(2, 0), Vector2i(0, 2), Vector2i(-2, 0), Vector2i(0, -2), Vector2i(2, 2), Vector2i(-2, -2)]
 		for i in range(6):
 			var cell: Vector2i = start + offsets[i]
 			state.objects[cell] = {"kind": "mine", "resource": RESOURCES[i], "owner": slot}
 			reserved[cell] = true
+	if not layout.is_empty():
+		_load_fixed_layout(layout, corners)
+		return
 	# Симметричная свободная стартовая зона и открытые оси гарантируют выход из углов.
 	for y in range(side):
 		for x in range(side):
@@ -65,6 +79,25 @@ func generate(roster: Dictionary, side: int, map_seed: int) -> void:
 			nearest = mini(nearest, distance(cell, start))
 		_place_object(cell, rng.randi_range(0, 4), clampi(1 + nearest / 10, 1, 5), rng)
 		reserved[cell] = true
+
+## Геометрия хранится в JSON; число участников меняет только владельцев стартов.
+func _load_fixed_layout(layout: Dictionary, corners: Array) -> void:
+	state["map_id"] = str(layout.id)
+	state["map_name"] = str(layout.name)
+	for point in layout.blocked:
+		state.blocked[Vector2i(int(point[0]), int(point[1]))] = true
+	for entry in layout.objects:
+		var obj: Dictionary = entry.duplicate(true)
+		var point: Array = obj.cell
+		obj.erase("cell")
+		if obj.has("start_slot"):
+			var slot := int(obj.start_slot)
+			obj.owner = slot if slot < state.players.size() else -1
+			obj.erase("start_slot")
+		state.objects[Vector2i(int(point[0]), int(point[1]))] = obj
+	# Незанятые столицы остаются нейтральными планетами с охраной и доходом базы.
+	for slot in range(state.players.size(), corners.size()):
+		state.objects[corners[slot]] = {"kind": "outpost", "planet": true, "owner": -1, "tier": 2, "army": {"raider": 18, "pirate_corvette": 4}}
 
 func _place_object(cell: Vector2i, kind: int, tier: int, rng: RandomNumberGenerator) -> void:
 	match kind:
@@ -314,5 +347,5 @@ func _check_winner() -> void:
 	for i in range(state.players.size()):
 		if state.players[i].alive:
 			alive.append(i)
-	if alive.size() == 1:
+	if state.players.size() > 1 and alive.size() == 1:
 		state.winner = alive[0]

@@ -22,17 +22,17 @@ const UNIT_OFFERS := {
 	"trader_corvette": {
 		"growth": 3,
 		"capacity": 3,
-		"cost": {"credits": 720},
+		"cost": {"credits": 315},
 	},
 	"trader_frigate": {
 		"growth": 2,
 		"capacity": 2,
-		"cost": {"credits": 1620},
+		"cost": {"credits": 540},
 	},
 	"trader_destroyer": {
 		"growth": 1,
 		"capacity": 1,
-		"cost": {"credits": 3240, "Топливо": 2, "Радиоизотопы": 2},
+		"cost": {"credits": 900, "Топливо": 2, "Радиоизотопы": 2},
 	},
 }
 

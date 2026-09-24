@@ -1,0 +1,1170 @@
+{
+  "id": "four_corners_v1",
+  "name": "Четыре рубежа",
+  "size": 64,
+  "seed": 220926,
+  "starts": [
+    [
+      7,
+      7
+    ],
+    [
+      56,
+      56
+    ],
+    [
+      56,
+      7
+    ],
+    [
+      7,
+      56
+    ]
+  ],
+  "objects": [
+    {
+      "cell": [
+        11,
+        7
+      ],
+      "kind": "mine",
+      "resource": "ore",
+      "start_slot": 0
+    },
+    {
+      "cell": [
+        7,
+        11
+      ],
+      "kind": "mine",
+      "resource": "fuel",
+      "start_slot": 0
+    },
+    {
+      "cell": [
+        3,
+        7
+      ],
+      "kind": "mine",
+      "resource": "food",
+      "start_slot": 0
+    },
+    {
+      "cell": [
+        7,
+        3
+      ],
+      "kind": "mine",
+      "resource": "crystals",
+      "start_slot": 0
+    },
+    {
+      "cell": [
+        11,
+        3
+      ],
+      "kind": "mine",
+      "resource": "isotopes",
+      "start_slot": 0
+    },
+    {
+      "cell": [
+        3,
+        11
+      ],
+      "kind": "mine",
+      "resource": "science",
+      "start_slot": 0
+    },
+    {
+      "cell": [
+        3,
+        16
+      ],
+      "kind": "cache",
+      "resource": "credits",
+      "amount": 10
+    },
+    {
+      "cell": [
+        16,
+        3
+      ],
+      "kind": "cache",
+      "resource": "ore",
+      "amount": 8
+    },
+    {
+      "cell": [
+        15,
+        11
+      ],
+      "kind": "cache",
+      "resource": "fuel",
+      "amount": 8
+    },
+    {
+      "cell": [
+        11,
+        16
+      ],
+      "kind": "cache",
+      "resource": "crystals",
+      "amount": 8
+    },
+    {
+      "cell": [
+        18,
+        15
+      ],
+      "kind": "patrol",
+      "tier": 1,
+      "army": {
+        "raider": 7
+      }
+    },
+    {
+      "cell": [
+        15,
+        22
+      ],
+      "kind": "relic",
+      "tier": 2,
+      "army": {
+        "raider": 10,
+        "pirate_corvette": 2
+      }
+    },
+    {
+      "cell": [
+        23,
+        10
+      ],
+      "kind": "outpost",
+      "tier": 2,
+      "army": {
+        "raider": 18,
+        "pirate_corvette": 4
+      },
+      "owner": -1
+    },
+    {
+      "cell": [
+        25,
+        25
+      ],
+      "kind": "relic",
+      "tier": 3,
+      "army": {
+        "raider": 13,
+        "pirate_corvette": 3
+      }
+    },
+    {
+      "cell": [
+        27,
+        18
+      ],
+      "kind": "patrol",
+      "tier": 3,
+      "army": {
+        "raider": 13,
+        "pirate_corvette": 3
+      }
+    },
+    {
+      "cell": [
+        21,
+        5
+      ],
+      "kind": "mine",
+      "resource": "science",
+      "owner": -1
+    },
+    {
+      "cell": [
+        5,
+        23
+      ],
+      "kind": "mine",
+      "resource": "isotopes",
+      "owner": -1
+    },
+    {
+      "cell": [
+        22,
+        19
+      ],
+      "kind": "mine",
+      "resource": "crystals",
+      "owner": -1
+    },
+    {
+      "cell": [
+        52,
+        56
+      ],
+      "kind": "mine",
+      "resource": "ore",
+      "start_slot": 1
+    },
+    {
+      "cell": [
+        56,
+        52
+      ],
+      "kind": "mine",
+      "resource": "fuel",
+      "start_slot": 1
+    },
+    {
+      "cell": [
+        60,
+        56
+      ],
+      "kind": "mine",
+      "resource": "food",
+      "start_slot": 1
+    },
+    {
+      "cell": [
+        56,
+        60
+      ],
+      "kind": "mine",
+      "resource": "crystals",
+      "start_slot": 1
+    },
+    {
+      "cell": [
+        52,
+        60
+      ],
+      "kind": "mine",
+      "resource": "isotopes",
+      "start_slot": 1
+    },
+    {
+      "cell": [
+        60,
+        52
+      ],
+      "kind": "mine",
+      "resource": "science",
+      "start_slot": 1
+    },
+    {
+      "cell": [
+        60,
+        47
+      ],
+      "kind": "cache",
+      "resource": "credits",
+      "amount": 10
+    },
+    {
+      "cell": [
+        47,
+        60
+      ],
+      "kind": "cache",
+      "resource": "ore",
+      "amount": 8
+    },
+    {
+      "cell": [
+        48,
+        52
+      ],
+      "kind": "cache",
+      "resource": "fuel",
+      "amount": 8
+    },
+    {
+      "cell": [
+        52,
+        47
+      ],
+      "kind": "cache",
+      "resource": "crystals",
+      "amount": 8
+    },
+    {
+      "cell": [
+        45,
+        48
+      ],
+      "kind": "patrol",
+      "tier": 1,
+      "army": {
+        "raider": 7
+      }
+    },
+    {
+      "cell": [
+        48,
+        41
+      ],
+      "kind": "relic",
+      "tier": 2,
+      "army": {
+        "raider": 10,
+        "pirate_corvette": 2
+      }
+    },
+    {
+      "cell": [
+        40,
+        53
+      ],
+      "kind": "outpost",
+      "tier": 2,
+      "army": {
+        "raider": 18,
+        "pirate_corvette": 4
+      },
+      "owner": -1
+    },
+    {
+      "cell": [
+        38,
+        38
+      ],
+      "kind": "relic",
+      "tier": 3,
+      "army": {
+        "raider": 13,
+        "pirate_corvette": 3
+      }
+    },
+    {
+      "cell": [
+        36,
+        45
+      ],
+      "kind": "patrol",
+      "tier": 3,
+      "army": {
+        "raider": 13,
+        "pirate_corvette": 3
+      }
+    },
+    {
+      "cell": [
+        42,
+        58
+      ],
+      "kind": "mine",
+      "resource": "science",
+      "owner": -1
+    },
+    {
+      "cell": [
+        58,
+        40
+      ],
+      "kind": "mine",
+      "resource": "isotopes",
+      "owner": -1
+    },
+    {
+      "cell": [
+        41,
+        44
+      ],
+      "kind": "mine",
+      "resource": "crystals",
+      "owner": -1
+    },
+    {
+      "cell": [
+        52,
+        7
+      ],
+      "kind": "mine",
+      "resource": "ore",
+      "start_slot": 2
+    },
+    {
+      "cell": [
+        56,
+        11
+      ],
+      "kind": "mine",
+      "resource": "fuel",
+      "start_slot": 2
+    },
+    {
+      "cell": [
+        60,
+        7
+      ],
+      "kind": "mine",
+      "resource": "food",
+      "start_slot": 2
+    },
+    {
+      "cell": [
+        56,
+        3
+      ],
+      "kind": "mine",
+      "resource": "crystals",
+      "start_slot": 2
+    },
+    {
+      "cell": [
+        52,
+        3
+      ],
+      "kind": "mine",
+      "resource": "isotopes",
+      "start_slot": 2
+    },
+    {
+      "cell": [
+        60,
+        11
+      ],
+      "kind": "mine",
+      "resource": "science",
+      "start_slot": 2
+    },
+    {
+      "cell": [
+        60,
+        16
+      ],
+      "kind": "cache",
+      "resource": "credits",
+      "amount": 10
+    },
+    {
+      "cell": [
+        47,
+        3
+      ],
+      "kind": "cache",
+      "resource": "ore",
+      "amount": 8
+    },
+    {
+      "cell": [
+        48,
+        11
+      ],
+      "kind": "cache",
+      "resource": "fuel",
+      "amount": 8
+    },
+    {
+      "cell": [
+        52,
+        16
+      ],
+      "kind": "cache",
+      "resource": "crystals",
+      "amount": 8
+    },
+    {
+      "cell": [
+        45,
+        15
+      ],
+      "kind": "patrol",
+      "tier": 1,
+      "army": {
+        "raider": 7
+      }
+    },
+    {
+      "cell": [
+        48,
+        22
+      ],
+      "kind": "relic",
+      "tier": 2,
+      "army": {
+        "raider": 10,
+        "pirate_corvette": 2
+      }
+    },
+    {
+      "cell": [
+        40,
+        10
+      ],
+      "kind": "outpost",
+      "tier": 2,
+      "army": {
+        "raider": 18,
+        "pirate_corvette": 4
+      },
+      "owner": -1
+    },
+    {
+      "cell": [
+        38,
+        25
+      ],
+      "kind": "relic",
+      "tier": 3,
+      "army": {
+        "raider": 13,
+        "pirate_corvette": 3
+      }
+    },
+    {
+      "cell": [
+        36,
+        18
+      ],
+      "kind": "patrol",
+      "tier": 3,
+      "army": {
+        "raider": 13,
+        "pirate_corvette": 3
+      }
+    },
+    {
+      "cell": [
+        42,
+        5
+      ],
+      "kind": "mine",
+      "resource": "science",
+      "owner": -1
+    },
+    {
+      "cell": [
+        58,
+        23
+      ],
+      "kind": "mine",
+      "resource": "isotopes",
+      "owner": -1
+    },
+    {
+      "cell": [
+        41,
+        19
+      ],
+      "kind": "mine",
+      "resource": "crystals",
+      "owner": -1
+    },
+    {
+      "cell": [
+        11,
+        56
+      ],
+      "kind": "mine",
+      "resource": "ore",
+      "start_slot": 3
+    },
+    {
+      "cell": [
+        7,
+        52
+      ],
+      "kind": "mine",
+      "resource": "fuel",
+      "start_slot": 3
+    },
+    {
+      "cell": [
+        3,
+        56
+      ],
+      "kind": "mine",
+      "resource": "food",
+      "start_slot": 3
+    },
+    {
+      "cell": [
+        7,
+        60
+      ],
+      "kind": "mine",
+      "resource": "crystals",
+      "start_slot": 3
+    },
+    {
+      "cell": [
+        11,
+        60
+      ],
+      "kind": "mine",
+      "resource": "isotopes",
+      "start_slot": 3
+    },
+    {
+      "cell": [
+        3,
+        52
+      ],
+      "kind": "mine",
+      "resource": "science",
+      "start_slot": 3
+    },
+    {
+      "cell": [
+        3,
+        47
+      ],
+      "kind": "cache",
+      "resource": "credits",
+      "amount": 10
+    },
+    {
+      "cell": [
+        16,
+        60
+      ],
+      "kind": "cache",
+      "resource": "ore",
+      "amount": 8
+    },
+    {
+      "cell": [
+        15,
+        52
+      ],
+      "kind": "cache",
+      "resource": "fuel",
+      "amount": 8
+    },
+    {
+      "cell": [
+        11,
+        47
+      ],
+      "kind": "cache",
+      "resource": "crystals",
+      "amount": 8
+    },
+    {
+      "cell": [
+        18,
+        48
+      ],
+      "kind": "patrol",
+      "tier": 1,
+      "army": {
+        "raider": 7
+      }
+    },
+    {
+      "cell": [
+        15,
+        41
+      ],
+      "kind": "relic",
+      "tier": 2,
+      "army": {
+        "raider": 10,
+        "pirate_corvette": 2
+      }
+    },
+    {
+      "cell": [
+        23,
+        53
+      ],
+      "kind": "outpost",
+      "tier": 2,
+      "army": {
+        "raider": 18,
+        "pirate_corvette": 4
+      },
+      "owner": -1
+    },
+    {
+      "cell": [
+        25,
+        38
+      ],
+      "kind": "relic",
+      "tier": 3,
+      "army": {
+        "raider": 13,
+        "pirate_corvette": 3
+      }
+    },
+    {
+      "cell": [
+        27,
+        45
+      ],
+      "kind": "patrol",
+      "tier": 3,
+      "army": {
+        "raider": 13,
+        "pirate_corvette": 3
+      }
+    },
+    {
+      "cell": [
+        21,
+        58
+      ],
+      "kind": "mine",
+      "resource": "science",
+      "owner": -1
+    },
+    {
+      "cell": [
+        5,
+        40
+      ],
+      "kind": "mine",
+      "resource": "isotopes",
+      "owner": -1
+    },
+    {
+      "cell": [
+        22,
+        44
+      ],
+      "kind": "mine",
+      "resource": "crystals",
+      "owner": -1
+    },
+    {
+      "cell": [
+        28,
+        31
+      ],
+      "kind": "outpost",
+      "tier": 5,
+      "army": {
+        "raider": 24,
+        "pirate_corvette": 10
+      },
+      "owner": -1
+    },
+    {
+      "cell": [
+        35,
+        32
+      ],
+      "kind": "outpost",
+      "tier": 5,
+      "army": {
+        "raider": 24,
+        "pirate_corvette": 10
+      },
+      "owner": -1
+    },
+    {
+      "cell": [
+        31,
+        27
+      ],
+      "kind": "relic",
+      "tier": 5,
+      "army": {
+        "raider": 24,
+        "pirate_corvette": 10
+      }
+    },
+    {
+      "cell": [
+        32,
+        36
+      ],
+      "kind": "relic",
+      "tier": 5,
+      "army": {
+        "raider": 24,
+        "pirate_corvette": 10
+      }
+    }
+  ],
+  "blocked": [
+    [
+      17,
+      8
+    ],
+    [
+      18,
+      8
+    ],
+    [
+      19,
+      8
+    ],
+    [
+      18,
+      7
+    ],
+    [
+      18,
+      9
+    ],
+    [
+      19,
+      9
+    ],
+    [
+      7,
+      20
+    ],
+    [
+      8,
+      20
+    ],
+    [
+      9,
+      20
+    ],
+    [
+      8,
+      19
+    ],
+    [
+      8,
+      21
+    ],
+    [
+      9,
+      21
+    ],
+    [
+      20,
+      25
+    ],
+    [
+      21,
+      25
+    ],
+    [
+      22,
+      25
+    ],
+    [
+      21,
+      24
+    ],
+    [
+      21,
+      26
+    ],
+    [
+      22,
+      26
+    ],
+    [
+      26,
+      12
+    ],
+    [
+      27,
+      12
+    ],
+    [
+      28,
+      12
+    ],
+    [
+      27,
+      11
+    ],
+    [
+      27,
+      13
+    ],
+    [
+      28,
+      13
+    ],
+    [
+      46,
+      55
+    ],
+    [
+      45,
+      55
+    ],
+    [
+      44,
+      55
+    ],
+    [
+      45,
+      56
+    ],
+    [
+      45,
+      54
+    ],
+    [
+      44,
+      54
+    ],
+    [
+      56,
+      43
+    ],
+    [
+      55,
+      43
+    ],
+    [
+      54,
+      43
+    ],
+    [
+      55,
+      44
+    ],
+    [
+      55,
+      42
+    ],
+    [
+      54,
+      42
+    ],
+    [
+      43,
+      38
+    ],
+    [
+      42,
+      38
+    ],
+    [
+      41,
+      38
+    ],
+    [
+      42,
+      39
+    ],
+    [
+      42,
+      37
+    ],
+    [
+      41,
+      37
+    ],
+    [
+      37,
+      51
+    ],
+    [
+      36,
+      51
+    ],
+    [
+      35,
+      51
+    ],
+    [
+      36,
+      52
+    ],
+    [
+      36,
+      50
+    ],
+    [
+      35,
+      50
+    ],
+    [
+      46,
+      8
+    ],
+    [
+      45,
+      8
+    ],
+    [
+      44,
+      8
+    ],
+    [
+      45,
+      7
+    ],
+    [
+      45,
+      9
+    ],
+    [
+      44,
+      9
+    ],
+    [
+      56,
+      20
+    ],
+    [
+      55,
+      20
+    ],
+    [
+      54,
+      20
+    ],
+    [
+      55,
+      19
+    ],
+    [
+      55,
+      21
+    ],
+    [
+      54,
+      21
+    ],
+    [
+      43,
+      25
+    ],
+    [
+      42,
+      25
+    ],
+    [
+      41,
+      25
+    ],
+    [
+      42,
+      24
+    ],
+    [
+      42,
+      26
+    ],
+    [
+      41,
+      26
+    ],
+    [
+      37,
+      12
+    ],
+    [
+      36,
+      12
+    ],
+    [
+      35,
+      12
+    ],
+    [
+      36,
+      11
+    ],
+    [
+      36,
+      13
+    ],
+    [
+      35,
+      13
+    ],
+    [
+      17,
+      55
+    ],
+    [
+      18,
+      55
+    ],
+    [
+      19,
+      55
+    ],
+    [
+      18,
+      56
+    ],
+    [
+      18,
+      54
+    ],
+    [
+      19,
+      54
+    ],
+    [
+      7,
+      43
+    ],
+    [
+      8,
+      43
+    ],
+    [
+      9,
+      43
+    ],
+    [
+      8,
+      44
+    ],
+    [
+      8,
+      42
+    ],
+    [
+      9,
+      42
+    ],
+    [
+      20,
+      38
+    ],
+    [
+      21,
+      38
+    ],
+    [
+      22,
+      38
+    ],
+    [
+      21,
+      39
+    ],
+    [
+      21,
+      37
+    ],
+    [
+      22,
+      37
+    ],
+    [
+      26,
+      51
+    ],
+    [
+      27,
+      51
+    ],
+    [
+      28,
+      51
+    ],
+    [
+      27,
+      52
+    ],
+    [
+      27,
+      50
+    ],
+    [
+      28,
+      50
+    ]
+  ]
+}

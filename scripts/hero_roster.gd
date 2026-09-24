@@ -5,6 +5,7 @@ extends Node
 
 ## Идентификатор героя не требует загрузки ИИ и всех его текстур.
 const ORC_HERO_ID := "orc_warlord"
+const UNIT_DEFS := preload("res://scripts/unit_defs.gd")
 
 const PLAYER_HEROES := {
 	"earth": {
@@ -30,6 +31,13 @@ const SAVE_PATH := "user://heroes.json"
 signal hero_experience_gained(hero: Hero, amount: int, levels: int)
 signal hero_leveled_up(hero: Hero)
 
+var session_active := false
+var campaign_heroes: Dictionary = {}
+var campaign_active_player_id := "player_admiral"
+var active_player_id := "player_admiral"
+## Выбранный противник случайной партии; у кампании прежний вождь.
+var active_enemy_id := ORC_HERO_ID
+
 var heroes := {}  # id -> Hero
 
 
@@ -43,13 +51,22 @@ func reset_to_default() -> void:
 	reset_for_faction("earth")
 
 
-func reset_for_faction(faction: String) -> void:
+func reset_for_faction(faction: String, elite_start: bool = false) -> void:
 	heroes.clear()
+	active_player_id = "player_admiral"
+	active_enemy_id = ORC_HERO_ID
 	var definition: Dictionary = PLAYER_HEROES.get(faction, PLAYER_HEROES["earth"])
 	# Стабильный id сохраняет совместимость карты, боя и сейвов, а личность,
 	# класс, навыки и корабли определяет выбранная сторона случайной карты.
 	var commander := Hero.create("player_admiral", String(definition["name"]), String(definition["class_id"]))
-	commander.set_army_from_dict((definition["army"] as Dictionary).duplicate())
+	var starting_army: Dictionary = (definition["army"] as Dictionary).duplicate()
+	if elite_start:
+		var elite_army := {}
+		for unit_id in starting_army:
+			var upgraded_id := UNIT_DEFS.upgrade_target(String(unit_id))
+			elite_army[upgraded_id if upgraded_id != "" else unit_id] = int(starting_army[unit_id])
+		starting_army = elite_army
+	commander.set_army_from_dict(starting_army)
 	register(commander)
 	# Вождь орков — герой стороны 2. Его army и есть флот ИИ на карте
 	# (см. orc_ai.gd), поэтому он живёт в общем ростере и сохраняется вместе
@@ -66,13 +83,13 @@ func get_hero(hero_id: String) -> Hero:
 
 
 func player_hero() -> Hero:
-	return get_hero("player_admiral")
+	return get_hero(active_player_id)
 
 
-## Противник игрока в бою (сторона 2). Сейчас это всегда вождь орков —
-## нейтральные стражи ходят без героя (см. tactical_battle.gd:_make_hero).
+## Противник в текущем бою. У кампании исходный вождь, у случайной партии — выбранный ИИ.
+## Нейтральные стражи ходят без героя (см. tactical_battle.gd:_make_hero).
 func enemy_hero() -> Hero:
-	return get_hero(ORC_HERO_ID)
+	return get_hero(active_enemy_id)
 
 
 ## Начисляет опыт и сообщает интерфейсу, сколько уровней ждёт подтверждения.
@@ -87,6 +104,8 @@ func award_experience(hero: Hero, amount: int) -> int:
 
 
 func save_state() -> void:
+	if session_active:
+		return
 	var payload := {}
 	for hero_id in heroes:
 		payload[hero_id] = (heroes[hero_id] as Hero).to_dict()
@@ -99,6 +118,8 @@ func save_state() -> void:
 
 
 func load_state() -> bool:
+	active_player_id = "player_admiral"
+	active_enemy_id = ORC_HERO_ID
 	if not FileAccess.file_exists(SAVE_PATH):
 		return false
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
@@ -114,3 +135,23 @@ func load_state() -> bool:
 		if typeof(data) == TYPE_DICTIONARY:
 			register(Hero.from_dict(data))
 	return not heroes.is_empty()
+
+
+## Сетевой герой временно занимает обычный интерфейс ростера без записи сейва.
+func begin_network_session(hero_data: Dictionary) -> void:
+	if not session_active:
+		campaign_heroes = heroes
+		campaign_active_player_id = active_player_id
+		session_active = true
+	heroes = {"player_admiral": Hero.from_dict(hero_data)}
+	active_player_id = "player_admiral"
+	active_enemy_id = ORC_HERO_ID
+
+
+func end_network_session() -> void:
+	if not session_active:
+		return
+	heroes = campaign_heroes
+	active_player_id = campaign_active_player_id
+	campaign_heroes = {}
+	session_active = false

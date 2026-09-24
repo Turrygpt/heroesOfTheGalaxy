@@ -6,6 +6,10 @@ extends RefCounted
 ## прироста ангаров. Используется и городским экраном, и стратегической
 ## картой (недельный прирост, синхронизация уровня планетарного совета).
 
+## Сетевой город использует тот же код экономики, но хранится только в памяти.
+static var session_active := false
+static var session_state: Dictionary = {}
+
 const STATE_PATH := "user://human_planet_state.json"
 ## Прибавка форта (см. BUILDING_DEFS["fort"]) к недельному приросту всех
 ## ангаров, по уровням: I даёт +25%, II +50%, III +100%. Индекс массива —
@@ -60,6 +64,8 @@ static func reset_to_default() -> void:
 
 
 static func load_state() -> Dictionary:
+	if session_active:
+		return session_state.duplicate(true)
 	var state := default_state()
 	if not FileAccess.file_exists(STATE_PATH):
 		return state
@@ -109,6 +115,9 @@ static func save_state(state: Dictionary) -> void:
 	if state.get("garrison_slots", []) is Array:
 		state["garrison_slots"] = clean_slots(state["garrison_slots"], GARRISON_SLOT_COUNT)
 		state["garrison"] = aggregate_slots(state["garrison_slots"])
+	if session_active:
+		session_state = state.duplicate(true)
+		return
 	var file := FileAccess.open(STATE_PATH, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(state, "\t"))

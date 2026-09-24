@@ -62,6 +62,15 @@ func weapon(canvas: Node2D, beam: Dictionary, alpha: float) -> void:
 	var t := 1.0 - alpha
 	var direction := (end - start).normalized()
 	var normal := direction.orthogonal()
+	if bool(beam.get("precise", false)):
+		color = Color("ffe49a")
+		# Концентрические прицельные кольца схлопываются к моменту попадания.
+		canvas.draw_arc(end, 14.0 + alpha * 35.0, t * TAU, t * TAU + PI * 1.65, 40, Color(color, alpha), 2.0, true)
+		light(canvas, start, 85.0, Color(color, alpha * 0.5))
+	if bool(beam.get("boarding", false)) and not bool(beam.get("miss", false)):
+		for i in range(3):
+			var tip := start.lerp(end, clampf(t * 1.4 - i * 0.12, 0.0, 1.0)) + normal * (i - 1) * 8.0
+			light(canvas, tip, 13.0, Color("ffbc73"))
 	light(canvas, start, 52.0, Color(color, maxf(0, 1.0 - t * 4)))
 	match String(beam.get("weapon_type", "cannon")):
 		"laser":
@@ -75,6 +84,12 @@ func weapon(canvas: Node2D, beam: Dictionary, alpha: float) -> void:
 					continue
 				var tip := start.lerp(end, progress) + normal * float(i % 3 - 1) * 5
 				ray(canvas, tip - direction * minf(32, start.distance_to(tip)), tip, Color("ffdd81"), 2.0, 1.0)
+		"plasma":
+			var tip := start.lerp(end, t)
+			var tail := tip - direction * minf(43.0, start.distance_to(tip))
+			ray(canvas, tail, tip, Color("ff925b"), 7.0, alpha)
+			light(canvas, tip, 35.0, Color(1.0, 0.31, 0.13, alpha * 0.8))
+			light(canvas, tip + normal * sin(t * 18.0) * 7.0, 14.0, Color(1.0, 0.82, 0.48, alpha))
 		"rocket":
 			for i in range(3):
 				var bend := normal * sin(t * PI) * float(i - 1) * 38

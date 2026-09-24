@@ -28,6 +28,13 @@ func _run() -> void:
 		assert(hero.class_id == expected.class_id)
 		assert(hero.skills.size() == 2)
 		assert(hero.army.size() == 3)
+		var ordinary_army: Dictionary = hero_roster.PLAYER_HEROES[faction]["army"]
+		for ordinary_id in ordinary_army:
+			var elite_id: String = UnitDefs.upgrade_target(String(ordinary_id))
+			assert(elite_id != "")
+			assert(int(hero.army.get(elite_id, 0)) == int(ordinary_army[ordinary_id]))
+			assert(not hero.army.has(ordinary_id))
+			assert(not (UnitDefs.get_unit(elite_id).abilities as Array).is_empty())
 		for unit_id in hero.army:
 			assert(not UnitDefs.get_unit(String(unit_id)).is_empty())
 			if not String(expected.prefix).is_empty():
@@ -55,6 +62,8 @@ func _run() -> void:
 		assert((state.available_growth as Dictionary).size() == 5)
 		for unit_id in state.available_growth:
 			assert(int(UnitDefs.get_unit(String(unit_id)).dwelling_level) == 2)
+	campaign_save.prepare_new_game(false)
+	assert(hero_roster.player_hero().army == hero_roster.PLAYER_HEROES["earth"]["army"])
 
-	print("OK: у каждой случайной фракции свой герой, навыки, флот и производство")
+	print("OK: в случайной партии элитный старт всех фракций; кампания сохранила обычный флот")
 	quit()

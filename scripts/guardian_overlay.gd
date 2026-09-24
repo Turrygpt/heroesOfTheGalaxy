@@ -41,12 +41,17 @@ func _draw() -> void:
 	for guardian in strategy_map.guardians:
 		if not guardian["alive"]:
 			continue
-		if _has_control_zone(guardian):
+		if _has_control_zone(guardian) and strategy_map.is_cell_visible(guardian["cell"]):
 			_draw_control_zone(strategy_map, guardian)
 	for guardian in strategy_map.guardians:
 		if not guardian["alive"]:
+			if int(guardian.get("captured_by", 0)) > 0 and String(guardian.get("object_kind", "")) != "":
+				_draw_guardian(strategy_map, guardian)
+			elif strategy_map.network_game and int(guardian.get("owner", -1)) >= 0 and str(guardian.get("object_kind", "")) in MapObjectDefs.FORTIFIED_PLANET_KINDS:
+				_draw_guardian(strategy_map, guardian)
 			continue
-		_draw_guardian(strategy_map, guardian)
+		if String(guardian.get("object_kind", "")) != "" or strategy_map.is_cell_visible(guardian["cell"]):
+			_draw_guardian(strategy_map, guardian)
 
 
 ## Обычные пиратские и патрульные флоты контролируют 3×3 клетки. Круг —
@@ -55,7 +60,8 @@ func _draw() -> void:
 func _draw_control_zone(strategy_map: Node2D, guardian: Dictionary) -> void:
 	var center: Vector2 = strategy_map._object_footprint_center(guardian["cell"], int(guardian.get("size", 1)))
 	var color := PATROL_COLOR if String(guardian.get("kind", "")) == "patrol" else PIRATE_COLOR
-	var pixel_radius := CONTROL_RADIUS_CELLS * CELL_SIZE_FOR_FOOTPRINT
+	var radius_cells := int(guardian.get("aggro_radius", CONTROL_RADIUS_CELLS))
+	var pixel_radius := (float(radius_cells) + 0.5) * CELL_SIZE_FOR_FOOTPRINT
 	var phase_offset := float((int(guardian["cell"].x) * 17 + int(guardian["cell"].y) * 31) % 24) / 24.0
 	var progress := fposmod(control_wave_time / CONTROL_WAVE_PERIOD + phase_offset, 1.0)
 	var wave_radius := lerpf(SHIP_ICON_DIAMETER * 0.42, pixel_radius, progress)
@@ -77,8 +83,14 @@ func _draw_guardian(strategy_map: Node2D, guardian: Dictionary) -> void:
 	var center: Vector2 = strategy_map._object_footprint_center(guardian["cell"], size)
 	var object_kind := String(guardian.get("object_kind", ""))
 	if object_kind != "":
-		_draw_object_guardian(center, object_kind, size)
-		_draw_object_name(center, String(MapObjectDefs.get_kind(object_kind).get("name", object_kind)), size, true)
+		var owner := int(guardian.get("owner", -1)) if strategy_map.network_game else int(guardian.get("captured_by", 0))
+		var owner_color := Color.WHITE
+		if strategy_map.network_game and owner >= 0 and owner < strategy_map.SLOT_COLORS.size():
+			owner_color = strategy_map.SLOT_COLORS[owner]
+		elif owner > 0:
+			owner_color = strategy_map._production_owner_color(owner)
+		_draw_object_guardian(center, object_kind, size, Color.WHITE.lerp(owner_color, 0.42))
+		_draw_object_name(center, String(MapObjectDefs.get_kind(object_kind).get("name", object_kind)), size, true, owner_color)
 		return
 	var kind := String(guardian["kind"])
 	var is_enemy: bool = kind not in NEUTRAL_KINDS
@@ -102,7 +114,7 @@ func _draw_guardian(strategy_map: Node2D, guardian: Dictionary) -> void:
 ## же массиве guardians, что и обычные пираты/торговцы (см.
 ## _generate_map_objects в space_strategy_map.gd), но рисуются как объекты
 ## приключений (см. map_object_overlay.gd) - плейсхолдер-глиф, а не флот.
-func _draw_object_guardian(center: Vector2, object_kind: String, size: int) -> void:
+func _draw_object_guardian(center: Vector2, object_kind: String, size: int, tint: Color = Color.WHITE) -> void:
 	var def := MapObjectDefs.get_kind(object_kind)
 	if def.has("texture"):
 		var texture: Texture2D = def["texture"]
@@ -110,11 +122,11 @@ func _draw_object_guardian(center: Vector2, object_kind: String, size: int) -> v
 		var tex_size := texture.get_size()
 		var scale_factor: float = (footprint_pixels * FOOTPRINT_ICON_MARGIN) / max(tex_size.x, tex_size.y)
 		draw_set_transform(center, 0.0, Vector2.ONE * scale_factor)
-		draw_texture(texture, -tex_size * 0.5)
+		draw_texture(texture, -tex_size * 0.5, tint)
 		draw_set_transform(Vector2.ZERO)
 		return
 	var diameter := ICON_DIAMETER if size <= 1 else CELL_SIZE_FOR_FOOTPRINT * size * FOOTPRINT_ICON_MARGIN
-	var color := Color(String(def.get("color", "ffffff")))
+	var color := Color(String(def.get("color", "ffffff"))) if tint == Color.WHITE else tint
 	draw_circle(center, diameter * 0.5 + 4.0, Color(0.02, 0.03, 0.06, 0.88))
 	draw_circle(center, diameter * 0.5, Color(color, 0.28))
 	draw_arc(center, diameter * 0.5, 0.0, TAU, 40, color, 2.5, true)
@@ -125,7 +137,7 @@ func _draw_object_guardian(center: Vector2, object_kind: String, size: int) -> v
 	draw_string(font, center - text_size * 0.5 + Vector2(0, text_size.y * 0.35), glyph, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, color)
 
 
-func _draw_object_name(center: Vector2, object_name: String, size: int, has_texture: bool) -> void:
+func _draw_object_name(center: Vector2, object_name: String, size: int, has_texture: bool, tint: Color = Color("e7f0f5")) -> void:
 	var font := ThemeDB.fallback_font
 	var font_size := 14 if size <= 1 else 15
 	var base_width := 210.0 if size <= 1 else 260.0
@@ -137,4 +149,4 @@ func _draw_object_name(center: Vector2, object_name: String, size: int, has_text
 	var object_radius := CELL_SIZE_FOR_FOOTPRINT * size * FOOTPRINT_ICON_MARGIN * 0.5 if has_texture or size > 1 else ICON_DIAMETER * 0.5
 	var position := center + Vector2(-width * 0.5, object_radius + font_size + 8.0)
 	draw_string(font, position + Vector2(2, 2), object_name, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, Color(0.01, 0.02, 0.035, 0.98))
-	draw_string(font, position, object_name, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, Color("e7f0f5"))
+	draw_string(font, position, object_name, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, tint)

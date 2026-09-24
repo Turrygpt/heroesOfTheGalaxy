@@ -24,9 +24,14 @@ static func ship_value(unit: Dictionary) -> int:
 	var damage_max := int(unit.get("damage_max", unit.get("damage", 0)))
 	var average_damage := float(damage_min + damage_max) * 0.5 * float(unit.get("damage_factor", 1.0))
 	var martial := int(unit.get("attack", 0)) + int(unit.get("defense", 0))
+	var initiative := int(unit.get("initiative", 0))
+	if unit.has("force_field"):
+		# Базовые 100% морали не должны давать 50 лишних очков опыта.
+		initiative = maxi(0, initiative - 100)
+		martial = int(unit.force_field)
 	return maxi(
 		1,
-		int(round(hull * 1.0 + average_damage * 3.0 + martial * 1.0 + int(unit.get("move", 0)) * 1.0 + int(unit.get("initiative", 0)) * 0.5))
+		int(round(hull * 1.0 + average_damage * 3.0 + martial * 1.0 + int(unit.get("move", 0)) * 1.0 + initiative * 0.5))
 	)
 
 

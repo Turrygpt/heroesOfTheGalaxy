@@ -1,10 +1,8 @@
 extends Node2D
 ## Туман войны глобальной карты (см. space_strategy_map.gd:_init_fog/
 ## _reveal_around). Как и другие оверлеи, состояния не хранит - просто рисует
-## fog_texture родителя (маску открытых клеток) через шейдер, который красит
-## её процедурной текстурой "неизведанного космоса" (см. fog_space_pattern.gd)
-## вместо плоской заливки. z_index выше всех остальных узлов, так что
-## накрывает и корабль, и объекты в неисследованных клетках.
+## fog_texture родителя: неизвестное закрывает узором, разведанное затемняет,
+## текущий обзор оставляет прозрачным. z_index выше остальных узлов.
 
 const FogSpacePattern := preload("res://scripts/fog_space_pattern.gd")
 const FOG_SHADER := preload("res://shaders/fog_of_war.gdshader")
@@ -17,7 +15,7 @@ var shader_material: ShaderMaterial
 
 
 func _ready() -> void:
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	shader_material = ShaderMaterial.new()
 	shader_material.shader = FOG_SHADER
 	shader_material.set_shader_parameter("pattern_tex", FogSpacePattern.generate(PATTERN_TEXTURE_SIZE))

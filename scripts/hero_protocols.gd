@@ -19,7 +19,7 @@ const SCHOOL_COLORS := {
 # Схема протокола:
 #   kind      — heal / damage / buff / debuff / shield / stun / teleport
 #   target    — ally / enemy / ally_all / enemy_all / cell / ally_then_cell
-#   radius    — 0 бьёт только цель, 1+ накрывает соседние гексы (и своих тоже)
+#   radius    — 0 бьёт только цель, 1+ накрывает допустимые отряды в соседних гексах
 #   base + per_power * мощность ядра — величина лечения, урона или щита
 #   rounds    — базовая длительность; мощность добавляет по раунду на каждые
 #               два очка, но никогда не выше max_rounds
@@ -69,7 +69,7 @@ const PROTOCOLS := {
 		"target": "ally",
 		"rounds": 2,
 		"mods": {"move": 0, "initiative": 0}, "mods_per_power": {"move": 1, "initiative": 2}, "mods_cap": {"move": 4, "initiative": 8}, "max_rounds": 4,
-		"hint": "Снятые ограничители тяги: дальше манёвр и раньше ход в очереди.",
+		"hint": "Усиливает союзный отряд: дальше манёвр и выше инициатива (мораль).",
 	},
 	"targeting_uplink": {
 		"name": "Синхронизация наведения",
@@ -127,7 +127,7 @@ const PROTOCOLS := {
 		"target": "enemy",
 		"rounds": 2,
 		"mods": {"move": 0, "initiative": 0}, "mods_per_power": {"move": -1, "initiative": -2}, "mods_cap": {"move": -4, "initiative": -8}, "max_rounds": 4,
-		"hint": "Глушит маршевые двигатели: короче манёвр и ход позже в очереди.",
+		"hint": "Ослабляет вражеский отряд: короче манёвр и ниже инициатива (мораль).",
 	},
 	"logic_bomb": {
 		"name": "Логическая бомба",
@@ -158,7 +158,7 @@ const PROTOCOLS := {
 		"radius": 1,
 		"base": 12,
 		"per_power": 6,
-		"hint": "Накрывает гекс и всех соседей — своих задевает тоже.",
+		"hint": "Поражает врагов в выбранном гексе и соседних. Союзники не страдают.",
 	},
 	"orbital_strike": {
 		"name": "Орбитальный удар",
@@ -217,6 +217,33 @@ static func make_hero(side: int) -> Dictionary:
 
 static func get_protocol(id: String) -> Dictionary:
 	return PROTOCOLS.get(id, {})
+
+
+## Назначение определяется эффектом, одинаково для игрока и вражеского героя.
+static func is_beneficial(protocol: Dictionary) -> bool:
+	return String(protocol.get("kind", "")) in ["heal", "shield", "buff", "teleport"]
+
+
+static func can_affect_side(protocol: Dictionary, caster_side: int, target_side: int) -> bool:
+	if caster_side not in [1, 2] or target_side not in [1, 2]:
+		return false
+	if is_beneficial(protocol):
+		return caster_side == target_side
+	return String(protocol.get("kind", "")) in ["damage", "debuff", "stun"] and caster_side != target_side
+
+
+static func target_description(id: String) -> String:
+	var protocol := get_protocol(id)
+	match String(protocol.get("target", "")):
+		"ally_all": return "На весь свой флот"
+		"enemy_all": return "На весь вражеский флот"
+		"ally_then_cell": return "На союзника, затем на свободный гекс"
+		"cell": return "На врагов в области · союзники не страдают"
+	return "Только на союзников" if is_beneficial(protocol) else "Только на врагов"
+
+
+static func target_color(id: String) -> Color:
+	return Color("82e0b5") if is_beneficial(get_protocol(id)) else Color("ff927d")
 
 
 static func school_color(id: String) -> Color:

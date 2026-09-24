@@ -25,10 +25,12 @@ const SCORCH_DURATION := 2.4
 const IMPACT_SPARK_COUNTS := {
 	"laser": 6,
 	"machine_gun": 3,
+	"plasma": 8,
 }
 const IMPACT_SPARK_COLORS := {
 	"laser": Color(0.75, 0.95, 1.0),
 	"machine_gun": Color(1.0, 0.9, 0.55),
+	"plasma": Color(1.0, 0.47, 0.27),
 }
 
 

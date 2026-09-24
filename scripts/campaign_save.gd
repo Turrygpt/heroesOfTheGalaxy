@@ -23,6 +23,7 @@ var save_on_start := false
 var random_map_requested := false
 ## Ноль выбирает новый сид; положительное число воспроизводит приключение.
 var random_map_seed := 0
+var random_map_options := {"size": 64, "ai_count": 1}
 var selected_faction := "earth"
 var error_message := ""
 
@@ -47,12 +48,20 @@ func read_save(path: String = SAVE_PATH) -> Dictionary:
 
 
 func save_campaign(map: Node, path: String = SAVE_PATH) -> bool:
+	if bool(map.get("network_game")):
+		return false
+	if bool(map.get("random_map_mode")):
+		map._store_random_active_hero_state()
 	var snapshot := {}
 	for field in MAP_FIELDS:
 		snapshot[field] = map.get(field)
 	snapshot["campaign_map_id"] = map.campaign_map_id
 	snapshot["player_faction"] = map.player_faction
 	snapshot["random_map_layout"] = map.random_map_layout
+	snapshot["random_hero_states"] = map.random_hero_states.duplicate(true)
+	snapshot["random_active_hero_id"] = map.random_active_hero_id
+	snapshot["weekly_movement_bonus"] = map.weekly_movement_bonus
+	snapshot["navigation_movement_applied"] = true
 	snapshot["story_state"] = map.story_state
 	snapshot["random_state"] = map.map_random.state
 	snapshot["pirate_balance_version"] = 5
@@ -60,6 +69,8 @@ func save_campaign(map: Node, path: String = SAVE_PATH) -> bool:
 	snapshot["camera_zoom"] = map.camera.zoom
 	# Экономика и позиция ИИ орков (флот вождя уезжает вместе с героями).
 	snapshot["orc_ai"] = map.orc_ai.to_dict()
+	if map.has_method("random_session_snapshot"):
+		snapshot.merge(map.random_session_snapshot())
 	var heroes := {}
 	for id in HeroRoster.heroes:
 		heroes[id] = HeroRoster.heroes[id].to_dict()
@@ -86,6 +97,8 @@ func prepare_load(path: String = SAVE_PATH) -> bool:
 		error_message = "Сохранение отсутствует, повреждено или имеет неподдерживаемую версию."
 		return false
 	HeroRoster.heroes.clear()
+	HeroRoster.active_player_id = "player_admiral"
+	HeroRoster.active_enemy_id = ORC_HERO_ID
 	for id in data.heroes:
 		HeroRoster.register(Hero.from_dict(data.heroes[id]))
 	HeroRoster.save_state()
@@ -100,7 +113,7 @@ func prepare_new_game(random_map: bool = false) -> void:
 	save_on_start = true
 	random_map_requested = random_map
 	pending_map.clear()
-	HeroRoster.reset_for_faction(selected_faction if random_map else "earth")
+	HeroRoster.reset_for_faction(selected_faction if random_map else "earth", random_map)
 	HeroRoster.save_state()
 	load(PLANET_PATH).reset_to_default()
 	var planet_state: Dictionary = load(PLANET_PATH).load_state()

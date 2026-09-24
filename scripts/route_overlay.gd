@@ -59,8 +59,11 @@ func _first_guardian_index(strategy_map: Node2D) -> int:
 		var guardian_index: int = strategy_map.guardian_at.get(cell, -1)
 		if guardian_index < 0:
 			guardian_index = strategy_map._guardian_in_control_zone(cell)
-		if guardian_index >= 0 and strategy_map.guardians[guardian_index]["alive"]:
-			return index
+		if guardian_index >= 0:
+			var guardian: Dictionary = strategy_map.guardians[guardian_index]
+			var known_station: bool = String(guardian.get("object_kind", "")) != "" and strategy_map.is_cell_explored(guardian["cell"])
+			if guardian["alive"] and (known_station or strategy_map.is_cell_visible(guardian["cell"])):
+				return index
 	return -1
 
 

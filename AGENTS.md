@@ -25,6 +25,7 @@
 |---|---|
 | `docs/battle_screen.md` | правишь `tactical_battle.gd` / `tactical_battle_hud.gd`: манёвр, гексовая геометрия, мультиклеточные корабли, HUD, параллакс и фон |
 | `docs/map_screen.md` | правишь HUD глобальной карты, пределы камеры, миникарту |
+| `docs/space_stations.md` | станции, ограничения посещений, модернизация и недельные награды |
 | `docs/data_formats.md` | нужен формат отряда, армии героя, ресурсов или список сейвов |
 | `docs/audio.md` | трогаешь музыку экранов, кроссфейды, SFX, слоёный фон меню |
 | `docs/tools.md` | нужны снимки экрана, отладочные прогоны, балансовый измеритель, генерация плейсхолдеров |
@@ -71,6 +72,8 @@ sh tools/run_tests.sh orc battle   # только те, чьё имя содер
 
 | Скрипт | Что проверяет |
 |---|---|
+| `tools/test_earth_combat.gd` | новая тактика землян: семь характеристик, точность, поле, элитные способности, общие раунды; `--capture` снимает витрину |
+| `tools/test_faction_combat.gd` | боевые профили марсиан, торговцев и пиратов, элитные способности, быстрый бой и масштаб I–II рангов; `--capture` снимает спрайты |
 | `tools/test_tactical_battle.gd` | сборка боя из `UNIT_BLUEPRINTS`, стеки, стороны |
 | `tools/test_battle_tactics.gd` | выбор цели и клетки боевым ИИ, выход из окружения, гибель активного отряда от ответки не вешает ход |
 | `tools/test_auto_battle.gd` | автобитва, переключение управления, быстрый расчёт без записи сейвов |
@@ -131,10 +134,10 @@ build/, .godot/  генерируемое, в .gitignore
 - `scripts/ship_editor.gd` — `ShipEditor`: внутриигровой редактор хардпоинтов
   корабля, **открывается по F8**, всегда в дереве, но скрыт.
 - `scripts/procedural_sfx.gd` — `ProceduralSfx`: звуки боя генерируются кодом
-  (шум + синус в `AudioStreamWAV`, никаких аудиофайлов в assets нет), кешируются
-  по `(тип, hull)`. `play_move/play_shot/play_destroyed(unit, delay)` — масштаб
-  громкости/тона берётся из `hull` отряда, крупные корабли звучат мощнее.
-  Плееры на шине `SFX`.
+  (шум + тона в `AudioStreamWAV`), кешируются по типу, рангу и варианту.
+  `play_move/play_shot/play_impact/play_destroyed` синхронизируются с боем;
+  фоновые потоки готовят звуки флотов до первого залпа. Плееры идут через
+  `CombatSFX` в `SFX`; детали и демонстрация — `docs/audio.md`.
 
 **Глобальная карта:**
 
@@ -177,6 +180,7 @@ build/, .godot/  генерируемое, в .gitignore
 | `human_planet_screen.gd` (~2800) | экран планеты: стройка, найм, гарнизон, биржа, редактор раскладки зданий |
 | `human_planet_state.gd` | единственная точка чтения/записи `user://human_planet_state.json` |
 | `unit_defs.gd` | общий справочник кораблей: и покупаемые юниты, и составы стражей. `get_unit()` отдаёт и орочьи корабли (см. ниже) |
+| `faction_ship_profiles.gd` | семь характеристик, типы урона и элитные способности покупаемых марсианских, торговых и пиратских кораблей I–V рангов |
 
 **Орки — искусственный противник (сторона 2):**
 
@@ -248,7 +252,9 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 | Очередь ходов и раунды | `tactical_battle.gd:_rebuild_turn_order / _advance_turn / _begin_round` (≈444–530) |
 | ИИ противника в бою | `tactical_battle.gd:_run_enemy_turn / _best_target_for / _best_enemy_move_cell` (≈530–630) |
 | Выбор клетки для манёвра (окружение) | `tactical_battle.gd:_move_cell_score` + веса `MOVE_SCORE_*`, `SURROUNDED_LIMIT` |
-| Ответный залп (только в упор, раз за раунд) | `tactical_battle.gd:_attack_unit` — условие `distance <= 1 and not target["retaliated"]` |
+| Способности землян и типы урона | `ship_combat_rules.gd` — общие формулы; применение и эффекты в `tactical_battle.gd`, правила — `docs/battle_screen.md`, замер — `data/earth_combat_v1.md` |
+| Баланс марсиан, торговцев и пиратов | `faction_ship_profiles.gd` — игровые профили; `unit_defs.gd` оставляет нейтральных стражей с прежними статами, правила — `docs/battle_screen.md` |
+| Ответный огонь (элитный истребитель, в упор, раз за общий раунд) | `tactical_battle.gd:_attack_unit` — проверка способности `retaliation`, выжившего стека и флага `retaliated` |
 | Гексовая геометрия (расстояния, LoS, пути) | `tactical_battle.gd:_offset_to_cube / _cube_to_offset / _hex_neighbors / _hex_line` — острая вершина, cube-координаты "odd-r" (смещаются нечётные РЯДЫ, не колонки) |
 | Мультиклеточные корабли (IV+ ранг — 2 клетки по горизонтали) | `tactical_battle.gd:MULTI_CELL_MIN_TIER` + `_footprint_cells / _footprint_for_move / _footprint_valid / _secondary_cell` |
 | Параллакс и фоновая декорация боя (планета/луна/туманность) | `tactical_battle.gd:PARALLAX_LAYERS` + `_draw_background / _update_parallax_target`; декорации — `assets/space/backdrops/` (см. `README.md` там же, промт для генерации — §9 ниже) |
@@ -256,7 +262,7 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 | Заклинания-протоколы | `hero_protocols.gd:PROTOCOLS` + применение в `tactical_battle.gd:_cast_protocol` (≈990) |
 | Опыт за бой | `battle_rewards.gd:ship_value()` |
 | Прокачка героя, навыки | `hero_defs.gd` (данные, `MAX_SKILL_SLOTS = 6`) + `hero.gd:roll_level_up / apply_level_up` |
-| Звуки боя (движение/выстрел/уничтожение) | `procedural_sfx.gd` (синтез) + вызовы в `tactical_battle.gd:_start_unit_move / _attack_unit` |
+| Звуки боя (движение/выстрел/попадание/уничтожение) | `procedural_sfx.gd` (синтез) + вызовы в `tactical_battle.gd:_start_unit_move / _attack_unit / _apply_protocol_damage`, проверка `tools/test_combat_audio.gd` |
 | Громкость, меню паузы по Esc (сейв/выход) | `game_settings.gd` |
 | Реплики сюжетных сцен первой миссии | `campaign_story_defs.gd:DIALOGUES` — координаты контрактных целей в текст не зашивают, ставят подстановку (`{convoy_targets}`, `{cruiser_target}`, `{pirate_targets}`, `{pirate_base}`) и разбирают её в `campaign_story.gd:_resolved_lines` |
 | Порядок сюжетных сцен, реакция баз фракций, старт боя из диалога | `campaign_story.gd:enqueue / _process / play / visit` — база Лиги и база Ридуса отвечают диалогом (`_visit_stein_base` / `_visit_ridus_base` возвращают `true` и подавляют карточку объекта из `_trigger_info`) |
@@ -400,7 +406,7 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 
 ## 7a–7c. Экраны: подробности
 
-* **Бой** — манёвр и почему убрали бонус за тыл, минимальный HUD, гексовая
+* **Бой** — семь характеристик землян, элитные способности и абордаж с кормы, HUD, гексовая
   геометрия «odd-r», мультиклеточные корабли IV+ ранга, параллакс и фоновая
   декорация: `docs/battle_screen.md`.
 * **Глобальная карта** — почему HUD не перекрывает поле и как пределы камеры
@@ -414,13 +420,23 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 
 ## 8. Сетевой режим и текущие ограничения
 
-LAN-режим для 2–4 игроков открывается из меню: `scenes/LanGame.tscn`.
-Автозагрузка `lan_session.gd` хранит ENet-соединение и проверяет команды;
-`lan_world.gd` содержит отдельное состояние партии и генерацию 64×64/128×128;
-`lan_battle.gd` наследует существующую тактику и считает бой только у хоста.
-Инструкция, точные правила и ограничения — `docs/lan_multiplayer.md`.
-Проверки — `tools/test_lan_world.gd` и `tools/test_lan_network.gd` (четыре процесса).
-Не подключать сетевую партию к одиночным файлам сейвов и `HeroRoster`.
+LAN-режим для 1–4 игроков открывается из меню: `scenes/LanGame.tscn`.
+`lan_screen.gd` подключает **обычную** `SpaceStrategyMap.tscn` с адаптером
+`lan_adventure_map.gd`: карта, HUD, города, герои и правила общие с одиночной игрой.
+`lan_adventure_state.gd` хранит участников и календарь, `lan_session.gd` — ENet,
+одновременные действия и барьер окончания сола. `lan_battle_service.gd` ведёт независимые бои,
+`lan_battle.gd` рассчитывает тактику, `lan_quick_combat.gd` — автобой без сцены.
+`lan_hero_party.gd` хранит нескольких героев; `officer_catalog.gd` и
+`officer_club_dialog.gd` — 12 командующих и их найм. Захваченные столицы сохраняют
+фракцию и здания. Поражение — нет ни живых героев, ни городов; победа последнего.
+Фиксированная карта 64×64 с четырьмя стартами и 24 производствами сохранена в
+`data/multiplayer/four_corners_adventure_v1.tres`; пересборка —
+`tools/generate_lan_adventure_map.gd`. Старый `lan_map_view.gd` в игре не используется.
+Сетевой контекст HumanPlanetState/HeroRoster работает только в памяти;
+одиночные сейвы не перезаписывать. Правила обмена и ограничения —
+`docs/lan_multiplayer.md`. Проверки — `test_lan_adventure.gd`,
+`test_lan_adventure_battle.gd`, `test_lan_simultaneous.gd`, `test_lan_ownership.gd`,
+`test_lan_hero_party.gd`, `test_lan_network.gd` (четыре процесса).
 
 Локализации пока нет. Орки — полноценный противник под управлением ИИ
 (`orc_ai.gd`), но **не играбельная раса**: у их базы нет экрана планеты, стройку

@@ -43,6 +43,11 @@
 | `user://human_planet_state.json` | **только** `human_planet_state.gd` |
 | `user://settings.json` | `game_settings.gd` |
 
+Общий снимок `user://campaign.save` пишет `campaign_save.gd`. На случайной
+карте он дополнительно хранит `random_hero_states` (клетка, остаток хода,
+недельный бонус и фракция каждого героя) и `random_active_hero_id`. Сами
+характеристики и флоты героев находятся в словаре `heroes` этого снимка.
+
 Не читай и не пиши `human_planet_state.json` мимо `HumanPlanetState` — через него
 ходят и экран планеты, и карта, иначе состояние разъезжается.
 

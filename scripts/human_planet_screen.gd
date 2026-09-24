@@ -95,7 +95,7 @@ const BUILDING_CATALOG := [
 ## Потолок 20 базового ресурса / 10 редкого за постройку — оставлен как
 ## инвариант (все цифры ниже внутри него) и проверяется
 ## tools/ship_buildings_regression.gd.
-const BUILDING_DEFS := {
+var BUILDING_DEFS := {
 	"townhall": {
 		"name": "Планетарный совет", "max_level": 4, "level_names": ["I", "II", "III", "IV"],
 		"costs": [
@@ -941,6 +941,13 @@ func _open_building_modal(building: Sprite2D) -> void:
 	if kind == "marketplace":
 		_open_exchange_screen()
 		return
+	if kind == "tavern" and strategy_map != null and strategy_map.has_method("officer_offers") \
+			and (bool(strategy_map.get("network_game")) or bool(strategy_map.get("random_map_mode"))):
+		var club := preload("res://scripts/officer_club_dialog.gd").new()
+		club.strategy_map = strategy_map
+		add_child(club)
+		club.popup_centered(Vector2i(720, 490))
+		return
 	var definition: Dictionary = BUILDING_DEFS[kind]
 	var level_names: Array = definition["level_names"]
 	modal_icon.texture = building.texture
@@ -996,7 +1003,7 @@ func _set_modal_recruitment(unit_id: String) -> void:
 	modal_recruit_spin.max_value = maximum
 	modal_recruit_spin.value = 1
 	modal_recruit_button.disabled = available <= 0 or affordable <= 0
-	modal_recruit_button.tooltip_text = "Доступно: %d · %s" % [available, UnitDefs.cost_text(unit_id)] if available > 0 else "Нет кораблей в недельном приросте."
+	modal_recruit_button.tooltip_text = "Доступно: %d · %s" % [available, _format_cost(_ship_recruit_cost(UnitDefs.get_unit(unit_id).get("cost", {})))] if available > 0 else "Нет кораблей в недельном приросте."
 
 
 func _recruit_from_modal() -> void:
@@ -1061,7 +1068,7 @@ func _open_university_screen() -> void:
 	# присутствовал в дереве, но не попадал в итоговый canvas. Модальные окна
 	# верхнего уровня подключаем прямо к корню viewport.
 	get_tree().root.add_child(university_screen)
-	var commander_present: bool = strategy_map != null and strategy_map.player_fleet_at_home_planet()
+	var commander_present: bool = _commander_at_city()
 	university_screen.setup(
 		_player_hero(),
 		HumanPlanetState.load_state(),
@@ -1264,7 +1271,7 @@ func _build_recruitment_section(parent: VBoxContainer) -> void:
 ## Цена в TradingPost.UNIT_OFFERS отличается от UnitDefs.cost_text (обычная
 ## цена ангара) — торговый пост берёт 90% кредитов, см. trading_post.gd.
 func _trading_post_cost_text(unit_id: String) -> String:
-	var cost: Dictionary = TradingPost.UNIT_OFFERS.get(unit_id, {}).get("cost", {})
+	var cost: Dictionary = _ship_recruit_cost(TradingPost.UNIT_OFFERS.get(unit_id, {}).get("cost", {}))
 	var parts: Array[String] = []
 	if cost.has("credits"):
 		parts.append("%d кред." % int(cost["credits"]))
@@ -1571,8 +1578,18 @@ func _placeholder_label(text: String) -> Label:
 
 
 func _player_hero() -> Hero:
+	if strategy_map != null and not space_modal_mode and not strategy_map.network_game:
+		return strategy_map.hero_at_home_planet()
 	var roster := get_node_or_null("/root/HeroRoster")
 	return roster.player_hero() if roster != null else null
+
+
+func _commander_at_city() -> bool:
+	if strategy_map == null:
+		return false
+	if space_modal_mode or strategy_map.network_game:
+		return strategy_map.player_fleet_at_home_planet()
+	return strategy_map.hero_at_home_planet() != null
 
 
 ## Перестраивает производство и два ряда флота экрана "Гарнизон" из
@@ -1600,7 +1617,7 @@ func _update_garrison_screen() -> void:
 
 	var hero := _player_hero()
 	var hero_slots: Array = hero.army_slots if hero != null else []
-	var fleet_at_planet: bool = strategy_map != null and strategy_map.player_fleet_at_home_planet()
+	var fleet_at_planet := _commander_at_city()
 	var hero_enabled := fleet_at_planet or fleet_only_mode
 	garrison_drop_host.add_child(_build_fleet_zone("garrison", garrison_slots, fleet_at_planet, levels))
 	hero_drop_host.add_child(_build_fleet_zone("hero", hero_slots, hero_enabled, levels))
@@ -1610,7 +1627,7 @@ func _update_garrison_screen() -> void:
 	for child in garrison_hero_artifact_icons.get_children():
 		child.queue_free()
 	if hero != null:
-		garrison_hero_portrait.texture = HeroDefs.hero_portrait(hero.class_id)
+		garrison_hero_portrait.texture = HeroDefs.hero_portrait(hero.class_id, hero.id)
 		garrison_hero_name.text = "%s\nуровень %d" % [hero.hero_name, hero.level]
 		var stat_parts: Array[String] = []
 		for stat_id in HeroDefs.PRIMARY_STATS:
@@ -1798,8 +1815,8 @@ func _build_production_row(unit_id: String, weekly: int, available: int) -> Cont
 	price.custom_minimum_size = Vector2(150, 0)
 	price.add_theme_font_size_override("font_size", 11)
 	price.add_theme_color_override("font_color", Color(0.63, 0.68, 0.72, 1))
-	price.text = "1: %s" % UnitDefs.cost_text(unit_id)
-	price.tooltip_text = "Стоимость 1 корабля: %s" % UnitDefs.cost_text(unit_id)
+	price.text = "1: %s" % _format_cost(_ship_recruit_cost(unit.get("cost", {})))
+	price.tooltip_text = "Стоимость 1 корабля: %s" % _format_cost(_ship_recruit_cost(unit.get("cost", {})))
 	buy_row.add_child(price)
 	if available >= 0:
 		var affordable := _max_affordable_recruits(unit_id, available)
@@ -1961,7 +1978,7 @@ func _build_fleet_card(unit_id: String, count: int, source_id: String, slot_inde
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(count_label)
 	var target_id := UnitDefs.upgrade_target(unit_id)
-	var can_upgrade_here: bool = strategy_map != null and strategy_map.player_fleet_at_home_planet()
+	var can_upgrade_here: bool = _commander_at_city()
 	if enabled and can_upgrade_here and not target_id.is_empty() and UnitDefs.upgrade_available(unit_id, levels):
 		var upgrade_cost := _scaled_cost(UnitDefs.upgrade_cost(unit_id), count)
 		var upgrade_button := Button.new()
@@ -2015,45 +2032,59 @@ func _disband_stack(source_id: String, slot_index: int) -> void:
 ## Базовые параметры в подсказке всегда белые. Голубая часть — только тот
 ## эффект навыков и артефактов героя, который применяет TacticalBattle.
 func _fleet_card_combat_tooltip(unit: Dictionary, count: int, hero: Hero = null) -> String:
-	const BASE_COLOR := "#edf0f2"
+	const MUTED_COLOR := "#a4adb7"
 	const BONUS_COLOR := "#82c9ff"
+	const GOLD_COLOR := "#e5bd70"
+	var rules := preload("res://scripts/ship_combat_rules.gd")
 	var hull := int(unit.get("hull", 0))
-	var damage_min := int(unit.get("damage_min", 0))
-	var damage_max := int(unit.get("damage_max", 0))
-	var attack := int(unit.get("attack", 0))
-	var defense := int(unit.get("defense", 0))
 	var move := int(unit.get("move", 0))
 	var attack_range := int(unit.get("range", 0))
-	var initiative := int(unit.get("initiative", 0))
-	var morale_percent := 100 + int(round(hero.morale_chance() * 100.0)) if hero != null else 100
-	var crit_percent := 10 + int(round(hero.luck_chance() * 100.0)) if hero != null else 10
+	var ship_rank := int(unit.get("tier", 1))
+	var rank: String = TIER_ROMAN[clampi(ship_rank, 1, TIER_ROMAN.size() - 1)]
 	var lines: Array[String] = [
-		"[color=%s][b]%s · %s ранг · %d кораблей[/b][/color]" % [BASE_COLOR, String(unit.get("label", "Корабль")), TIER_ROMAN[clampi(int(unit.get("tier", 1)), 1, TIER_ROMAN.size() - 1)], count],
-		"[color=%s]Корпус: %d[/color]" % [BASE_COLOR, hull],
-		"[color=%s]Пробитие: %d · Броня: %d[/color]" % [BASE_COLOR, attack, defense],
-		"[color=%s]Урон: %d–%d[/color]" % [BASE_COLOR, damage_min, damage_max],
-		"[color=%s]Манёвр: %d · Дальность: %d · Инициатива: %d[/color]" % [BASE_COLOR, move, attack_range, initiative],
-		"[color=%s]Мораль: %d%% · Удача (крит): %d%%[/color]" % [BASE_COLOR, morale_percent, crit_percent],
+		"[b][color=%s]%s[/color][/b]" % [GOLD_COLOR, String(unit.get("label", "Корабль"))],
+		"[color=%s]%s ранг  ·  %d кораблей  ·  %s урон[/color]" % [MUTED_COLOR, rank, count, rules.damage_name(unit).to_lower()],
+		"",
+		"[table=2][cell]Хитпоинты   [b]%d[/b][/cell][cell]Силовое поле   [b]%d%%[/b][/cell]" % [hull, rules.field(unit)]
+		+ "[cell]Урон   [b]%d–%d[/b][/cell][cell]Инициатива   [b]%d%%[/b][/cell]" % [int(unit.get("damage_min", 0)), int(unit.get("damage_max", 0)), rules.initiative(unit)]
+		+ "[cell]Скорость   [b]%d[/b][/cell][cell]Дальность   [b]%d[/b][/cell][/table]" % [move, attack_range],
+		"",
+		"[color=%s]ТОЧНОСТЬ[/color]" % MUTED_COLOR,
+		"Промах 5%  ·  слабое 15%  ·  обычное 60%",
+		"Удачное 15%  ·  критическое 5%",
 	]
+	if not unit.get("abilities", []).is_empty():
+		lines.append("")
+		lines.append("[color=%s]СПОСОБНОСТЬ ЭЛИТЫ[/color]" % GOLD_COLOR)
+		lines.append(rules.ability_text(unit))
+	var bonuses: Array[String] = []
 	if hero != null:
 		var hp_bonus := hero.hp_bonus_percent()
 		if hp_bonus > 0:
-			var boosted_hull := maxi(1, int(round(float(hull) * (1.0 + float(hp_bonus) / 100.0))))
-			lines.append("[color=%s]+%d%% к корпусу: %d → %d[/color]" % [BONUS_COLOR, hp_bonus, hull, boosted_hull])
-		var damage_bonus := hero.damage_bonus_percent()
-		if damage_bonus > 0:
-			lines.append("[color=%s]+%d%% к урону[/color]" % [BONUS_COLOR, damage_bonus])
-		var range_bonus := hero.range_bonus()
-		if range_bonus > 0:
-			lines.append("[color=%s]+%d к дальности: %d → %d[/color]" % [BONUS_COLOR, range_bonus, attack_range, attack_range + range_bonus])
-		var morale_bonus := int(round(float(initiative) * hero.morale_chance()))
-		if morale_bonus > 0:
-			lines.append("[color=%s]+%d к инициативе (лидерство)[/color]" % [BONUS_COLOR, morale_bonus])
+			bonuses.append("ХП +%d%%: %d → %d" % [hp_bonus, hull, roundi(hull * (1.0 + hp_bonus / 100.0))])
+		if hero.damage_bonus_percent() > 0:
+			bonuses.append("Урон +%d%% от навыков" % hero.damage_bonus_percent())
+		if hero.stat("attack") > 0:
+			bonuses.append("Урон +%d%% от атаки" % (hero.stat("attack") * 5))
+		if hero.stat("defense") > 0:
+			bonuses.append("Поле +%d п.п." % hero.stat("defense"))
+		if hero.move_bonus(ship_rank) > 0:
+			bonuses.append("Скорость %d → %d" % [move, move + hero.move_bonus(ship_rank)])
+		if hero.range_bonus(ship_rank) > 0:
+			bonuses.append("Дальность %d → %d" % [attack_range, attack_range + hero.range_bonus(ship_rank)])
 		if hero.morale_chance() != 0.0:
-			lines.append("[color=%s]%+d%% к морали (лидерство)[/color]" % [BONUS_COLOR, int(round(hero.morale_chance() * 100.0))])
+			bonuses.append("Инициатива %+d п.п." % roundi(hero.morale_chance() * 100.0))
 		if hero.luck_chance() != 0.0:
-			lines.append("[color=%s]%+d%% к криту (удача)[/color]" % [BONUS_COLOR, int(round(hero.luck_chance() * 100.0))])
-	lines.append("[color=%s][i]Перетащите стек на пустой слот, такой же или другой стек.[/i][/color]" % [BASE_COLOR])
+			bonuses.append("Точность %+d п.п." % roundi(hero.luck_chance() * 100.0))
+	if not bonuses.is_empty():
+		lines.append("")
+		lines.append("[color=%s]БОНУСЫ КОМАНДУЮЩЕГО[/color]" % BONUS_COLOR)
+		var table := "[table=2]"
+		for bonus in bonuses:
+			table += "[cell][color=%s]%s[/color][/cell]" % [BONUS_COLOR, bonus]
+		lines.append(table + "[/table]")
+	lines.append("")
+	lines.append("[color=%s]Перетащите стек для перемещения или объединения.[/color]" % MUTED_COLOR)
 	return "\n".join(lines)
 
 
@@ -2082,7 +2113,7 @@ func _on_fleet_stack_dropped(_unit_id: String, source_id: String, source_slot: i
 
 
 func _upgrade_stack(source_id: String, slot_index: int) -> void:
-	if strategy_map == null or not strategy_map.player_fleet_at_home_planet():
+	if not _commander_at_city():
 		return
 	var state := HumanPlanetState.load_state()
 	var slots := _slots_for_side(source_id, state)
@@ -2108,7 +2139,7 @@ func _upgrade_stack(source_id: String, slot_index: int) -> void:
 
 
 func _split_stack(source_id: String, slot_index: int) -> void:
-	if source_id != "hero" and (strategy_map == null or not strategy_map.player_fleet_at_home_planet()):
+	if source_id != "hero" and (not _commander_at_city()):
 		return
 	var state := HumanPlanetState.load_state()
 	var slots := _slots_for_side(source_id, state)
@@ -2136,6 +2167,12 @@ func _scaled_cost(cost: Dictionary, count: int) -> Dictionary:
 	return scaled
 
 
+func _ship_recruit_cost(base_cost: Dictionary, count: int = 1) -> Dictionary:
+	if strategy_map != null:
+		return strategy_map.ship_recruit_cost(base_cost, count)
+	return _scaled_cost(base_cost, count)
+
+
 func _format_cost(cost: Dictionary) -> String:
 	if cost.is_empty():
 		return "бесплатно"
@@ -2150,14 +2187,14 @@ func _format_cost(cost: Dictionary) -> String:
 
 func _production_price_text(unit_id: String, max_count: int) -> String:
 	var one_cost: Dictionary = UnitDefs.get_unit(unit_id).get("cost", {})
-	var max_cost := _scaled_cost(one_cost, maxi(0, max_count))
-	return "1: %s\nMAX (%d): %s" % [UnitDefs.cost_text(unit_id), max_count, _format_cost(max_cost)]
+	var max_cost := _ship_recruit_cost(one_cost, maxi(0, max_count))
+	return "1: %s\nMAX (%d): %s" % [_format_cost(_ship_recruit_cost(one_cost)), max_count, _format_cost(max_cost)]
 
 
 func _max_affordable_recruits(unit_id: String, available: int) -> int:
 	if strategy_map == null:
 		return 0
-	var unit_cost: Dictionary = UnitDefs.get_unit(unit_id).get("cost", {})
+	var unit_cost: Dictionary = _ship_recruit_cost(UnitDefs.get_unit(unit_id).get("cost", {}))
 	var result := available
 	for key in unit_cost:
 		var price := int(unit_cost[key])
@@ -2176,7 +2213,7 @@ func _recruitment_blocker_reason(unit_id: String, available: int, can_store: boo
 	if strategy_map == null:
 		return "Стратегическая карта не подключена."
 	var missing: Array[String] = []
-	var unit_cost: Dictionary = UnitDefs.get_unit(unit_id).get("cost", {})
+	var unit_cost: Dictionary = _ship_recruit_cost(UnitDefs.get_unit(unit_id).get("cost", {}))
 	for key in unit_cost:
 		var required := int(unit_cost[key])
 		var owned := int(strategy_map.player_one_credits) if key == "credits" else int(strategy_map.player_one_resources.get(key, 0))
@@ -2200,7 +2237,7 @@ func _recruit_unit(unit_id: String, spin: SpinBox) -> void:
 	var count := mini(int(spin.value), available)
 	if count <= 0:
 		return
-	var cost := _scaled_cost(UnitDefs.get_unit(unit_id).get("cost", {}), count)
+	var cost := _ship_recruit_cost(UnitDefs.get_unit(unit_id).get("cost", {}), count)
 	if not strategy_map.can_afford(cost):
 		return
 	var slots := HumanPlanetState.clean_slots(state.get("garrison_slots", []), GARRISON_SLOT_COUNT)
@@ -2226,7 +2263,7 @@ func _recruit_unit(unit_id: String, spin: SpinBox) -> void:
 
 
 func _move_stack_between_slots(source_id: String, source_slot: int, target_id: String, target_slot: int) -> void:
-	if (source_id != "hero" or target_id != "hero") and (strategy_map == null or not strategy_map.player_fleet_at_home_planet()):
+	if (source_id != "hero" or target_id != "hero") and (not _commander_at_city()):
 		return
 	var state := HumanPlanetState.load_state()
 	var source_slots := _slots_for_side(source_id, state)
@@ -2722,7 +2759,7 @@ func _sync_university_protocols() -> void:
 func _teach_university_protocols(state: Dictionary) -> void:
 	# Городом и строительством можно управлять удалённо, но загрузить новые
 	# боевые протоколы командир может только при личном посещении планеты.
-	if strategy_map == null or not strategy_map.player_fleet_at_home_planet():
+	if not _commander_at_city():
 		return
 	var hero := _player_hero()
 	if hero == null:

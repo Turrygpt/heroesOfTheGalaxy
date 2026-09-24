@@ -9,8 +9,9 @@ func _run() -> void:
 	var directory := ProjectSettings.globalize_path("res://build/lan_test_%d" % OS.get_process_id())
 	DirAccess.make_dir_recursive_absolute(directory)
 	var roles: Array[String] = ["host", "mars", "trader", "pirate"]
+	var test_port := 30000 + OS.get_process_id() % 20000
 	for role in roles:
-		var args := PackedStringArray(["--headless", "--path", ProjectSettings.globalize_path("res://"), "--script", "res://tools/lan_peer_probe.gd", "--log-file", directory.path_join(role + ".log"), "--", role])
+		var args := PackedStringArray(["--headless", "--path", ProjectSettings.globalize_path("res://"), "--script", "res://tools/lan_peer_probe.gd", "--log-file", directory.path_join(role + ".log"), "--", role, str(test_port)])
 		children.append(OS.create_process(OS.get_executable_path(), args))
 	var deadline := Time.get_ticks_msec() + 150000
 	while Time.get_ticks_msec() < deadline:

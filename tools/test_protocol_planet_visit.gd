@@ -7,6 +7,7 @@ const PLANET := preload("res://scripts/human_planet_state.gd")
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 const HERO_DEFS := preload("res://scripts/hero_defs.gd")
 const UNIVERSITY_DIALOG := preload("res://scripts/university_protocols_dialog.gd")
+const LEARNING_DIALOG := preload("res://scripts/protocol_learning_dialog.gd")
 
 var failures := 0
 
@@ -20,6 +21,15 @@ func _check(condition: bool, message: String) -> void:
 		return
 	failures += 1
 	push_error(message)
+
+
+func _has_exact_label(node: Node, value: String) -> bool:
+	if node is Label and node.text == value:
+		return true
+	for child in node.get_children():
+		if _has_exact_label(child, value):
+			return true
+	return false
 
 
 func _run() -> void:
@@ -71,10 +81,24 @@ func _run() -> void:
 	dialog.queue_free()
 	await process_frame
 
-	map.current_cell = map.HUMAN_PLANET_CENTER
+	map.current_cell = map.home_planet_cell
 	map._check_arrival_encounters(map.current_cell)
 	_check(hero.learned_protocols.has(protocol_id),
 		"Прибытие на родную планету не загрузило открытый протокол")
+	var learning_dialog := LEARNING_DIALOG.new()
+	learning_dialog.setup(hero, 100)
+	root.add_child(learning_dialog)
+	_check(not _has_exact_label(learning_dialog, String(PROTOCOLS.get_protocol(protocol_id)["name"])),
+		"Станция показывает уже изученный протокол")
+	var duplicate_selected := [false]
+	learning_dialog.learned.connect(func(_id: String) -> void: duplicate_selected[0] = true)
+	learning_dialog._choose(protocol_id)
+	_check(not duplicate_selected[0], "Станция позволила выбрать уже изученный протокол")
+	var credits_before: int = map.player_one_credits
+	map._on_protocol_learned(protocol_id, hero, 100, 0)
+	_check(map.player_one_credits == credits_before, "Повторное изучение списало кредиты")
+	learning_dialog.queue_free()
+	await process_frame
 
 	_finish(map, original_planet_state, original_protocols)
 

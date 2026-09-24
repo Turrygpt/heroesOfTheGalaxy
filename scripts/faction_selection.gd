@@ -7,6 +7,8 @@ signal canceled
 var selected := "earth"
 var cards: Array[Button] = []
 var launch: Button
+var map_size_choice: OptionButton
+var ai_count_choice: OptionButton
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -26,6 +28,36 @@ func _ready() -> void:
 	_label(column, "НЕИЗВЕДАННЫЙ СЕКТОР", 15, Color("#99acc5"))
 	_label(column, "Кого вы поведёте к звёздам?", 34, Color("#eef5ff"))
 	_label(column, "Выберите родной мир. Каждая экспедиция открывает новую галактику.", 18, Color("#aebdd0"))
+	var settings := HBoxContainer.new()
+	settings.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	settings.custom_minimum_size.y = 48
+	settings.add_theme_constant_override("separation", 18)
+	column.add_child(settings)
+	var size_label := _label(settings, "Размер карты", 18, Color("#aebdd0"))
+	size_label.custom_minimum_size.x = 128
+	size_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	map_size_choice = OptionButton.new()
+	map_size_choice.add_item("64 × 64 — компактная", 64)
+	map_size_choice.add_item("128 × 128 — большая галактика", 128)
+	map_size_choice.custom_minimum_size = Vector2(300, 44)
+	map_size_choice.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	settings.add_child(map_size_choice)
+	var ai_label := _label(settings, "Противники ИИ", 18, Color("#aebdd0"))
+	ai_label.custom_minimum_size.x = 142
+	ai_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	ai_count_choice = OptionButton.new()
+	for count in range(1, 4):
+		ai_count_choice.add_item(str(count), count)
+	ai_count_choice.custom_minimum_size = Vector2(76, 44)
+	ai_count_choice.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	settings.add_child(ai_count_choice)
+	var hint := Label.new()
+	hint.text = "Несколько крупных областей · старты по углам"
+	column.add_child(hint)
+	map_size_choice.item_selected.connect(func(index: int) -> void:
+		hint.text = "Случайные старты · минимум 32 клетки между столицами · богатые опасные районы" if index == 1 else "Несколько крупных областей · старты по углам"
+	)
 	var row := HBoxContainer.new()
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	row.add_theme_constant_override("separation", 24)
@@ -61,7 +93,7 @@ func _ready() -> void:
 	_select("earth")
 	cards[0].grab_focus()
 
-func _label(parent: Node, text: String, font_size: int, color: Color) -> void:
+func _label(parent: Node, text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", font_size)
@@ -69,6 +101,7 @@ func _label(parent: Node, text: String, font_size: int, color: Color) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(label)
+	return label
 
 func _card(parent: Node, id: String, title: String, subtitle: String, description: String, path: String, accent: Color) -> void:
 	var button := Button.new()
@@ -120,3 +153,7 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		canceled.emit()
+
+
+func map_options() -> Dictionary:
+	return {"size": map_size_choice.get_selected_id(), "ai_count": ai_count_choice.get_selected_id()}

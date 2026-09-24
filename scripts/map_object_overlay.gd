@@ -1,5 +1,6 @@
 extends Node2D
 
+const STATION_SERVICES := preload("res://scripts/station_services.gd")
 const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
 
 ## Плейсхолдер-иконки объектов приключений (см. map_object_defs.gd) —
@@ -13,14 +14,42 @@ const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
 const ICON_DIAMETER := 42.0
 const CELL_SIZE := 96.0
 const FOOTPRINT_ICON_MARGIN := 0.85
+## Шесть различимых грузов вместо одинаковой пиктограммы ресурса.
+const RESOURCE_CONTAINERS := {
+	"Продукты": preload("res://assets/map_objects/resource_containers/food.png"),
+	"Руда": preload("res://assets/map_objects/resource_containers/ore.png"),
+	"Научные данные": preload("res://assets/map_objects/resource_containers/science.png"),
+	"Энергокристаллы": preload("res://assets/map_objects/resource_containers/crystals.png"),
+	"Топливо": preload("res://assets/map_objects/resource_containers/fuel.png"),
+	"Радиоизотопы": preload("res://assets/map_objects/resource_containers/isotopes.png"),
+}
 
 
 func _draw() -> void:
 	var strategy_map = get_parent()
+	var hero: Hero = strategy_map._player_hero()
+	var hero_id := hero.id if hero != null else ""
+	var week := int((strategy_map.current_day - 1) / 7)
 	for object in strategy_map.map_objects:
 		if object.get("consumed", false):
 			continue
 		_draw_object(strategy_map, object)
+		if MapObjectDefs.family(String(object["kind"])) == "weekly_site":
+			var size := int(object.get("size", 1))
+			var center: Vector2 = strategy_map._object_footprint_center(object["cell"], size)
+			var color := Color(String(MapObjectDefs.get_kind(String(object["kind"]))["color"]))
+			draw_arc(center, size * CELL_SIZE * 0.36, 0.0, TAU, 56, Color(color, 0.8), 3.0, true)
+		if _visited_this_week(object, hero_id, week):
+			var size := int(object.get("size", 1))
+			var center: Vector2 = strategy_map._object_footprint_center(object["cell"], size)
+			var marker := center + Vector2(size * CELL_SIZE * 0.32, -size * CELL_SIZE * 0.32)
+			draw_circle(marker, 12.0, Color(0.02, 0.07, 0.09, 0.94))
+			draw_string(ThemeDB.fallback_font, marker + Vector2(-7, 6), "✓",
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("75dfb4"))
+
+
+func _visited_this_week(object: Dictionary, hero_id: String, week: int) -> bool:
+	return STATION_SERVICES.used(object, hero_id, week * 7 + 1)
 
 
 func _draw_object(strategy_map: Node2D, object: Dictionary) -> void:
@@ -28,14 +57,22 @@ func _draw_object(strategy_map: Node2D, object: Dictionary) -> void:
 	var center: Vector2 = strategy_map._object_footprint_center(object["cell"], size)
 	var def := MapObjectDefs.get_kind(object["kind"])
 	if object["kind"] == "resource_cache":
-		var resource_icon: Texture2D = strategy_map._resource_icon(String(object.get("resource_name", "Руда")))
-		draw_object_texture(center, resource_icon, 48.0)
-		_draw_object_name(center, String(object.get("resource_name", "Ресурс")), size, true, 0.5)
+		var resource_name := String(object.get("resource_name", "Руда"))
+		var container: Texture2D = RESOURCE_CONTAINERS.get(resource_name)
+		if container != null:
+			draw_object_texture(center, container, 92.0)
+		else:
+			draw_object_texture(center, strategy_map._resource_icon(resource_name), 48.0)
+		if not object.get("cluster_satellite", false):
+			_draw_object_name(center, "%s ×%d" % [resource_name, int(object.get("amount", 1))], size, true, 0.9)
 		return
 	if def.has("texture"):
 		var visual_scale := float(def.get("visual_scale", 1.0))
 		draw_object_texture(center, def["texture"], size * CELL_SIZE * visual_scale)
-		_draw_object_name(center, String(def.get("name", object["kind"])), size, true, visual_scale)
+		var name_color := Color("e7f0f5")
+		if String(object["kind"]) == "observation_tower" and strategy_map._map_object_owner(object) > 0:
+			name_color = strategy_map._production_owner_color(strategy_map._map_object_owner(object))
+		_draw_object_name(center, String(def.get("name", object["kind"])), size, true, visual_scale, name_color)
 		return
 	var diameter := ICON_DIAMETER if size <= 1 else CELL_SIZE * size * FOOTPRINT_ICON_MARGIN
 	var color := Color(String(def.get("color", "ffffff")))
@@ -55,7 +92,8 @@ func _draw_object_name(
 	object_name: String,
 	size: int,
 	has_texture: bool,
-	visual_scale: float = 1.0
+	visual_scale: float = 1.0,
+	name_color: Color = Color("e7f0f5")
 ) -> void:
 	var font := ThemeDB.fallback_font
 	var font_size := 14 if size <= 1 else 15
@@ -66,7 +104,7 @@ func _draw_object_name(
 		if has_texture else (CELL_SIZE * size * FOOTPRINT_ICON_MARGIN * 0.5 if size > 1 else ICON_DIAMETER * 0.5)
 	var position := center + Vector2(-width * 0.5, object_radius + font_size + 8.0)
 	draw_string(font, position + Vector2(2, 2), object_name, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, Color(0.01, 0.02, 0.035, 0.98))
-	draw_string(font, position, object_name, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, Color("e7f0f5"))
+	draw_string(font, position, object_name, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, name_color)
 
 
 ## Вписывает текстуру (с сохранением пропорций) в квадрат footprint_pixels,

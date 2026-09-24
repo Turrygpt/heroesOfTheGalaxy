@@ -8,6 +8,21 @@ const BUILDING_NAMES := preload("res://scripts/town_building_names.gd")
 ## В игре строительство всегда оплачивается по каталогу.
 @export var free_construction_test := false
 const TOWN_DIR := "res://assets/planet_surface/human/town/"
+const WATERFALL_SHADER := preload("res://shaders/earth_waterfalls.gdshader")
+const EARTH_SKY_SHADER := preload("res://shaders/earth_procedural_sky.gdshader")
+const EARTH_SKY_CUT_SHADER := preload("res://shaders/earth_sky_cut.gdshader")
+const EARTH_PATCH_SHADER := preload("res://shaders/earth_town_patch.gdshader")
+## Верх и низ каждой струи в координатах цельной земной панорамы.
+## Полуширина, прозрачность и скорость заданы отдельно для разного масштаба каскадов.
+const EARTH_WATERFALLS := [
+	[Vector4(489, 286, 10, 0.50), Vector4(486, 341, 12, 0.90)],
+	[Vector4(426, 387, 4, 0.42), Vector4(435, 440, 6, 1.05)],
+	[Vector4(502, 378, 11, 0.67), Vector4(529, 495, 23, 1.15)],
+	[Vector4(1129, 309, 10, 0.52), Vector4(1142, 405, 20, 1.00)],
+	[Vector4(1241, 478, 11, 0.58), Vector4(1245, 565, 20, 1.08)],
+	[Vector4(917, 819, 22, 0.56), Vector4(929, 908, 36, 0.95)],
+	[Vector4(1057, 825, 11, 0.52), Vector4(1056, 935, 22, 1.08)],
+]
 var ART_DIR := "res://assets/planet_surface/mars/town/"
 var master_name := "master_v1"
 @export var town_faction := "mars"
@@ -59,6 +74,7 @@ var upgrade_button: Button
 var upgrade_kind := ""
 var preview_levels: Dictionary = {}
 var sky: TextureRect
+var waterfall_layer: TextureRect
 var state_patches: Array[Node] = []
 const PATCH_SHADER := preload("res://shaders/town_patch.gdshader")
 ## Источники стадий перечислены явно: Image.load_from_file() видел их только
@@ -177,16 +193,22 @@ func _ready() -> void:
 				free_costs.append({})
 			BUILDING_DEFS[kind]["costs"] = free_costs
 	super._ready()
-	background.texture = STAGE_TEXTURES.get(ART_DIR + master_name + ".png") as Texture2D
+	background.texture = STAGE_TEXTURES.get(ART_DIR + ("clean_plate_v3" if town_faction == "earth" else master_name) + ".png") as Texture2D
+	if town_faction == "earth":
+		var sky_cut := ShaderMaterial.new()
+		sky_cut.shader = EARTH_SKY_CUT_SHADER
+		sky_cut.set_shader_parameter("fort_level", float(built_levels.get("fort", 0)))
+		background.material = sky_cut
+		_setup_waterfalls()
 	terrain_foreground.hide()
-	cloud_layer.hide() # Небо и передние ветви пока сохранены в цельной иллюстрации.
+	cloud_layer.hide() # Земля использует отдельное небо; прочие панорамы остаются цельными.
 	background.z_index = -20
 	cloud_layer.z_index = -15
 	moon.hide()
 	building_layer.z_index = 0
 	terrain_foreground.z_index = 100
 	for control in $Root.get_children():
-		if control is Control and control not in [background, cloud_layer, terrain_foreground, building_layer]:
+		if control is Control and control not in [background, cloud_layer, terrain_foreground, building_layer, waterfall_layer]:
 			control.z_index = 200
 	$Root/Shade.hide()
 	planet_info.hide()
@@ -201,6 +223,12 @@ func _ready() -> void:
 	gradient_texture.fill_from = Vector2.ZERO
 	gradient_texture.fill_to = Vector2(0, 1)
 	sky.texture = gradient_texture
+	if town_faction == "earth":
+		var sky_material := ShaderMaterial.new()
+		sky_material.shader = EARTH_SKY_SHADER
+		sky.material = sky_material
+	if space_modal_mode:
+		sky.hide()
 	$Root.add_child(sky)
 	upgrade_button = Button.new()
 	modal_close.get_parent().add_child(upgrade_button)
@@ -278,9 +306,35 @@ func _layout_town() -> void:
 	background.position = town_origin
 	background.size = extent
 	background.stretch_mode = TextureRect.STRETCH_SCALE
-	sky.position = Vector2.ZERO
-	sky.size = available
+	if waterfall_layer != null:
+		waterfall_layer.position = town_origin
+		waterfall_layer.size = extent
+	sky.position = town_origin if town_faction == "earth" else Vector2.ZERO
+	sky.size = extent if town_faction == "earth" else available
 	_rebuild_building_visuals()
+
+func _setup_waterfalls() -> void:
+	waterfall_layer = TextureRect.new()
+	waterfall_layer.name = "АнимированныеВодопады"
+	waterfall_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	waterfall_layer.texture = STAGE_TEXTURES[TOWN_DIR + "master_v3.png"]
+	waterfall_layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	waterfall_layer.stretch_mode = TextureRect.STRETCH_SCALE
+	# Выше художественных заплат (до 51), но ниже окон интерфейса (200).
+	waterfall_layer.z_index = 100
+	var material := ShaderMaterial.new()
+	material.shader = WATERFALL_SHADER
+	var tops := PackedVector4Array()
+	var bottoms := PackedVector4Array()
+	for waterfall in EARTH_WATERFALLS:
+		tops.append(waterfall[0])
+		bottoms.append(waterfall[1])
+	material.set_shader_parameter("waterfall_tops", tops)
+	material.set_shader_parameter("waterfall_bottoms", bottoms)
+	waterfall_layer.material = material
+	if space_modal_mode:
+		waterfall_layer.hide()
+	$Root.add_child(waterfall_layer)
 
 func _rebuild_building_visuals() -> void:
 	_clear_building_visuals()
@@ -291,14 +345,16 @@ func _rebuild_building_visuals() -> void:
 	for region in COMPOSITION.REGIONS:
 		_place_composition_building(region)
 	if is_instance_valid(background):
-		background.texture = STAGE_TEXTURES.get(ART_DIR + master_name + ".png") as Texture2D
+		background.texture = STAGE_TEXTURES.get(ART_DIR + ("clean_plate_v3" if town_faction == "earth" else master_name) + ".png") as Texture2D
+		if town_faction == "earth" and background.material != null:
+			background.material.set_shader_parameter("fort_level", float(built_levels.get("fort", 0)))
 
 func _place_composition_building(region: Dictionary) -> void:
 	var kind := String(region.kind)
 	var level := int(built_levels.get(kind, 0))
 	var points: PackedVector2Array = COMPOSITION.points_for(region)
-	# Максимальный уровень уже нарисован в оригинале; перекрываем только ранние стадии.
-	if level < int(BUILDING_DEFS[kind]["max_level"]):
+	# На Земле чистая подложка позволяет прорезать небо и не показывать скрытые здания.
+	if town_faction == "earth" or level < int(BUILDING_DEFS[kind]["max_level"]):
 		var fragment := Polygon2D.new()
 		fragment.polygon = points
 		fragment.uv = points
@@ -307,12 +363,14 @@ func _place_composition_building(region: Dictionary) -> void:
 		fragment.scale = town_axes
 		fragment.z_index = int(region.get("z", 20))
 		var material := ShaderMaterial.new()
-		material.shader = PATCH_SHADER
+		material.shader = EARTH_PATCH_SHADER if town_faction == "earth" else PATCH_SHADER
 		var outline := points.duplicate()
 		outline.resize(32)
 		material.set_shader_parameter("outline", outline)
 		material.set_shader_parameter("count", points.size())
 		material.set_shader_parameter("canvas_size", COMPOSITION.SIZE)
+		if town_faction == "earth":
+			material.set_shader_parameter("fort_level", float(built_levels.get("fort", 0)))
 		fragment.material = material
 		fragment.set_meta("kind", kind)
 		building_layer.add_child(fragment)

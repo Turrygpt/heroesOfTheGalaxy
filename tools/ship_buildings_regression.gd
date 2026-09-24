@@ -7,6 +7,7 @@ class FakeStrategyMap:
 	extends Node2D
 
 	var current_day := 3
+	var network_game := true
 	var fleet_home := true
 	var player_one_credits := 1000
 	var player_one_resources := {
@@ -38,6 +39,12 @@ class FakeStrategyMap:
 				player_one_credits -= amount
 			else:
 				player_one_resources[key] = int(player_one_resources.get(key, 0)) - amount
+
+	func ship_recruit_cost(base_cost: Dictionary, count: int = 1) -> Dictionary:
+		var total := {}
+		for key: String in base_cost:
+			total[key] = int(base_cost[key]) * count
+		return total
 
 	func _update_hud() -> void:
 		hud_updated = true

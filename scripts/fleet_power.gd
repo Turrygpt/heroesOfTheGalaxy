@@ -17,33 +17,41 @@ extends RefCounted
 ## обычной суммой по пачкам, качество берём под корнем:
 ##
 ##   сила корабля = sqrt(живучесть × огневая мощь)
-##   живучесть    = hull × (1 + DEFENSE_STEP × defense)
-##   огневая мощь = средний урон × damage_factor × (1 + ATTACK_STEP × attack)
+##   живучесть    = hull / (1 − поле / 200)
+##   огневая мощь = средний урон × damage_factor × инициатива / 100
 ##
-## Множители брони и атаки — те же, что в формуле урона боя
-## (см. tactical_battle.gd:_damage_multiplier), поэтому оценка согласована с
-## тем, как урон считается на самом деле.
+## Поле усреднено между кинетическим и энергетическим уроном. Позиционные
+## способности оценены приближённо: прогноз состава не знает будущий строй.
 ##
 ## Кто пользуется: прогноз перед боем для игрока (battle_preview_dialog.gd) и
 ## пороги решений ИИ орков (orc_ai.gd). Опыт и награды по-прежнему считает
 ## BattleRewards.
 
-const ATTACK_STEP := 0.05
-const DEFENSE_STEP := 0.025
+const RULES := preload("res://scripts/ship_combat_rules.gd")
 
 
 ## Боевая сила ОДНОГО корабля пачки.
 static func ship_strength(unit: Dictionary) -> float:
 	var hull := float(unit.get("hull", unit.get("max_hp", 1)))
-	var defense := float(unit.get("defense", 0))
 	var damage_min := float(unit.get("damage_min", unit.get("damage", 0)))
 	var damage_max := float(unit.get("damage_max", unit.get("damage", 0)))
-	var attack := float(unit.get("attack", 0))
-	var toughness := maxf(1.0, hull * (1.0 + DEFENSE_STEP * defense))
-	var firepower := maxf(
-		0.5,
-		(damage_min + damage_max) * 0.5 * float(unit.get("damage_factor", 1.0)) * (1.0 + ATTACK_STEP * attack)
-	)
+	var skill := 1.0
+	if RULES.has_ability(unit, "precise_salvo"): skill = 1.0 + 0.5 / 3.0
+	if RULES.has_ability(unit, "boarding"): skill = 1.1
+	if RULES.has_ability(unit, "raid"): skill = 1.1
+	if RULES.has_ability(unit, "retaliation"): skill = 1.15
+	if RULES.has_ability(unit, "flagship"): skill = 1.1
+	if RULES.has_ability(unit, "afterburner"): skill = 1.06
+	if RULES.has_ability(unit, "emp"): skill = 1.08
+	if RULES.has_ability(unit, "broadside"): skill = 1.2
+	if RULES.has_ability(unit, "incendiary"): skill = 1.12
+	if RULES.has_ability(unit, "repair_drones"): skill = 1.1
+	if RULES.has_ability(unit, "jammer"): skill = 1.07
+	if RULES.has_ability(unit, "shield_aura"): skill = 1.08
+	if RULES.has_ability(unit, "guardian"): skill = 1.14
+	if RULES.damage_type(unit) == "plasma": skill *= 1.12
+	var toughness := maxf(1.0, hull / (1.0 - RULES.field(unit) / 200.0))
+	var firepower := maxf(0.5, (damage_min + damage_max) * 0.5 * float(unit.get("damage_factor", 1.0)) * float(RULES.initiative(unit)) / 100.0 * RULES.accuracy_mean(RULES.accuracy_bonus(unit)) * skill)
 	return sqrt(toughness * firepower)
 
 

@@ -74,9 +74,10 @@ func _test_orbital_wall_blocks_and_breaks() -> void:
 ## раньше в этом случае ход зависал, потому что _maybe_finish_active_turn
 ## смотрел только на флаги moved/shot, а не на факт гибели отряда.
 func _test_dead_attacker_still_advances_turn() -> void:
-	var battle = _make_battle("interceptor", 1, "pirate_battleship", 5)
+	var battle = _make_battle("interceptor", 1, "heavy_interceptor", 50)
 	var attacker: Dictionary = battle.units[0]
 	var target: Dictionary = battle.units[1]
+	target["luck_chance"] = 1.0
 	attacker["cell"] = Vector2i(target["cell"].x - 1, target["cell"].y)
 	battle.hex_center_cache.clear()
 	battle._precompute_hex_centers()
@@ -128,12 +129,12 @@ func _test_leaves_only_encirclement() -> void:
 ## и перестраиваться перед атакой, как игрок в Heroes вручную двигает стек
 ## перед ударом.
 func _test_ai_repositions_before_shot() -> void:
-	var battle = _make_battle("corvette", 12, "raider", 12)
+	var battle = _make_battle("corvette", 12, "league_corvette", 12)
 	battle.active_unit_index = 1
 	var active: Dictionary = battle.units[1]
 	var target: Dictionary = battle.units[0]
 	active["cell"] = Vector2i(10, 4)
-	target["cell"] = Vector2i(8, 4)
+	target["cell"] = Vector2i(5, 4)
 	active["moved"] = false
 	battle.hex_center_cache.clear()
 	battle._precompute_hex_centers()
@@ -259,6 +260,9 @@ func _test_target_does_not_flip_flop() -> void:
 func _test_scoring_sees_target_tail() -> void:
 	var battle = _empty_field()
 	var shooter := _place(battle, "raider", 8, Vector2i(11, 4), 2)
+	# Ближний стрелок обязан сделать шаг до кормы; кинетика больше не теряет
+	# 30% урона за второй гекс, поэтому дальнобойному переезд не нужен.
+	battle.units[shooter]["range"] = 1
 	var frigate := _place(battle, "frigate", 2, Vector2i(8, 4), 1)
 	battle.active_unit_index = shooter
 	var footprint: Array = battle._footprint_cells(battle.units[frigate])

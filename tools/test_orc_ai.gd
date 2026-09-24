@@ -22,6 +22,21 @@ const HUMAN_COUNTERPART := {
 	"ork_elite_destroyer": "elite_destroyer",
 }
 
+## Замороженная база калибровки орков до переработки землян.
+## Новые земные статы не должны автоматически менять каталог другой фракции.
+const LEGACY_HUMAN_STATS := {
+	"interceptor": {"hull": 12, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3, "move": 7, "initiative": 12},
+	"heavy_interceptor": {"hull": 21, "attack": 8, "defense": 7, "damage_min": 3, "damage_max": 6, "move": 6, "initiative": 10},
+	"gunship": {"hull": 30, "attack": 8, "defense": 8, "damage_min": 4, "damage_max": 7, "move": 6, "initiative": 10},
+	"elite_gunship": {"hull": 48, "attack": 10, "defense": 10, "damage_min": 6, "damage_max": 10, "move": 6, "initiative": 11},
+	"corvette": {"hull": 60, "attack": 11, "defense": 10, "damage_min": 8, "damage_max": 13, "move": 5, "initiative": 8},
+	"elite_corvette": {"hull": 96, "attack": 14, "defense": 13, "damage_min": 12, "damage_max": 20, "move": 5, "initiative": 8},
+	"frigate": {"hull": 113, "attack": 14, "defense": 13, "damage_min": 14, "damage_max": 22, "move": 4, "initiative": 6},
+	"elite_frigate": {"hull": 170, "attack": 17, "defense": 16, "damage_min": 20, "damage_max": 31, "move": 4, "initiative": 6},
+	"destroyer": {"hull": 195, "attack": 18, "defense": 16, "damage_min": 24, "damage_max": 36, "move": 3, "initiative": 5},
+	"elite_destroyer": {"hull": 263, "attack": 21, "defense": 19, "damage_min": 31, "damage_max": 45, "move": 4, "initiative": 6},
+}
+
 var failures := 0
 
 
@@ -48,7 +63,7 @@ func _check_catalog() -> void:
 		_check(int(per_tier.get(tier, 0)) == 2, "На %d ранге обычный и элитный корабль" % tier)
 	for unit_id in HUMAN_COUNTERPART:
 		var orc: Dictionary = OrcDefs.UNITS[unit_id]
-		var human: Dictionary = UnitDefs.UNITS[HUMAN_COUNTERPART[unit_id]]
+		var human: Dictionary = LEGACY_HUMAN_STATS[HUMAN_COUNTERPART[unit_id]]
 		_check(is_equal_approx(float(orc["damage_factor"]), 1.1), "%s: оружие мощнее на 10%%" % unit_id)
 		_check(int(orc["damage_min"]) == int(human["damage_min"]) and int(orc["damage_max"]) == int(human["damage_max"]),
 			"%s: разброс урона земной, прибавку даёт damage_factor" % unit_id)

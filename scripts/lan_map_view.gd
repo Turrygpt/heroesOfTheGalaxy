@@ -114,6 +114,8 @@ func _draw() -> void:
 			draw_circle(pos, scale_cell * 0.3, Color(color, 0.18))
 			if scale_cell >= 20:
 				var texture: Texture2D = mine_textures.get(obj.get("resource", "")) if obj.kind == "mine" else object_textures.get(obj.kind)
+				if obj.get("planet", false):
+					texture = planet_textures.earth
 				if texture != null:
 					_draw_art(texture, pos, scale_cell * 1.2)
 				else:

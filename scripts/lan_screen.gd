@@ -2,13 +2,14 @@
 extends Control
 
 const WORLD := preload("res://scripts/lan_world.gd")
-const MAP := preload("res://scripts/lan_map_view.gd")
+
 const BATTLE := preload("res://scripts/lan_battle.gd")
 var session: Node
 var lobby: VBoxContainer
+var lobby_background: ColorRect
 var game_ui: Control
 var sidebar: VBoxContainer
-var map_view: Control
+var map_view: Node2D
 var players_label: Label
 var status: Label
 var name_edit: LineEdit
@@ -25,16 +26,25 @@ var selection := Vector2i(-1, -1)
 var battle: Node2D
 var game_built := false
 var rebuilding := false
+var connection_controls: HBoxContainer
+
+func _process(_delta: float) -> void:
+	if is_instance_valid(connection_controls) and is_instance_valid(map_view):
+		connection_controls.visible = map_view.is_processing() or is_instance_valid(battle) or session.paused_for_disconnect()
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	session = get_node("/root/LanSession")
 	var background := ColorRect.new()
+	lobby_background = background
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.color = Color("091423")
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 	var margin := MarginContainer.new()
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 36)
@@ -43,7 +53,7 @@ func _ready() -> void:
 	lobby.add_theme_constant_override("separation", 12)
 	margin.add_child(lobby)
 	label(lobby, "СЕТЕВАЯ ГАЛАКТИКА", 34)
-	label(lobby, "Локальная сеть • 2–4 игрока • Без компьютерных империй", 20)
+	label(lobby, "Локальная сеть • 1–4 игрока • Без компьютерных империй", 20)
 	name_edit = LineEdit.new()
 	name_edit.placeholder_text = "Имя командующего"
 	name_edit.text = "Командующий"
@@ -55,8 +65,7 @@ func _ready() -> void:
 	lobby.add_child(faction_select)
 	faction_select.item_selected.connect(func(_index: int) -> void: _configure(false))
 	size_select = OptionButton.new()
-	size_select.add_item("Галактика 64 × 64", 64)
-	size_select.add_item("Галактика 128 × 128", 128)
+	size_select.add_item("Четыре рубежа · 64 × 64", 64)
 	lobby.add_child(size_select)
 	size_select.item_selected.connect(func(_index: int) -> void: _configure(false))
 	address_edit = LineEdit.new()
@@ -85,7 +94,7 @@ func _ready() -> void:
 	status.offset_left = 36
 	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	session.changed.connect(_refresh)
-	session.notice.connect(func(message: String) -> void: status.text = message)
+	session.notice.connect(_show_notice)
 	_refresh()
 
 func label(parent: Node, text: String, font_size: int = 18) -> Label:
@@ -125,6 +134,7 @@ func _configure(ready: bool) -> void:
 
 func _refresh() -> void:
 	rebuilding = true
+	lobby_background.visible = not session.started
 	if not session.started:
 		if game_built:
 			game_ui.queue_free()
@@ -133,6 +143,7 @@ func _refresh() -> void:
 			battle.queue_free()
 			battle = null
 		lobby.show()
+		status.show()
 		host_button.disabled = session.active
 		join_button.disabled = session.active
 		name_edit.editable = not session.active
@@ -146,7 +157,7 @@ func _refresh() -> void:
 			lines.append("%s • %s • %s%s" % [p.name, WORLD.FACTIONS[p.faction], "Готов" if p.ready else "Выбирает", " • Хост" if peer == 1 else ""])
 		players_label.text = "\n".join(lines) if not lines.is_empty() else "Создайте лобби или подключитесь к хосту."
 		if session.active:
-			size_select.select(0 if session.map_size == 64 else 1)
+			size_select.select(0)
 			var p: Dictionary = session.roster.get(multiplayer.get_unique_id(), {})
 			ready_button.text = "Снять готовность" if p.get("ready", false) else "Готов"
 			if not p.is_empty():
@@ -154,20 +165,28 @@ func _refresh() -> void:
 		rebuilding = false
 		return
 	lobby.hide()
+	status.hide()
 	if not game_built:
 		_build_game()
-	var in_battle: bool = not session.world.state.battle.is_empty()
-	game_ui.visible = not in_battle
-	if in_battle and not is_instance_valid(battle):
+	var local_battle: Dictionary = session.battle_service.for_slot(session.my_slot())
+	var in_battle: bool = not local_battle.is_empty()
+	if in_battle:
+		map_view.close_windows_for_battle()
+	map_view.visible = not in_battle
+	map_view.get_node("HUD").visible = not in_battle
+	map_view.process_mode = Node.PROCESS_MODE_DISABLED if in_battle else Node.PROCESS_MODE_INHERIT
+	var active_battle: bool = in_battle and local_battle.phase == "active"
+	if active_battle and not is_instance_valid(battle):
 		battle = BATTLE.new()
+		battle.battle_definition = local_battle.duplicate(true)
 		battle.name = "LanBattle"
 		add_child(battle)
 	elif not in_battle and is_instance_valid(battle):
+		remove_child(battle)
 		battle.queue_free()
 		battle = null
-	_refresh_sidebar()
-	map_view.queue_redraw()
-	status.text = str(session.world.state.message)
+		map_view.camera.make_current()
+	map_view.apply_network_state()
 	disconnect_button.visible = session.paused_for_disconnect() and multiplayer.is_server()
 	disconnect_label.visible = session.paused_for_disconnect()
 	rebuilding = false
@@ -176,105 +195,30 @@ func _build_game() -> void:
 	game_built = true
 	game_ui = Control.new()
 	game_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	game_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(game_ui)
-	map_view = MAP.new()
-	map_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	map_view.offset_right = -380
-	map_view.offset_bottom = -38
+	map_view = load("res://scenes/SpaceStrategyMap.tscn").instantiate()
+	map_view.set_script(load("res://scripts/lan_adventure_map.gd"))
 	game_ui.add_child(map_view)
-	map_view.focus_home()
-	map_view.selected.connect(func(cell: Vector2i) -> void: selection = cell; _refresh_sidebar())
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	scroll.offset_left = -366
-	scroll.offset_right = -12
-	scroll.offset_top = 12
-	scroll.offset_bottom = -38
-	game_ui.add_child(scroll)
-	sidebar = VBoxContainer.new()
-	sidebar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sidebar.add_theme_constant_override("separation", 8)
-	scroll.add_child(sidebar)
-	# Кнопки соединения остаются доступны даже поверх тактического боя.
 	var layer := CanvasLayer.new()
 	layer.layer = 30
-	game_ui.tree_exiting.connect(layer.queue_free)
-	add_child(layer)
+	game_ui.add_child(layer)
 	var buttons := HBoxContainer.new()
+	connection_controls = buttons
 	layer.add_child(buttons)
-	buttons.position = Vector2(12, 8)
+	buttons.position = Vector2(8, 72)
 	disconnect_button = button(buttons, "Исключить отключившихся", session.drop_disconnected)
 	button(buttons, "Выйти из партии", _confirm_leave)
-	disconnect_label = label(layer, "Пауза: участник потерял соединение. Решение принимает хост.", 18)
-	disconnect_label.position = Vector2(12, 56)
+	disconnect_label = label(layer, "Участник отключился. Хост может исключить его; остальные продолжают игру.", 18)
+	disconnect_label.position = Vector2(8, 120)
+	disconnect_label.size = Vector2(720, 56)
 	disconnect_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	move_child(status, -1)
 
-func _refresh_sidebar() -> void:
-	if not game_built:
-		return
-	for child in sidebar.get_children():
-		sidebar.remove_child(child)
-		child.queue_free()
-	var state: Dictionary = session.world.state
-	var slot: int = session.my_slot()
-	if slot < 0:
-		return
-	var p: Dictionary = state.players[slot]
-	var can_act: bool = int(state.turn) == slot and p.alive and int(state.winner) < 0 and state.battle.is_empty()
-	label(sidebar, "Сол %d • %d × %d" % [state.day, state.size, state.size], 24)
-	label(sidebar, "Ход: " + str(state.players[state.turn].name), 22)
-	if int(state.winner) >= 0:
-		label(sidebar, "ПОБЕДИТЕЛЬ: " + str(state.players[state.winner].name), 26)
-	elif not p.alive:
-		label(sidebar, "Ваша планета захвачена. Вы наблюдаете за партией.")
-	for player in state.players:
-		label(sidebar, "%s • %s%s" % [player.name, WORLD.FACTIONS[player.faction], " • выбыл" if not player.alive else ""], 15)
-	label(sidebar, "Движение: %d / %d\nАртефакты: %d • Опыт: %d" % [p.movement, WORLD.MOVEMENT, p.artifacts, p.experience])
-	var resource_lines: Array[String] = []
-	for resource in WORLD.RESOURCES:
-		resource_lines.append("%s: %d" % [WORLD.RESOURCE_NAMES[resource], p.resources[resource]])
-	label(sidebar, " • ".join(resource_lines), 16)
-	button(sidebar, "К своему флоту", map_view.focus_home)
-	button(sidebar, "Завершить ход", func() -> void: session.send_command("end")).disabled = not can_act
-	label(sidebar, "ЛКМ — выбрать цель; ПКМ — камера; колесо — масштаб.", 15)
-	if session.world.inside(selection):
-		var obj: Dictionary = state.objects.get(selection, {})
-		var title := str({"mine": "Производство", "cache": "Ресурсы", "patrol": "Патруль", "relic": "Хранилище артефакта", "outpost": "База"}.get(obj.get("kind", ""), "Космос"))
-		label(sidebar, "%s [%d, %d]" % [title, selection.x, selection.y], 20)
-		if obj.has("resource"):
-			label(sidebar, WORLD.RESOURCE_NAMES[obj.resource])
-		for id in obj.get("army", {}):
-			label(sidebar, "%s ×%d" % [UnitDefs.display_name(id), obj.army[id]], 15)
-		var route: Array[Vector2i] = session.world.path(p.cell, selection, p.movement)
-		button(sidebar, "Лететь / взаимодействовать (%d)" % route.size(), func() -> void: session.send_command("move", {"cell": selection})).disabled = not can_act or route.is_empty()
-	label(sidebar, "ФЛОТ", 22)
-	for id in p.army:
-		label(sidebar, "%s ×%d" % [UnitDefs.display_name(id), p.army[id]], 16)
-	label(sidebar, "ПЛАНЕТА • строительство", 22)
-	label(sidebar, "Одна стройка в сол. Найм на родной планете. Артефакт даёт +1 к атаке и защите.", 15)
-	for id in WORLD.BUILDINGS:
-		var level := int(p.buildings.get(id, 0))
-		var cost: Dictionary = session.world.building_cost(p, id)
-		var text := "%s %d → %d\n%d кр. / %d руды / %d крист." % [WORLD.BUILDINGS[id], level, level + 1, cost.credits, cost.ore, cost.crystals]
-		var limit := 4 if id == "townhall" else (3 if id == "fort" else 2)
-		var build_button := button(sidebar, text if level < limit else WORLD.BUILDINGS[id] + " • максимум", func() -> void: session.send_command("build", {"building": id}))
-		build_button.disabled = not can_act or level >= limit or int(p.built_day) == int(state.day)
-	label(sidebar, "НАЙМ • недельный резерв", 22)
-	for id in p.stock:
-		var row := HBoxContainer.new()
-		sidebar.add_child(row)
-		var count := SpinBox.new()
-		count.min_value = 1
-		count.max_value = maxi(1, int(p.stock[id]))
-		row.add_child(count)
-		var hire := button(row, "%s\nРезерв: %d" % [UnitDefs.display_name(id), p.stock[id]], func() -> void: session.send_command("recruit", {"unit": id, "count": int(count.value)}))
-		hire.disabled = not can_act or p.cell != p.home or int(p.stock[id]) <= 0
-		hire.tooltip_text = "За корабль: " + str(UnitDefs.get_unit(id).cost)
-	label(sidebar, "БИРЖА • 5 ед. за 500 кредитов", 20)
-	for resource in WORLD.RESOURCES:
-		if resource != "credits":
-			button(sidebar, WORLD.RESOURCE_NAMES[resource], func() -> void: session.send_command("trade", {"resource": resource})).disabled = not can_act
+func _show_notice(message: String) -> void:
+	status.text = message
+	if session.started and is_instance_valid(map_view):
+		map_view.navigation_message = message
+		map_view._show_object_reward_dialog("Сетевая партия", message)
 
 func _confirm_leave() -> void:
 	var dialog := ConfirmationDialog.new()

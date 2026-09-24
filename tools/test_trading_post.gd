@@ -21,9 +21,9 @@ func _initialize() -> void:
 	_check(TradingPost.exchange_cost("Продукты", "Топливо", 2) == 6, "Базовые ресурсы меняются 3:1")
 	_check(TradingPost.exchange_cost("Топливо", "Научные данные", 2) == 4, "Редкие ресурсы меняются 2:1")
 	_check(TradingPost.exchange_cost("Топливо", "Руда", 1) == 0, "Получать базовые ресурсы нельзя")
-	_check(TradingPost.multiplied_cost("trader_corvette", 2) == {"credits": 1440}, "Цена III ранга умножается")
-	_check(TradingPost.multiplied_cost("trader_frigate", 2) == {"credits": 3240}, "Цена IV ранга умножается")
-	_check(TradingPost.multiplied_cost("trader_destroyer", 2) == {"credits": 6480, "Топливо": 4, "Радиоизотопы": 4}, "Цена эсминца умножается вместе с топливом и изотопами")
+	_check(TradingPost.multiplied_cost("trader_corvette", 2) == {"credits": 630}, "Цена III ранга умножается")
+	_check(TradingPost.multiplied_cost("trader_frigate", 2) == {"credits": 1080}, "Цена IV ранга умножается")
+	_check(TradingPost.multiplied_cost("trader_destroyer", 2) == {"credits": 1800, "Топливо": 4, "Радиоизотопы": 4}, "Цена эсминца умножается вместе с топливом и изотопами")
 	print("TRADING_POST_OK")
 	quit()
 

@@ -137,6 +137,14 @@ const HERO_PORTRAIT_PATHS := {
 	"league_commander": "res://assets/persons/LeagueHero/portrait.png",
 	"syndicate_captain": "res://assets/persons/PirateHero/portrait.png",
 	"mars_raider": "res://assets/persons/BanditHero/portrait.png",
+	"earth_romanov": "res://assets/persons/officers/earth_romanov.png",
+	"earth_sokolova": "res://assets/persons/officers/earth_sokolova.png",
+	"mars_rada": "res://assets/persons/officers/mars_rada.png",
+	"mars_ash": "res://assets/persons/officers/mars_ash.png",
+	"trader_orion": "res://assets/persons/officers/trader_orion.png",
+	"trader_lyra": "res://assets/persons/officers/trader_lyra.png",
+	"pirate_drake": "res://assets/persons/officers/pirate_drake.png",
+	"pirate_nyx": "res://assets/persons/officers/pirate_nyx.png",
 }
 
 ## Вторичные навыки. tiers — эффект на 1/2/3 ранге.
@@ -160,14 +168,14 @@ const SKILLS := {
 	"targeting": {
 		"name": "Наводка",
 		"category": "combat",
-		"desc": "Дальность стрельбы больше на %s гекс(ов)",
+		"desc": "Дальность стрельбы кораблей подходящего ранга больше на %s гекс(ов)",
 		"tiers": [1, 1, 2],
 		"weights": {"admiral": 7, "engineer": 5, "warlord": 4, "shaman": 4, "corsair": 7},
 	},
 	"thrusters": {
 		"name": "Форсаж двигателей",
 		"category": "combat",
-		"desc": "Дальность манёвра в бою больше на %s гекс(ов)",
+		"desc": "Дальность манёвра кораблей подходящего ранга больше на %s гекс(ов)",
 		"tiers": [1, 1, 2],
 		"weights": {"admiral": 6, "engineer": 5, "warlord": 7, "shaman": 4, "corsair": 8},
 	},
@@ -175,15 +183,8 @@ const SKILLS := {
 		"name": "Абордаж",
 		"category": "combat",
 		"desc": "В упор (соседний гекс) урон выше на %s%%",
-		"tiers": [15, 30, 50],
+		"tiers": [10, 20, 30],
 		"weights": {"admiral": 4, "engineer": 2, "warlord": 9, "shaman": 3, "corsair": 8},
-	},
-	"tactics": {
-		"name": "Тактика",
-		"category": "combat",
-		"desc": "Зона расстановки перед боем шире на %s колонк(и)",
-		"tiers": [1, 2, 3],
-		"weights": {"admiral": 7, "engineer": 4, "warlord": 6, "shaman": 4, "corsair": 5},
 	},
 	"leadership": {
 		"name": "Лидерство",
@@ -223,15 +224,15 @@ const SKILLS := {
 	"repair_drones": {
 		"name": "Ремонтные дроны",
 		"category": "tech",
-		"desc": "Раз за бой чинит корабль на %s прочности",
-		"tiers": [10, 20, 35],
+		"desc": "В начале каждого хода чинит текущий корабль на %s прочности",
+		"tiers": [10, 20, 30],
 		"weights": {"admiral": 5, "engineer": 8, "warlord": 3, "shaman": 6, "corsair": 4},
 	},
 	"shielding": {
 		"name": "Экранирование",
 		"category": "tech",
 		"desc": "Урон вражеских протоколов ниже на %s%%",
-		"tiers": [10, 20, 30],
+		"tiers": [15, 30, 45],
 		"weights": {"admiral": 5, "engineer": 6, "warlord": 4, "shaman": 5, "corsair": 4},
 	},
 	"navigation": {
@@ -276,10 +277,10 @@ const SKILLS := {
 		"tiers": [5, 10, 15],
 		"weights": {"admiral": 4, "engineer": 6, "warlord": 3, "shaman": 5, "corsair": 4},
 	},
-	"engineering": {
-		"name": "Инженерия",
+	"trading": {
+		"name": "Торговля",
 		"category": "strategy",
-		"desc": "Прочность кораблей выше на %s%%",
+		"desc": "Стоимость кораблей в кредитах для всей фракции ниже на %s%%",
 		"tiers": [10, 20, 30],
 		"weights": {"admiral": 5, "engineer": 9, "warlord": 4, "shaman": 4, "corsair": 4},
 	},
@@ -421,7 +422,37 @@ static func skill_value(skill_id: String, tier: int) -> int:
 	return SKILLS[skill_id]["tiers"][mini(tier, MAX_SKILL_TIER) - 1]
 
 
+## Базовый ранг усиливает I–II корабли, улучшенный расширяет эффект до IV,
+## экспертный даёт +2 всем рангам. Для Наводки и Форсажа правило одинаково.
+static func ship_rank_skill_bonus(skill_tier: int, ship_rank: int) -> int:
+	if skill_tier <= 0 or ship_rank <= 0:
+		return 0
+	if skill_tier >= 3:
+		return 2
+	if ship_rank <= 2 or (skill_tier >= 2 and ship_rank <= 4):
+		return 1
+	return 0
+
+
+## Торговля снижает только цену в кредитах, остальные ресурсы не меняет.
+## Цена одного корабля округляется вверх до целого кредита.
+static func discounted_ship_cost(base_cost: Dictionary, discount_percent: int) -> Dictionary:
+	var cost := base_cost.duplicate()
+	if cost.has("credits"):
+		cost["credits"] = maxi(0, ceili(float(cost["credits"]) * (100.0 - float(clampi(discount_percent, 0, 100))) / 100.0))
+	return cost
+
+
 static func skill_description(skill_id: String, tier: int) -> String:
+	if skill_id == "targeting" or skill_id == "thrusters":
+		if tier <= 0:
+			return "Навык не изучен"
+		var parameter := "Дальность стрельбы" if skill_id == "targeting" else "Дальность манёвра"
+		if tier >= 3:
+			return "%s всех кораблей больше на 2 гекса" % parameter
+		if tier >= 2:
+			return "%s кораблей I–IV рангов больше на 1 гекс" % parameter
+		return "%s кораблей I–II рангов больше на 1 гекс" % parameter
 	return (SKILLS[skill_id]["desc"] as String) % str(skill_value(skill_id, tier))
 
 
@@ -440,9 +471,20 @@ static func skill_weight(class_id: String, skill_id: String) -> int:
 	return int((SKILLS.get(skill_id, {}).get("weights", {}) as Dictionary).get(archetype, 0))
 
 
-static func hero_portrait(class_id: String) -> Texture2D:
-	var path := String(HERO_PORTRAIT_PATHS.get(class_id, HERO_PORTRAIT_PATHS["admiral"]))
+static func hero_portrait(class_id: String, hero_id: String = "") -> Texture2D:
+	var path := String(HERO_PORTRAIT_PATHS.get(hero_id, HERO_PORTRAIT_PATHS.get(class_id, HERO_PORTRAIT_PATHS["admiral"])))
 	return load(path) as Texture2D
+
+
+## Горизонтальный фрагмент для узких карточек: лицо и плечи вместо середины фигуры.
+static func hero_face_portrait(class_id: String, hero_id: String = "") -> Texture2D:
+	var full_portrait := hero_portrait(class_id, hero_id)
+	if full_portrait == null:
+		return null
+	var face_portrait := AtlasTexture.new()
+	face_portrait.atlas = full_portrait
+	face_portrait.region = Rect2(0, 0, full_portrait.get_width(), roundi(full_portrait.get_height() * 0.36))
+	return face_portrait
 
 
 ## Ранг протокола: из таблицы, а для новых протоколов — по стоимости энергии,

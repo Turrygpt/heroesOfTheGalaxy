@@ -49,21 +49,26 @@ func _run() -> void:
 	_check(half_volley < full_volley, "A depleted stack must deal less damage")
 	fighters["hp"] = fighters["max_hp"]
 
-	# Атака против защиты и штраф дальности.
-	_check(battle._damage_multiplier(battle.units[2], battle.units[3]) > 1.0, "Higher attack must raise damage")
-	_check(battle._damage_multiplier(battle.units[0], battle.units[2]) < 1.0, "Higher defence must lower damage")
-	_check(battle._range_penalty(battle.units[0], 3) == 0.7, "Shots beyond point-blank must fall to 70%")
+	# Поле поглощает лучи, кинетика не получает штрафа дальности.
+	_check(battle._damage_multiplier(battle.units[2], battle.units[3]) < 1.0, "Поле ослабляет лучевой урон")
+	_check(battle._damage_multiplier(battle.units[0], battle.units[2]) == 1.0, "Кинетика игнорирует поле")
+	_check(battle._range_penalty(battle.units[0], 3) == 1.0, "Кинетика сохраняет урон")
 	_check(battle._range_penalty(battle.units[0], 1) == 1.0, "Point-blank shots must be at full strength")
 
 	# Очередь ходов идёт по инициативе, а не по порядку в массиве.
 	var initiatives := []
 	for index in battle.turn_order:
-		initiatives.append(battle.units[index]["initiative"])
+		initiatives.append(battle.units[index]["move"])
 	var sorted_initiatives := initiatives.duplicate()
 	sorted_initiatives.sort()
 	sorted_initiatives.reverse()
-	_check(initiatives == sorted_initiatives, "Turn order must be sorted by initiative")
-	_check(battle.active_unit_index == 0, "The fastest stack must open the battle")
+	_check(initiatives == sorted_initiatives, "Очередь сортируется по скорости")
+	_check(battle.active_unit_index == battle.turn_order[0], "Первым ходит самый быстрый стек")
+	# Дальше проверяем ручное управление именно земным истребителем.
+	battle.active_unit_index = 0
+	battle.order_position = battle.turn_order.find(0)
+	battle.enemy_turn_delay = -1.0
+	battle._begin_active_turn()
 
 	_check(not battle._can_move_to(Vector2i(-1, 0)), "Cannot move outside battlefield")
 	_check(not battle._can_move_to(battle.units[1]["cell"]), "Cannot move onto another stack")
@@ -147,7 +152,10 @@ func _run() -> void:
 	root.add_child(battle)
 	battle.set_process(false)
 	battle.units[0]["cell"] = Vector2i(6, 4)
-	battle.units[3]["cell"] = Vector2i(7, 4)
+	battle.heroes.clear()
+	battle.units[3] = battle._finalize_unit(UnitDefs.make_blueprint("heavy_interceptor", 20, Vector2i(7, 4), 2))
+	battle.units[0]["luck_chance"] = 1.0
+	battle.units[3]["luck_chance"] = 1.0
 	var pirate_pool_before: int = battle.units[3]["hp"]
 	var fighter_pool_before: int = battle.units[0]["hp"]
 	battle.active_unit_index = 0

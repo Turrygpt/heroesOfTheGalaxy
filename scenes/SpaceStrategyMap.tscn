@@ -712,56 +712,9 @@ custom_minimum_size = Vector2(0, 16)
 [node name="ArmyList" type="ItemList" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 60)
-auto_height = true
+size_flags_vertical = 3
 focus_mode = 0
 mouse_filter = 1
 item_count = 2
 item_0/text = "Перехватчик: 5"
 item_1/text = "Штурмовик: 3"
-
-[node name="SkillsSeparator" type="HSeparator" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
-layout_mode = 2
-
-[node name="SkillsLabel" type="Label" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.54, 0.85, 0.9, 1)
-theme_override_font_sizes/font_size = 12
-text = "УМЕНИЯ"
-custom_minimum_size = Vector2(0, 16)
-
-[node name="SkillsList" type="ItemList" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 50)
-item_count = 2
-auto_height = true
-focus_mode = 0
-mouse_filter = 1
-item_0/text = "Артиллерия (I)"
-item_1/text = "Лидерство (I)"
-
-[node name="ProtocolsSeparator" type="HSeparator" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
-layout_mode = 2
-
-[node name="ProtocolsButton" type="Button" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.85, 0.72, 0.35, 1)
-theme_override_font_sizes/font_size = 15
-text = "ОТКРЫТЬ КНИГУ ПРОТОКОЛОВ"
-
-[node name="ArtifactsSeparator" type="HSeparator" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
-layout_mode = 2
-
-[node name="ArtifactsLabel" type="Label" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.54, 0.85, 0.9, 1)
-theme_override_font_sizes/font_size = 12
-text = "АРТЕФАКТЫ"
-custom_minimum_size = Vector2(0, 16)
-
-[node name="ArtifactsList" type="ItemList" parent="HUD/RightSidebar/Margin/VBox/HeroCardPanel/Margin/VBox"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 40)
-auto_height = true
-focus_mode = 0
-mouse_filter = 1

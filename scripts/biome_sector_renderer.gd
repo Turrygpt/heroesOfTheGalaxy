@@ -179,7 +179,7 @@ func _ready() -> void:
 	# Полосы последними: их пыль ложится перед глыбами и читается как ближний
 	# план, а упирается в потолок спрайтов тоже она, а не силуэты.
 	_build_lanes(hull, rng)
-	_build_accents(hull, rng)
+	_build_accents(hull, rng, features)
 
 
 ## Охватывающий круг сектора: центр и радиус в клетках. Подложка ориентируется
@@ -598,7 +598,7 @@ func _next_landmark(sheet: Array) -> int:
 ## Акценты поверх сектора: блики на льду, споровые облака в токсичном, угли в
 ## высокотемпературном. Угли мельче и их больше: один-два тлеющих пятна на
 ## сектор читались бы как случайный мусор, а россыпь — как жар.
-func _build_accents(hull: Dictionary, rng: RandomNumberGenerator) -> void:
+func _build_accents(hull: Dictionary, rng: RandomNumberGenerator, features: Array[Dictionary]) -> void:
 	var center: Vector2 = hull.center
 	var radius: float = hull.radius
 	var accent := String(profile.accent)
@@ -613,8 +613,16 @@ func _build_accents(hull: Dictionary, rng: RandomNumberGenerator) -> void:
 		elif accent == "ember":
 			size = rng.randf_range(9.0, 26.0)
 			speed = rng.randf_range(0.8, 1.9)
+		var point := (center + direction * sqrt(rng.randf()) * radius + Vector2.ONE * 0.5) * CELL
+		if accent == "spore":
+			# Охватывающий круг сектора заходит в чистый космос. Споры должны
+			# оставаться внутри токсичных клеток, а не появляться у планеты.
+			var feature: Dictionary = features[rng.randi_range(0, features.size() - 1)]
+			var cells: Array = feature.get("cells", [])
+			if not cells.is_empty():
+				point = (Vector2(cells[rng.randi_range(0, cells.size() - 1)]) + Vector2.ONE * 0.5) * CELL
 		accents.append({
-			"point": (center + direction * sqrt(rng.randf()) * radius + Vector2.ONE * 0.5) * CELL,
+			"point": point,
 			"size": size,
 			"phase": rng.randf_range(0.0, TAU),
 			"speed": speed,
@@ -803,16 +811,15 @@ func _draw_glint(accent: Dictionary, wave: float) -> void:
 			Color(core, 0.28 * pulse), 1.0, true)
 
 
-## Споровое облако: медленно дышащий ядовитый пузырь, который ещё и сносит в
-## сторону. Лучей нет — оно не блестит, оно клубится.
+## Мелкая взвесь вместо крупных концентрических кругов, похожих на маркер.
 func _draw_spore(accent: Dictionary, wave: float) -> void:
 	var breath := 0.65 + 0.35 * wave
-	var size := float(accent.size) * breath
 	var point: Vector2 = accent.point + Vector2(accent.drift) * sin(time * float(accent.speed) * 0.5
 		+ float(accent.phase))
-	draw_circle(point, size * 0.85, Color(0.36, 0.62, 0.14, 0.10 * breath))
-	draw_circle(point, size * 0.45, Color(0.56, 0.86, 0.22, 0.16 * breath))
-	draw_circle(point, size * 0.16, Color(0.84, 1.0, 0.40, 0.34 * breath))
+	for index in range(4):
+		var offset := Vector2.RIGHT.rotated(float(accent.phase) + index * 2.4) * float(accent.size) * 0.22
+		var fleck := point + offset
+		draw_line(fleck, fleck + Vector2(2.0, -1.0), Color(0.68, 0.88, 0.38, 0.13 * breath), 1.0, true)
 
 
 ## Уголь: тлеет неровно, поэтому пульсация идёт в квадрате — большую часть

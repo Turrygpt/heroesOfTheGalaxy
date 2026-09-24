@@ -647,6 +647,8 @@ func add_map_object(cell: Vector2i, kind: String, size: int) -> void:
 			object["activated"] = false
 		"university":
 			object["university_used_by"] = []
+		"hero_stat":
+			object["hero_stat_used_by"] = []
 		"info":
 			pass
 	var index := map_objects.size()
@@ -700,6 +702,8 @@ func _roll_object_reward(def: Dictionary, cell: Vector2i) -> Dictionary:
 	var reward_type: String = pool[map_random.randi_range(0, pool.size() - 1)]
 	match reward_type:
 		"resources":
+			if String(def.get("name", "")) == "Заброшенный пост прослушки":
+				return {"type": "resources", "resource_name": "Научные данные", "amount": 8}
 			if String(def.get("name", "")) == "Заброшенная станция":
 				return {"type": "multi_resources", "items": _roll_derelict_station_resources()}
 			if String(def.get("name", "")) == "Дрейфующий корабль":

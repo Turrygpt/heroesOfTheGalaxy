@@ -14,8 +14,8 @@ var source_slot := -1
 var target_slot := -1
 var drag_enabled := true
 var stack_count := 0
-## Форматированная карточка характеристик для mouseover. Её задаёт экран
-## гарнизона только для флота героя, где к базовым статам применяются бонусы.
+## Форматированная карточка характеристик. Экран гарнизона добавляет
+## бонусы командира, когда стек входит во флот героя.
 var combat_tooltip_bbcode := ""
 
 
@@ -29,24 +29,32 @@ func forward_drag_from(control: Control) -> void:
 func _make_custom_tooltip(_for_text: String) -> Control:
 	if combat_tooltip_bbcode.is_empty():
 		return null
+	var viewport_size := get_viewport_rect().size
+	var width := minf(460.0, maxf(240.0, viewport_size.x - 48.0))
+	var font_size := 14 if viewport_size.y >= 620.0 else 12
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(360, 0)
+	panel.custom_minimum_size = Vector2(width, 0)
 	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_theme_stylebox_override("panel", UI_STYLE.surface(UI_STYLE.CYAN, UI_STYLE.SURFACE, 14, 10))
 	var content := RichTextLabel.new()
 	content.bbcode_enabled = true
 	content.text = combat_tooltip_bbcode
-	# Явная высота не даёт системной tooltip-модалке растянуться до высоты окна.
-	content.custom_minimum_size = Vector2(332, 206)
-	content.size = Vector2(332, 206)
+	# Ширина ограничена окном, высоту вычисляет текст с переносами. Фиксированные
+	# 206 пикселей обрезали способности и бонусы героя без возможности дочитать.
+	content.custom_minimum_size = Vector2(width - 28.0, 0)
+	content.size = Vector2(width - 28.0, 0)
 	content.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	content.fit_content = false
+	content.fit_content = true
 	content.scroll_active = false
 	content.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_theme_font_override("normal_font", UI_STYLE.font())
-	content.add_theme_font_size_override("normal_font_size", 14)
+	for type in ["normal_font_size", "bold_font_size", "italics_font_size", "bold_italics_font_size"]:
+		content.add_theme_font_size_override(type, font_size)
+	content.add_theme_constant_override("line_separation", 3)
+	content.add_theme_constant_override("table_h_separation", 24)
+	content.add_theme_constant_override("table_v_separation", 5)
 	panel.add_child(content)
 	return panel
 

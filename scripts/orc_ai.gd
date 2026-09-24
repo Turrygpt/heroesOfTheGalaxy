@@ -398,9 +398,21 @@ func hero_is_home(map: Node2D) -> bool:
 	return map._cell_is_in_planet(hero_cell, home_cell)
 
 
-func _player_power(map: Node2D) -> float:
-	var player: Hero = map._player_hero()
-	return army_power(player.army) if player != null else 0.0
+func _player_target(map: Node2D) -> Dictionary:
+	var nearest_cell: Vector2i = map.current_cell
+	var nearest_hero: Hero = map._player_hero()
+	var nearest_distance := _distance(hero_cell, nearest_cell)
+	if map.random_map_mode and not map.network_game:
+		var roster := map.get_node_or_null("/root/HeroRoster")
+		for id in map.random_hero_states:
+			var state: Dictionary = map.random_hero_states[id]
+			var cell: Vector2i = map.current_cell if id == map.random_active_hero_id else state["cell"]
+			var distance := _distance(hero_cell, cell)
+			if distance < nearest_distance:
+				nearest_cell = cell
+				nearest_hero = roster.get_hero(String(id)) if roster != null else null
+				nearest_distance = distance
+	return {"cell": nearest_cell, "power": army_power(nearest_hero.army) if nearest_hero != null else 0.0}
 
 
 ## Выбор цели на сол. Порядок: подавляющее превосходство и настал срок —
@@ -413,24 +425,26 @@ func _choose_goal(map: Node2D) -> void:
 		goal_kind = ""
 		return
 	var own_power := army_power(warlord.army)
-	var player_power := _player_power(map)
+	var target := _player_target(map)
+	var player_cell: Vector2i = target["cell"]
+	var player_power: float = target["power"]
 	if own_power <= 0.0:
 		goal_cell = home_cell
 		goal_kind = "regroup"
 		return
 	if own_power >= player_power * ASSAULT_POWER_RATIO and int(map.current_day) >= ASSAULT_EARLIEST_DAY:
 		# Ближе к делу: если герой игрока рядом — бьём его, иначе идём на планету.
-		var player_distance := _distance(hero_cell, map.current_cell)
+		var player_distance := _distance(hero_cell, player_cell)
 		var planet_distance := _distance(hero_cell, map.HUMAN_PLANET_CENTER)
-		goal_cell = map.current_cell if player_distance <= planet_distance else map.HUMAN_PLANET_CENTER
+		goal_cell = player_cell if player_distance <= planet_distance else map.HUMAN_PLANET_CENTER
 		goal_kind = "assault"
 		return
 	# Локальная охота: полномасштабного перевеса для похода на столицу ещё нет
 	# (или не настал ASSAULT_EARLIEST_DAY), но флот игрока подвернулся рядом и
 	# заметно слабее — вождь бросает стройку/захват и добивает его на месте.
 	if player_power > 0.0 and own_power >= player_power * HUNT_POWER_RATIO \
-			and _distance(hero_cell, map.current_cell) <= HUNT_RANGE:
-		goal_cell = map.current_cell
+			and _distance(hero_cell, player_cell) <= HUNT_RANGE:
+		goal_cell = player_cell
 		goal_kind = "hunt"
 		return
 	# За накопленным в логовах флотом стоит слетать домой, если он заметен на
@@ -580,7 +594,10 @@ func _resolve_arrival(map: Node2D, cell: Vector2i) -> bool:
 	# орков открытым флотом без укреплений при каждой попытке защититься —
 	# кампания превращалась в бесконечную серию проигранных дуэлей у порога
 	# собственной столицы, а осада игроку не засчитывалась ни разу.
-	if cell == map.current_cell:
+	var defender_id: String = map._random_hero_id_at(cell)
+	if defender_id != "":
+		if defender_id != map.random_active_hero_id:
+			map._select_random_hero(defender_id)
 		if map._cell_is_in_planet(cell, map.HUMAN_PLANET_CENTER) and int(map.human_planet_owner) == 1:
 			pending_battle = "planet"
 			last_report.append("Орда вышла на орбиту вашей планеты!")

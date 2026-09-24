@@ -107,6 +107,10 @@ func _label(text: String, font_size: int, color: Color, centered := false) -> La
 
 
 func _choose(protocol_id: String) -> void:
+	if hero == null or hero.learned_protocols.has(protocol_id) \
+			or not PROTOCOLS.PROTOCOLS.has(protocol_id) \
+			or HERO_DEFS.protocol_rank(protocol_id) > hero.max_ability_rank():
+		return
 	learned.emit(protocol_id)
 	_close()
 

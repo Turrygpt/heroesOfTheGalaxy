@@ -12,7 +12,7 @@ extends RefCounted
 
 const Defs := preload("res://scripts/random_sector_defs.gd")
 const GuardianDefs := preload("res://scripts/guardian_defs.gd")
-const SIZE := 64
+var SIZE := 64
 const VERSION := 1
 ## Три клетки фарватера помещаются внутри зоны контроля стража 5×5.
 const CHANNEL_RADIUS := 1
@@ -28,18 +28,20 @@ const HOME_CLEARING := 7
 ## Родные планеты — space_strategy_map.HUMAN/ORC_PLANET_CENTER, нейтральные —
 ## map_object_defs.TRADE/PIRATE_PLANET_CENTER. Держим их здесь константами,
 ## чтобы геометрия считалась до того, как появится сама карта.
-const HOME_CENTERS: Array[Vector2i] = [Vector2i(6, 6), Vector2i(57, 57)]
-const NEUTRAL_CENTERS: Array[Vector2i] = [Vector2i(57, 6), Vector2i(6, 57)]
+var HOME_CENTERS: Array[Vector2i] = [Vector2i(6, 6), Vector2i(57, 57)]
+var NEUTRAL_CENTERS: Array[Vector2i] = [Vector2i(57, 6), Vector2i(6, 57)]
 const NEUTRAL_CLEARING := 4
 ## Сколько препятствий ставится и какой их разброс по размеру. Крупных мало,
 ## мелких много — иначе карта выглядит одинаково плотной везде.
-const CLUMP_COUNT := 118
+var CLUMP_COUNT := 118
 ## Набор целей в каждой области. Объём у всех девяти одинаковый — здание
 ## прокачки, станция с охраной, свой особый объект, пять-шесть мелочей и
 ## патруль. Различаются области тем, ЧТО в них стоит, а не сколько: раньше вся
 ## экономика жалась к своей планете, у домашних углов оказывалось вдвое больше
 ## остального, а середина карты пустовала.
 const HERO_SITES := ["training_ground", "veteran_outpost", "upgrade_lab", "combat_simulator"]
+const HERO_STAT_SITES := ["hero_strength_station", "hero_defense_station",
+	"hero_protocol_station", "hero_knowledge_station"]
 const GUARDED_SITES := ["derelict_station", "abandoned_shipyard", "listening_post", "smuggler_cache", "derelict_ship"]
 const REGION_SPECIALS := ["archive_station", "stellar_observatory", "knowledge_relay",
 	"trading_post", "ancient_relic", "trading_post", "knowledge_relay", "stellar_observatory",
@@ -89,8 +91,7 @@ func generate(seed_value: int) -> Dictionary:
 	# Схроны — до сшивки: кольцо бухты само по себе способно отрезать угол
 	# карты, и связность должна считаться уже вместе с ним. Углы под бухты
 	# берутся не те, где стоят нейтральные планеты.
-	_make_secret(Vector2i(rng.randi_range(43, 47), rng.randi_range(6, 9)), Vector2i.DOWN, 2)
-	_make_secret(Vector2i(rng.randi_range(16, 20), rng.randi_range(54, 57)), Vector2i.UP, 6)
+	_make_secrets()
 	_ensure_connected()
 	_link_regions()
 	_seal_pockets()
@@ -129,6 +130,11 @@ func generate(seed_value: int) -> Dictionary:
 	return {"version": VERSION, "seed": seed_value, "regions": regions.duplicate(true),
 		"links": links.duplicate(true), "secrets": secrets.duplicate(true), "obstacles": features,
 		"blocked": blocked.duplicate(), "slow": slow.duplicate()}
+
+
+func _make_secrets() -> void:
+	_make_secret(Vector2i(rng.randi_range(43, 47), rng.randi_range(6, 9)), Vector2i.DOWN, 2)
+	_make_secret(Vector2i(rng.randi_range(16, 20), rng.randi_range(54, 57)), Vector2i.UP, 6)
 
 
 func _make_regions() -> void:
@@ -362,7 +368,7 @@ func _ensure_connected(extra: Array[Vector2i] = []) -> void:
 	for secret: Dictionary in secrets:
 		targets.append(secret.cell)
 	for target in targets:
-		var seen := _flood(Vector2i(8, 6))
+		var seen := _flood(HOME_CENTERS[0])
 		if seen.has(target):
 			continue
 		_dig_to(target, seen)
@@ -371,7 +377,7 @@ func _ensure_connected(extra: Array[Vector2i] = []) -> void:
 ## Закрывает карманы: на карте не бывает доступного на вид островка пустоты,
 ## к которому на самом деле нет пути. Возвращает достижимую часть карты.
 func _seal_pockets() -> Dictionary:
-	var reachable := _flood(Vector2i(8, 6))
+	var reachable := _flood(HOME_CENTERS[0])
 	for cell: Vector2i in owners:
 		if _inside(cell) and not reachable.has(cell):
 			blocked[cell] = true
@@ -712,6 +718,11 @@ func populate(map: Node2D) -> void:
 		# в домашних областях нет.
 		if region_index not in [0, 8]:
 			_add_patrol(map, region_index)
+	# Каждая карта получает по одной из четырёх станций характеристик. Их
+	# раскладываем по удалённым друг от друга секторам, независимо от размера.
+	for station_index in range(HERO_STAT_SITES.size()):
+		var region_index := roundi(float(station_index) * float(regions.size() - 1) / float(HERO_STAT_SITES.size() - 1))
+		_place(map, region_index, HERO_STAT_SITES[station_index])
 	# Врата связывают дальние боковые ветви, не дают прыжок к чужому дому.
 	var first := _slot(2, 1)
 	var second := _slot(6, 1)
@@ -767,7 +778,14 @@ func _place(map: Node2D, region_index: int, kind: String) -> int:
 	var definition: Dictionary = map.MapObjectDefs.get_kind(kind)
 	var size := int(definition.get("size", 1))
 	var cell := _slot(region_index, size)
+	# Сюжетные ориентиры нужны для прохождения, даже если выбранный сектор
+	# уже занят. Свободное место в любом другом секторе лучше пропуска объекта.
+	if cell.x < 0 and kind in ["obelisk", "stellar_observatory", "void_vault"]:
+		cell = _slot(-1, size)
 	if cell.x < 0:
+		# Дополнительный ресурсный контейнер не является обязательной целью.
+		if kind == "resource_cache":
+			return -1
 		push_error("Не хватило места: %s, сектор %d" % [kind, region_index])
 		return -1
 	if definition.family == "guardian_reward":

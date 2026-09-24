@@ -12,7 +12,7 @@ func _run() -> void:
 	CampaignSave.prepare_new_game(true)
 	assert(HumanPlanetState.load_state().faction == "pirate")
 	var hero = HeroRoster.heroes["player_admiral"]
-	assert(hero.army.has("syndicate_fighter"))
+	assert(hero.army.has("syndicate_fighter_elite"))
 	var map = load("res://scenes/SpaceStrategyMap.tscn").instantiate()
 	map.open_tactical_when_run_directly = false
 	root.add_child(map)

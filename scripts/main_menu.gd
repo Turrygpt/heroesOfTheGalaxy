@@ -320,6 +320,7 @@ func _random_game() -> void:
 	chooser.chosen.connect(func(faction: String) -> void:
 		CampaignSave.selected_faction = faction
 		CampaignSave.random_map_seed = 0
+		CampaignSave.random_map_options = chooser.map_options()
 		chooser.queue_free()
 		requested_load = false
 		_start_intro(true)

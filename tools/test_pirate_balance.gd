@@ -5,17 +5,14 @@ const UNITS := preload("res://scripts/unit_defs.gd")
 const GUARDS := preload("res://scripts/guardian_defs.gd")
 const REWARDS := preload("res://scripts/battle_rewards.gd")
 const BASES := ["interceptor", "gunship", "corvette", "frigate", "destroyer", "elite_destroyer", "elite_destroyer"]
-## Пираты откалиброваны как 0,70 от корпуса землян НА МОМЕНТ КАЛИБРОВКИ, а не
-## живьём от текущих чисел (см. data/pirate_balance.md: "Корпус пиратов НЕ
-## следует за корпусом землян"). Корпус играбельных флотов с тех пор подняли
-## ×1,5 (data/balance_plan.md §3.4) осознанно НЕ трогая стражей — в этом и был
-## рычаг. Проверяем формулу против этой замороженной таблицы, а не против
-## живых UNITS.get_unit(), иначе следующая правка корпуса землян молча
-## обнулит просадку пиратов и тест ничего не заметит.
+## Корабли I–V рангов теперь равны нанимаемым пиратам. VI–VII ранги не имеют
+## нанимаемых аналогов и сохраняют прежний баланс относительно старой шкалы.
 const PRE_TUNING_HUMAN_HULL := {
 	"interceptor": 8, "gunship": 20, "corvette": 40, "frigate": 75,
 	"destroyer": 130, "elite_destroyer": 175,
 }
+## Защита пиратов также привязана к старой калибровке, не к полю новых землян.
+const PRE_TUNING_HUMAN_DEFENSE := {"interceptor": 6, "gunship": 8, "corvette": 10, "frigate": 13, "destroyer": 16, "elite_destroyer": 19}
 var failures := 0
 
 
@@ -42,22 +39,29 @@ func _run() -> void:
 		for entry in GUARDS.fleet_for(template):
 			var unit := UNITS.get_unit(entry.unit_id)
 			var tier := int(unit.tier)
-			var base := UNITS.get_unit(BASES[tier - 1])
 			var scale := 1.0 if tier <= 5 else (1.35 if tier == 6 else 1.8)
-			var pre_tuning_hull := int(PRE_TUNING_HUMAN_HULL[BASES[tier - 1]])
-			_check(unit.hull == roundi(roundi(pre_tuning_hull * scale) * 0.7), "Прочность пиратов: −30%")
-			_check(unit.defense == roundi(base.defense * 0.7), "Защита пиратов: −30%")
-			_check(is_equal_approx(unit.damage_factor, 1.1), "Урон пиратов: +10%")
+			if tier <= 5:
+				var hull_name: String = ["fighter", "gunship", "corvette", "frigate", "destroyer"][tier - 1]
+				var playable: Dictionary = UNITS.get_unit("syndicate_" + hull_name)
+				_check(unit.hull == playable.hull and unit.damage_min == playable.damage_min
+					and unit.damage_max == playable.damage_max and unit.abilities == playable.abilities,
+					"Пираты I–V рангов совпадают с нанимаемыми кораблями")
+			else:
+				var pre_tuning_hull := int(PRE_TUNING_HUMAN_HULL[BASES[tier - 1]])
+				_check(unit.hull == roundi(roundi(pre_tuning_hull * scale) * 0.7), "Прочность пиратов VI–VII рангов")
+				_check(unit.defense == roundi(PRE_TUNING_HUMAN_DEFENSE[BASES[tier - 1]] * 0.7), "Защита пиратов VI–VII рангов")
+				_check(is_equal_approx(unit.damage_factor, 1.1), "Урон пиратов VI–VII рангов")
 			_check(unit.texture.resource_path.contains("/pirates/"), "Новый спрайт пиратов")
 			power += REWARDS.ship_value(unit) * int(entry.count)
 		_check(power > previous_power, "Сила флотов растёт с удалением от старта")
 		previous_power = power
 		print(template, ": ", power)
-	# Раскладка стражей у месторождений — правило СЛУЧАЙНОЙ карты: там редкие
-	# производства прикрывают торговые конвои (_production_guard_template).
-	# С 16.09.2026 «Новая игра» открывает фиксированную миссию, где охрана
-	# задана полем guard_template в mars_demo_v1.json, поэтому для этой
-	# проверки карту нужно просить явно случайную.
+	# В текущей случайной партии базовые шахты свободны, редкие охраняют
+	# пираты. Пиратская планета обязательна, малая база зависит от сектора.
+	# Фиксированная миссия использует другую расстановку, поэтому просим
+	# случайную карту с постоянным размером и сидом.
+	root.get_node("CampaignSave").random_map_seed = 1001
+	root.get_node("CampaignSave").random_map_options = {"size": 64, "ai_count": 1}
 	root.get_node("CampaignSave").random_map_requested = true
 	var host := load("res://scenes/StrategicMain.tscn").instantiate() as Node
 	root.add_child(host)
@@ -67,20 +71,40 @@ func _run() -> void:
 		{"resource": "Руда"}, map.HUMAN_PLANET_CENTER + Vector2i(5, 0))
 	_check(nearby_resource_template == "trader_medium",
 		"Ближайшее охраняемое производство начинается со второго пояса")
-	var pirate_base_kinds := {}
-	var production_traders := 0
-	var production_others := 0
+	var pirate_planets := 0
+	var pirate_bases := 0
+	var guarded_rare_sites := 0
+	var free_basic_sites := 0
+	var base_roster := {}
+	for entry in GUARDS.fleet_for("pirate_base"):
+		base_roster[String(entry.unit_id)] = true
+	_check(base_roster.size() == 4, "Шаблон пиратской базы содержит четыре вида кораблей")
 	for guardian in map.guardians:
-		if String(guardian.get("object_kind", "")) == "pirate_base":
-			for entry in guardian.fleet:
-				pirate_base_kinds[String(entry.unit_id)] = true
-		elif int(guardian.get("site_index", -1)) >= 0:
-			if String(guardian.get("kind", "")) == "trader":
-				production_traders += 1
-			else:
-				production_others += 1
-	_check(pirate_base_kinds.size() == 4, "Пиратскую базу охраняют четыре вида кораблей")
-	_check(production_traders > 0 and production_others == 0, "Месторождения охраняют торговые конвои")
+		if String(guardian.get("object_kind", "")) == "pirate_planet":
+			pirate_planets += 1
+			_check(String(guardian.template) == "flagship" and guardian.fleet == GUARDS.fleet_for("flagship"),
+				"Пиратская планета охраняется флагманским флотом")
+		elif String(guardian.get("object_kind", "")) == "pirate_base":
+			pirate_bases += 1
+			_check(guardian.fleet == GUARDS.fleet_for("pirate_base"),
+				"Пиратская база использует свой состав из четырёх видов кораблей")
+	_check(pirate_planets == 1, "На случайной карте есть пиратская планета")
+	_check(pirate_bases <= 1, "Малая пиратская база не дублируется")
+	for site_index in range(map.production_sites.size()):
+		var site: Dictionary = map.production_sites[site_index]
+		var site_guards: Array = map.guardians.filter(func(guardian: Dictionary) -> bool:
+			return int(guardian.get("site_index", -1)) == site_index)
+		var basic := String(site.resource) in ["Продукты", "Руда"] and int(site.get("sector", 0)) > 0
+		if basic:
+			free_basic_sites += 1
+			_check(site_guards.is_empty(), "Базовое месторождение остаётся свободным")
+		else:
+			guarded_rare_sites += 1
+			_check(site_guards.size() == 1, "У редкого месторождения ровно одна охрана")
+			if site_guards.size() == 1:
+				_check(String(site_guards[0].kind) == "pirate" and not site_guards[0].fleet.is_empty(),
+					"Редкое месторождение охраняет пиратский флот")
+	_check(free_basic_sites > 0 and guarded_rare_sites > 0, "На карте есть базовые и редкие месторождения")
 	host.free()
 	for template in ["weak", "medium", "strong"]:
 		var wins := 0

@@ -18,15 +18,13 @@ extends RefCounted
 ## Явный preload вместо class_name: свежий class_name не виден до
 ## пересканирования проекта редактором, а так работает и headless-CLI.
 const ORC_DEFS := preload("res://scripts/orc_defs.gd")
+const FACTION_PROFILES := preload("res://scripts/faction_ship_profiles.gd")
 
-## Корпус земных и орочьих кораблей (kind == "dwelling"/весь orc_defs.gd:UNITS)
-## поднят ×1,5 относительно первоначальных значений — измерено balance_sim.gd
-## (см. data/balance_plan.md §3.4): потери при победе падали вдвое (28% → 51%
-## уцелевших против слабого стража), флот перестал топтаться на месте. Стражи
-## и нейтралы (kind == "guardian" ниже) корпус НЕ получили — это и есть
-## рычаг: игрок стал крепче относительно уже откалиброванных стражей.
+## Земляне: семь характеристик и способности только элитных версий.
+## Правила прототипа от 23.09.2026 и таблица — docs/battle_screen.md.
+## Элитные корпуса получают около +25% к корпусу и урону, а также способность.
 ##
-## Найм конкурирует со строительством за кредиты: цены удвоены.
+## Кредитная кривая найма приближена к росту цен существ HoMM3 по уровням.
 ## Корабли I–IV рангов нанимаются только за кредиты. Обычные и элитные
 ## эсминцы дополнительно требуют по 2 Топлива и Радиоизотопов за корабль.
 ## Руда, продукты и прочие ресурсы остаются затратами на строительство.
@@ -34,88 +32,109 @@ const UNITS := {
 # --- Покупаемые юниты Земного флота ----------------------------------------
 	"interceptor": {
 		"label": "Истребитель", "role": "обычный истребитель 1 ранга (короткая дистанция)", "tier": 1,
-		"hull": 12, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
-		"move": 7, "range": 2, "initiative": 12, "sprite_width": 104.0, "weapon_type": "machine_gun",
+		"hull": 25, "attack": 0, "defense": 0, "damage_min": 4, "damage_max": 6,
+		"move": 4, "range": 1, "initiative": 115, "sprite_width": 104.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/human_new/interceptor.png"), "region": Rect2(220, 356, 1290, 382),
 		"kind": "dwelling", "dwelling": "fighter_yard", "dwelling_level": 1,
 		"cost": {"credits": 100}, "weekly_growth": 10,
+		"force_field": 5, "damage_type": "kinetic", "accuracy": "normal",
+		"abilities": [],
 	},
 	"heavy_interceptor": {
 		"label": "Элитный истребитель", "role": "элитный истребитель 1 ранга (короткая дистанция)", "tier": 1,
-		"hull": 21, "attack": 8, "defense": 7, "damage_min": 3, "damage_max": 6,
-		"move": 6, "range": 2, "initiative": 10, "sprite_width": 112.0, "weapon_type": "machine_gun",
+		"hull": 31, "attack": 0, "defense": 0, "damage_min": 5, "damage_max": 8,
+		"move": 4, "range": 1, "initiative": 115, "sprite_width": 112.0, "weapon_type": "machine_gun",
 		"texture": preload("res://assets/ships/human_new/heavy_interceptor.png"), "region": Rect2(218, 358, 1292, 432),
 		"kind": "dwelling", "dwelling": "fighter_yard", "dwelling_level": 2,
 		"cost": {"credits": 180}, "weekly_growth": 8,
+		"force_field": 5, "damage_type": "kinetic", "accuracy": "normal",
+		"abilities": ["retaliation"],
 	},
 	"gunship": {
 		"label": "Штурмовик", "role": "обычный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
-		"hull": 30, "attack": 8, "defense": 8, "damage_min": 4, "damage_max": 7,
-		"move": 6, "range": 2, "initiative": 10, "sprite_width": 124.0, "weapon_type": "rocket",
+		"hull": 50, "attack": 0, "defense": 0, "damage_min": 10, "damage_max": 14,
+		"move": 3, "range": 1, "initiative": 115, "sprite_width": 124.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/corvette.png"), "region": Rect2(236, 316, 1420, 540),
 		"kind": "dwelling", "dwelling": "gunship_yard", "dwelling_level": 1,
-		"cost": {"credits": 300}, "weekly_growth": 6,
+		"cost": {"credits": 200}, "weekly_growth": 6,
+		"force_field": 5, "damage_type": "kinetic", "accuracy": "normal",
+		"abilities": [],
 	},
 	"elite_gunship": {
 		"label": "Элитный штурмовик", "role": "элитный штурмовик 2 ранга (короткая дистанция)", "tier": 2,
-		"hull": 48, "attack": 10, "defense": 10, "damage_min": 6, "damage_max": 10,
-		"move": 6, "range": 2, "initiative": 11, "sprite_width": 132.0, "weapon_type": "rocket",
+		"hull": 63, "attack": 0, "defense": 0, "damage_min": 13, "damage_max": 18,
+		"move": 3, "range": 1, "initiative": 115, "sprite_width": 132.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/elite_corvette.png"), "region": Rect2(72, 336, 1592, 508),
 		"kind": "dwelling", "dwelling": "gunship_yard", "dwelling_level": 2,
-		"cost": {"credits": 500}, "weekly_growth": 5,
+		"cost": {"credits": 330}, "weekly_growth": 5,
+		"force_field": 5, "damage_type": "kinetic", "accuracy": "normal",
+		"abilities": ["boarding"],
 	},
 	"corvette": {
 		"label": "Корвет", "role": "обычный корвет 3 ранга (дальнобойный)", "tier": 3,
-		"hull": 60, "attack": 11, "defense": 10, "damage_min": 8, "damage_max": 13,
-		"move": 5, "range": 3, "initiative": 8, "sprite_width": 140.0, "weapon_type": "cannon",
+		"hull": 65, "attack": 0, "defense": 0, "damage_min": 13, "damage_max": 17,
+		"move": 2, "range": 5, "initiative": 110, "sprite_width": 140.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/frigate.png"), "region": Rect2(60, 304, 1602, 466),
 		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 1,
-		"cost": {"credits": 800}, "weekly_growth": 4,
+		"cost": {"credits": 350}, "weekly_growth": 4,
+		"force_field": 8, "damage_type": "beam", "accuracy": "normal",
+		"abilities": [],
 	},
 	"elite_corvette": {
 		"label": "Элитный корвет", "role": "элитный корвет 3 ранга (дальнобойный)", "tier": 3,
-		"hull": 96, "attack": 14, "defense": 13, "damage_min": 12, "damage_max": 20,
-		"move": 5, "range": 4, "initiative": 8, "sprite_width": 150.0, "weapon_type": "cannon",
+		"hull": 81, "attack": 0, "defense": 0, "damage_min": 16, "damage_max": 21,
+		"move": 2, "range": 5, "initiative": 110, "sprite_width": 150.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/elite_frigate.png"), "region": Rect2(62, 304, 1598, 468),
 		"kind": "dwelling", "dwelling": "corvette_yard", "dwelling_level": 2,
-		"cost": {"credits": 1300}, "weekly_growth": 3,
+		"cost": {"credits": 570}, "weekly_growth": 3,
+		"force_field": 8, "damage_type": "beam", "accuracy": "normal",
+		"abilities": ["precise_salvo"],
 	},
 	"frigate": {
 		"label": "Фрегат", "role": "обычный фрегат 4 ранга (дальнобойный)", "tier": 4,
-		"hull": 113, "attack": 14, "defense": 13, "damage_min": 14, "damage_max": 22,
-		"move": 4, "range": 3, "initiative": 6, "sprite_width": 155.0, "weapon_type": "cannon",
+		"hull": 140, "attack": 0, "defense": 0, "damage_min": 20, "damage_max": 28,
+		"move": 2, "range": 3, "initiative": 115, "sprite_width": 155.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/cruiser.png"), "region": Rect2(34, 200, 1712, 514),
 		"kind": "dwelling", "dwelling": "frigate_yard", "dwelling_level": 1,
-		"cost": {"credits": 1800}, "weekly_growth": 2,
+		"cost": {"credits": 600}, "weekly_growth": 2,
+		"force_field": 10, "damage_type": "kinetic", "accuracy": "normal",
+		"abilities": [],
 	},
 	"elite_frigate": {
 		"label": "Элитный фрегат", "role": "элитный фрегат 4 ранга (дальнобойный)", "tier": 4,
-		"hull": 170, "attack": 17, "defense": 16, "damage_min": 20, "damage_max": 31,
-		"move": 4, "range": 4, "initiative": 6, "sprite_width": 165.0, "weapon_type": "cannon",
+		"hull": 175, "attack": 0, "defense": 0, "damage_min": 25, "damage_max": 35,
+		"move": 2, "range": 3, "initiative": 115, "sprite_width": 165.0, "weapon_type": "cannon",
 		"texture": preload("res://assets/ships/human_new/elite_cruiser.png"), "region": Rect2(30, 194, 1722, 526),
 		"kind": "dwelling", "dwelling": "frigate_yard", "dwelling_level": 2,
-		"cost": {"credits": 3200}, "weekly_growth": 1,
+		"cost": {"credits": 950}, "weekly_growth": 1,
+		"force_field": 10, "damage_type": "kinetic", "accuracy": "normal",
+		"abilities": ["flagship"],
 	},
 	"destroyer": {
 		"label": "Эсминец", "role": "обычный эсминец 5 ранга (дальнобойный)", "tier": 5,
-		"hull": 195, "attack": 18, "defense": 16, "damage_min": 24, "damage_max": 36,
-		"move": 3, "range": 4, "initiative": 5, "sprite_width": 170.0, "weapon_type": "laser",
+		"hull": 160, "attack": 0, "defense": 0, "damage_min": 32, "damage_max": 44,
+		"move": 1, "range": 8, "initiative": 110, "sprite_width": 170.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/destroyer.png"), "region": Rect2(36, 44, 1734, 788),
 		"kind": "dwelling", "dwelling": "destroyer_yard", "dwelling_level": 1,
-		"cost": {"credits": 3600, "Топливо": 2, "Радиоизотопы": 2}, "weekly_growth": 1,
+		"cost": {"credits": 1000, "Топливо": 2, "Радиоизотопы": 2}, "weekly_growth": 1,
+		"force_field": 8, "damage_type": "beam", "accuracy": "normal",
+		"abilities": [],
 	},
 	"elite_destroyer": {
 		"label": "Элитный эсминец", "role": "элитный эсминец 5 ранга (дальнобойный)", "tier": 5,
-		"hull": 263, "attack": 21, "defense": 19, "damage_min": 31, "damage_max": 45,
-		"move": 4, "range": 5, "initiative": 6, "sprite_width": 180.0, "weapon_type": "laser",
+		"hull": 200, "attack": 0, "defense": 0, "damage_min": 40, "damage_max": 55,
+		"move": 1, "range": 8, "initiative": 110, "sprite_width": 180.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/human_new/elite_destroyer.png"), "region": Rect2(34, 42, 1740, 792),
 		"kind": "dwelling", "dwelling": "destroyer_yard", "dwelling_level": 2,
-		"cost": {"credits": 5200, "Топливо": 2, "Радиоизотопы": 2}, "weekly_growth": 1,
+		"cost": {"credits": 1500, "Топливо": 2, "Радиоизотопы": 2}, "weekly_growth": 1,
+		"force_field": 8, "damage_type": "beam", "accuracy": "normal",
+		"abilities": ["precise_salvo"],
 	},
 	# --- Стражи (только для составов нейтралов на карте) ---------------------
+	# Пиратские и торговые записи I–V ниже хранят арт и старые идентификаторы.
+	# Их боевые показатели заменяются общим профилем в get_unit().
 	"raider": {
-		# I–V: обычные корабли людей. VI–VII: элитный эсминец ×1,35/×1,8 по корпусу и урону.
-		# Корпус и защита ×0,7 с округлением. Урон ×1,1 применяется к итоговому залпу.
+		# Старые числа оставлены для совместимости каталогов; в бой идёт профиль пиратов I ранга.
 		"label": "Охотник", "role": "пиратский истребитель", "tier": 1,
 		"hull": 6, "attack": 6, "defense": 4, "damage_min": 1, "damage_max": 3, "move": 7, "range": 2, "initiative": 12,
 		"sprite_width": 112.0, "weapon_type": "machine_gun",
@@ -171,7 +190,7 @@ const UNITS := {
 		"region": Rect2(0, 0, 1732, 591), "kind": "guardian", "faction": "pirate",
 		"damage_factor": 1.1,
 	},
-	# Торговцы: корпус как у землян, оружие −20% (damage_factor), скорость −10%.
+	# У торговцев I–V рангов старые числа также заменяются боевым профилем.
 	"trader_fighter": {
 		"label": "Торговый истребитель", "role": "конвойный истребитель", "tier": 1,
 		"hull": 8, "attack": 6, "defense": 6, "damage_min": 1, "damage_max": 3,
@@ -350,6 +369,13 @@ const UNITS := {
 }
 
 
+## Только эти старые идентификаторы — аналоги нанимаемых кораблей I–V рангов.
+## Другие нейтралы (например, ork_raider) сохраняют собственные параметры.
+const ORDINARY_GUARDIAN_IDS := [
+	"raider", "pirate_gunship", "pirate_corvette", "pirate_frigate", "pirate_destroyer",
+	"trader_fighter", "trader_gunship", "trader_corvette", "trader_frigate", "trader_destroyer",
+]
+
 static var elite_textures: Dictionary = {}
 
 static func get_unit(unit_id: String) -> Dictionary:
@@ -365,8 +391,7 @@ static func get_unit(unit_id: String) -> Dictionary:
 		unit["dwelling"] = ["fighter_yard", "gunship_yard", "corvette_yard", "frigate_yard", "destroyer_yard"][tier - 1]
 		unit["dwelling_level"] = 2 if elite else 1
 		unit["faction"] = "bandit"
-		unit["damage_hint"] = "Бандитские орудия: +10% урона"
-		return unit
+		return FACTION_PROFILES.apply(unit, "mars", elite)
 	if unit_id.begins_with("league_") or unit_id.begins_with("syndicate_"):
 		var pirate := unit_id.begins_with("syndicate_")
 		var elite := unit_id.ends_with("_elite")
@@ -385,13 +410,9 @@ static func get_unit(unit_id: String) -> Dictionary:
 		unit["dwelling_level"] = 2 if elite else 1
 		unit["cost"] = economy.cost.duplicate()
 		unit["weekly_growth"] = int(economy.weekly_growth)
-		# Конвойная серия сохраняет вооружение и силу нейтрального прототипа.
-		# Эскортная модернизация — отдельный покупаемый корабль той же модели.
+		# Игровая элита получает повышенные корпус и урон вместе со способностью.
 		if elite:
 			unit["label"] = String(unit.label) + (" · Синдикат" if pirate else " · эскорт")
-			unit["hull"] = roundi(float(unit.hull) * 1.5)
-			unit["attack"] = int(unit.attack) + 2
-			unit["defense"] = int(unit.defense) + 2
 			unit["cost"]["credits"] = roundi(float(unit.cost.credits) * 1.6)
 			var path := "res://assets/ships/%s/tier_%d_elite.png" % ["pirates" if pirate else "traders", tier]
 			if not elite_textures.has(path):
@@ -399,8 +420,17 @@ static func get_unit(unit_id: String) -> Dictionary:
 			var texture: Texture2D = elite_textures[path]
 			unit["texture"] = texture
 			unit["region"] = Rect2(Vector2.ZERO, texture.get_size())
-		return unit
-	return UNITS.get(unit_id, ORC_DEFS.UNITS.get(unit_id, {}))
+		return FACTION_PROFILES.apply(unit, "pirate" if pirate else "trader", elite)
+	if UNITS.has(unit_id):
+		var source: Dictionary = UNITS[unit_id]
+		# Полевые пираты и торговцы I–V рангов используют те же боевые
+		# характеристики, что их нанимаемые аналоги. Старые unit_id остаются
+		# в шаблонах и сохранениях, но больше не дают нейтралам слабый профиль.
+		var faction := String(source.get("faction", ""))
+		if unit_id in ORDINARY_GUARDIAN_IDS:
+			return FACTION_PROFILES.apply(source, faction, false)
+		return source
+	return ORC_DEFS.UNITS.get(unit_id, {})
 
 
 static func display_name(unit_id: String) -> String:
@@ -531,7 +561,4 @@ static func make_blueprint(unit_id: String, count: int, cell: Vector2i, side: in
 	unit["side"] = side
 	unit["count"] = count
 	unit["unit_id"] = unit_id
-	if not bool(unit.get("unlimited_range", false)):
-		var tier := int(unit.get("tier", 1))
-		unit["range"] = mini(4, maxi(1, int(ceil(float(tier) / 2.0))))
 	return unit

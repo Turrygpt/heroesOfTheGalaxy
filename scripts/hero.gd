@@ -135,6 +135,8 @@ func can_learn_new_skill() -> bool:
 
 
 func learn_skill(skill_id: String) -> void:
+	if not DEFS.SKILLS.has(skill_id):
+		return
 	var tier := int(skills.get(skill_id, 0))
 	if tier >= DEFS.MAX_SKILL_TIER:
 		return
@@ -349,10 +351,15 @@ func to_battle_hero(side: int) -> Dictionary:
 		"regen": energy_regen(),
 		"protocol_bonus_percent": skill_value("cyberwarfare"),
 		"damage_bonus_percent": damage_bonus_percent(),
+		"boarding_bonus_percent": skill_value("boarding"),
 		"hp_bonus_percent": hp_bonus_percent(),
+		"repair_per_turn": skill_value("repair_drones"),
+		"protocol_damage_reduction_percent": skill_value("shielding"),
 		"attack_bonus": stat("attack"),
 		"defense_bonus": stat("defense"),
-		"range_bonus": range_bonus(),
+		"range_bonus": DEFS.artifact_bonus(artifacts, "range_flat"),
+		"targeting_tier": skill_tier("targeting"),
+		"thrusters_tier": skill_tier("thrusters"),
 		"luck_chance": luck_chance(),
 		"leadership_chance": morale_chance(),
 		"book": protocol_book(),
@@ -371,17 +378,20 @@ func damage_bonus_percent(distance: int = 99) -> int:
 
 
 func hp_bonus_percent() -> int:
-	# Инженерия работает постоянно: флот получает прибавку к корпусу прямо
-	# в бою, поскольку между боями в армии хранятся только целые корабли.
-	return skill_value("armor_plating") + skill_value("engineering") + DEFS.artifact_bonus(artifacts, "hp_percent")
+	return skill_value("armor_plating") + DEFS.artifact_bonus(artifacts, "hp_percent")
 
 
-func range_bonus() -> int:
-	return skill_value("targeting") + DEFS.artifact_bonus(artifacts, "range_flat")
+func trade_discount_percent() -> int:
+	return skill_value("trading")
 
 
-func move_bonus() -> int:
-	return skill_value("thrusters")
+func range_bonus(ship_rank: int) -> int:
+	return DEFS.ship_rank_skill_bonus(skill_tier("targeting"), ship_rank) \
+		+ DEFS.artifact_bonus(artifacts, "range_flat")
+
+
+func move_bonus(ship_rank: int) -> int:
+	return DEFS.ship_rank_skill_bonus(skill_tier("thrusters"), ship_rank)
 
 
 func luck_chance() -> float:
@@ -599,12 +609,13 @@ static func from_dict(data: Dictionary) -> Hero:
 	for stat_id in (data.get("stats", {}) as Dictionary):
 		if hero.stats.has(stat_id):
 			hero.stats[stat_id] = int(data["stats"][stat_id])
-	for skill_id in (data.get("skills", {}) as Dictionary):
+	for old_skill_id in (data.get("skills", {}) as Dictionary):
+		var skill_id := "trading" if old_skill_id == "engineering" else String(old_skill_id)
 		if not DEFS.SKILLS.has(skill_id):
 			continue
-		if hero.skills.size() >= DEFS.MAX_SKILL_SLOTS:
+		if hero.skills.size() >= DEFS.MAX_SKILL_SLOTS and not hero.skills.has(skill_id):
 			break
-		hero.skills[skill_id] = clampi(int(data["skills"][skill_id]), 1, DEFS.MAX_SKILL_TIER)
+		hero.skills[skill_id] = maxi(int(hero.skills.get(skill_id, 0)), clampi(int(data["skills"][old_skill_id]), 1, DEFS.MAX_SKILL_TIER))
 	for artifact_id in (data.get("artifacts", {}) as Dictionary):
 		if DEFS.ARTIFACTS.has(artifact_id):
 			hero.artifacts[artifact_id] = true

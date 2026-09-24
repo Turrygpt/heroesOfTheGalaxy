@@ -13,11 +13,11 @@ var label_zoom := false
 
 func _ready() -> void:
 	map = get_parent()
-	var mask := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	var mask := Image.create(map.MAP_SIZE.x, map.MAP_SIZE.y, false, Image.FORMAT_RGBA8)
 	mask.fill(Color(0, 0, 0, 0))
-	var palette := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-	for y in range(64):
-		for x in range(64):
+	var palette := Image.create(map.MAP_SIZE.x, map.MAP_SIZE.y, false, Image.FORMAT_RGBA8)
+	for y in range(map.MAP_SIZE.y):
+		for x in range(map.MAP_SIZE.x):
 			var tint := Color(0, 0, 0, 0)
 			var total := 0.0
 			for region: Dictionary in map.random_map_layout.regions:
@@ -61,10 +61,9 @@ func _ready() -> void:
 			stamps.append({"center": center, "rotation": rng.randf() * TAU,
 				"texture": texture, "region": region, "color": color,
 				"rect": Rect2(-Vector2.ONE * diameter * 0.5, Vector2.ONE * diameter)})
-	var softener := preload("res://scripts/campaign_terrain_renderer.gd").new()
+	_scatter_open_details(map)
 	var clouds := Sprite2D.new()
-	clouds.texture = ImageTexture.create_from_image(softener._soft_cloud_mask(mask))
-	softener.free()
+	clouds.texture = ImageTexture.create_from_image(_soft_cloud_mask(mask))
 	clouds.centered = false
 	clouds.scale = Vector2.ONE * CELL
 	clouds.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
@@ -82,6 +81,63 @@ func _ready() -> void:
 		sector.biome = id
 		sector.terrain_source = map
 		add_child(sector)
+
+
+## Мелкие обломки и порода у кромок поясов делают проходимое пространство
+## разнообразнее. Они полупрозрачны, не занимают клетку и не меняют путь.
+func _scatter_open_details(strategy_map: Node2D) -> void:
+	var forbidden := {}
+	for source: Dictionary in [strategy_map.map_object_at, strategy_map.guardian_at]:
+		for occupied_cell: Vector2i in source:
+			for x in range(-1, 2):
+				for y in range(-1, 2):
+					forbidden[occupied_cell + Vector2i(x, y)] = true
+	for site: Dictionary in strategy_map.production_sites:
+		for x in range(-2, 4):
+			for y in range(-2, 4):
+				forbidden[Vector2i(site.cell) + Vector2i(x, y)] = true
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(strategy_map.map_seed) ^ 0x5C377
+	var target := mini(200, roundi(float(strategy_map.MAP_SIZE.x * strategy_map.MAP_SIZE.y) / 85.0))
+	var placed := {}
+	var count := 0
+	for attempt in range(target * 20):
+		if count >= target:
+			break
+		var cell := Vector2i(rng.randi_range(2, strategy_map.MAP_SIZE.x - 3),
+			rng.randi_range(2, strategy_map.MAP_SIZE.y - 3))
+		if strategy_map.blocked_cells.has(cell) or forbidden.has(cell) or placed.has(cell):
+			continue
+		var biome := ""
+		for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN,
+				Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1)]:
+			var nearby: Vector2i = cell + offset
+			if not strategy_map.blocked_cells.has(nearby):
+				continue
+			var feature_index := int(strategy_map.obstacle_at.get(nearby, -1))
+			if feature_index >= 0:
+				biome = String(strategy_map.obstacles[feature_index].get("biome", ""))
+				break
+		if not Defs.THEMES.has(biome):
+			continue
+		var variants: Array[int] = [12, 13, 14, 15, 16, 18, 19, 20, 21, 22]
+		if biome in ["crystal", "ice"]:
+			variants.assign([6, 7, 8])
+		elif biome == "volcanic":
+			variants.assign([0, 1, 2])
+		var variant := variants[rng.randi_range(0, variants.size() - 1)]
+		var tile := Vector2(ATLAS.get_width() / 6.0, ATLAS.get_height() / 4.0)
+		var region := Rect2(Vector2(variant % 6, variant / 6) * tile, tile)
+		var diameter := rng.randf_range(28.0, 48.0)
+		var tint := Color.WHITE.lerp(Color(Defs.THEMES[biome].accent), 0.25)
+		tint.a = 0.58
+		stamps.append({"center": (Vector2(cell) + Vector2.ONE * 0.5) * CELL,
+			"rotation": rng.randf() * TAU, "texture": ATLAS, "region": region,
+			"color": tint, "rect": Rect2(-Vector2.ONE * diameter * 0.5, Vector2.ONE * diameter)})
+		count += 1
+		for x in range(-1, 2):
+			for y in range(-1, 2):
+				placed[cell + Vector2i(x, y)] = true
 
 
 func _process(_delta: float) -> void:
@@ -114,3 +170,26 @@ func _draw() -> void:
 			var point := (Vector2(region.center) + Vector2(-5, -4)) * CELL
 			draw_string_outline(ThemeDB.fallback_font, point, region.name, HORIZONTAL_ALIGNMENT_CENTER, CELL * 10, 36, 7, Color(0.01, 0.02, 0.04, 0.8))
 			draw_string(ThemeDB.fallback_font, point, region.name, HORIZONTAL_ALIGNMENT_CENTER, CELL * 10, 36, Color(Defs.THEMES[region.id].accent, 0.8))
+
+
+## Размытие маски произвольного размера; рендер авторской кампании остаётся отдельным.
+func _soft_cloud_mask(source: Image) -> Image:
+	var weights: Array[float] = []
+	var total := 0.0
+	for offset in range(-3, 4):
+		var weight := exp(-float(offset * offset) / (2.0 * 1.25 * 1.25))
+		weights.append(weight)
+		total += weight
+	var current := source
+	var dimensions := source.get_size()
+	for axis in [Vector2i.RIGHT, Vector2i.DOWN]:
+		var result := Image.create(dimensions.x, dimensions.y, false, Image.FORMAT_RGBA8)
+		for y in range(dimensions.y):
+			for x in range(dimensions.x):
+				var value := Color(0, 0, 0, 0)
+				for offset in range(-3, 4):
+					var point: Vector2i = (Vector2i(x, y) + axis * offset).clamp(Vector2i.ZERO, dimensions - Vector2i.ONE)
+					value += current.get_pixelv(point) * weights[offset + 3] / total
+				result.set_pixel(x, y, value)
+		current = result
+	return current

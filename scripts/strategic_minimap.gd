@@ -1,6 +1,6 @@
 extends Control
 
-const MAP_SIZE := Vector2(64.0, 64.0)
+var MAP_SIZE := Vector2(64, 64)
 const CELL_SIZE := 96.0
 const PLAYER_ONE_COLOR := Color("3ca5ff")
 const PLAYER_TWO_COLOR := Color("ef5350")
@@ -34,8 +34,9 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color("050912"))
 	if strategy_map == null:
 		return
+	MAP_SIZE = Vector2(strategy_map.MAP_SIZE)
 
-	for coordinate in range(0, 65, 8):
+	for coordinate in range(0, int(MAP_SIZE.x) + 1, int(MAP_SIZE.x) / 8):
 		var x := coordinate / MAP_SIZE.x * size.x
 		var y := coordinate / MAP_SIZE.y * size.y
 		draw_line(Vector2(x, 0.0), Vector2(x, size.y), Color("172437"), 1.0)
@@ -55,35 +56,51 @@ func _draw() -> void:
 			route.append(_cell_to_minimap(cell))
 		draw_polyline(route, Color("77dfe9"), 1.5, true)
 
-	_draw_planet(strategy_map.HUMAN_PLANET_CENTER, PLAYER_ONE_COLOR)
-	_draw_planet(strategy_map.ORC_PLANET_CENTER, PLAYER_TWO_COLOR)
+	if strategy_map.network_game:
+		if strategy_map.session.world.state.is_empty():
+			return
+		for i in range(strategy_map.session.world.state.players.size()):
+			var p: Dictionary = strategy_map.session.world.state.players[i]
+			if strategy_map.is_cell_explored(p.home):
+				_draw_planet(p.home, strategy_map.SLOT_COLORS[strategy_map.session.world.state.planet_owners[i]])
+			for hero in p.party.values():
+				if hero.alive and (i == strategy_map.local_slot or strategy_map.is_cell_visible(hero.current_cell)):
+					draw_circle(_cell_to_minimap(hero.current_cell), 3, strategy_map.SLOT_COLORS[i])
+	elif strategy_map.has_method("random_session_snapshot"):
+		_draw_planet(strategy_map.home_planet_cell, PLAYER_ONE_COLOR)
+		for ai in strategy_map.opponents:
+			_draw_planet(ai.home_cell, strategy_map._production_owner_color(ai.base_owner))
+	else:
+		_draw_planet(strategy_map.home_planet_cell, PLAYER_ONE_COLOR)
+		_draw_planet(strategy_map.opponent_planet_cell, PLAYER_TWO_COLOR)
 
 	for index in range(strategy_map.production_sites.size()):
 		var site: Dictionary = strategy_map.production_sites[index]
 		var point := _cell_to_minimap(site["cell"])
 		var owner := int(strategy_map.production_owners[index]) if index < strategy_map.production_owners.size() else 0
 		var site_color := Color(site["color"])
-		if owner == 1:
+		if (strategy_map.network_game or strategy_map.has_method("random_session_snapshot")) and owner > 0:
+			site_color = strategy_map._production_owner_color(owner)
+		elif owner == 1:
 			site_color = PLAYER_ONE_COLOR
 		elif owner == 2:
 			site_color = PLAYER_TWO_COLOR
 		draw_circle(point, 3.5, site_color)
 
-	# Туман войны: те же самые открытые клетки, что и на основной карте (см.
-	# space_strategy_map.gd:_reveal_around) - миникарта не должна выдавать
-	# нейтральную сторону и объекты, которые герой ещё не увидел вживую.
+	# Та же трёхступенчатая маска, что и на основной карте: неизвестное,
+	# разведанное под туманом и текущий обзор.
 	if strategy_map.fog_texture != null:
 		draw_texture_rect(strategy_map.fog_texture, Rect2(Vector2.ZERO, size), false)
 
 	# Подписи рисуются поверх тумана войны: координатная сетка доступна всегда.
 	var font := ThemeDB.fallback_font
 	var world_size := MAP_SIZE * CELL_SIZE
-	for coordinate in range(0, 65, 8):
+	for coordinate in range(0, int(MAP_SIZE.x) + 1, int(MAP_SIZE.x) / 8):
 		var x := coordinate / MAP_SIZE.x * size.x
 		var y := coordinate / MAP_SIZE.y * size.y
 		# Крайние подписи чуть сдвигаются внутрь, чтобы «0» и «64» не
 		# обрезались рамкой миникарты.
-		var horizontal_x := x + 2.0 if coordinate == 0 else x - 16.0 if coordinate == 64 else x - 5.0
+		var horizontal_x := x + 2.0 if coordinate == 0 else x - 16.0 if coordinate == int(MAP_SIZE.x) else x - 5.0
 		var vertical_y := 14.0 if coordinate == 0 else y - 2.0
 		draw_string(font, Vector2(horizontal_x, 14.0), str(coordinate), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, COORDINATE_COLOR)
 		draw_string(font, Vector2(2.0, vertical_y), str(coordinate), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, COORDINATE_COLOR)
@@ -97,11 +114,25 @@ func _draw() -> void:
 
 	draw_circle(ship_point, 5.0, Color.WHITE)
 	draw_circle(ship_point, 3.0, PLAYER_ONE_COLOR)
+	if strategy_map.random_map_mode and not strategy_map.network_game:
+		for id in strategy_map.random_hero_states:
+			if id == strategy_map.random_active_hero_id:
+				continue
+			var other_cell: Vector2i = strategy_map.random_hero_states[id]["cell"]
+			var other_point := _cell_to_minimap(other_cell)
+			draw_circle(other_point, 4.0, Color.WHITE)
+			draw_circle(other_point, 2.5, PLAYER_ONE_COLOR)
 
 	# Раньше вражеский флагман на миникарте не отмечался вовсе — только свой
-	# корабль. Та же видимость, что и на основной карте (жив и клетка открыта,
+	# корабль. Та же видимость, что и на основной карте (жив и клетка освещена,
 	# см. _refresh_orc_ship_sprite), иначе миникарта выдавала бы орка сквозь туман.
-	if strategy_map.orc_ship_sprite != null and strategy_map.orc_ship_sprite.visible:
+	if strategy_map.has_method("random_session_snapshot"):
+		for ai in strategy_map.opponents:
+			if not ai.defeated and ai.hero_alive and strategy_map.is_cell_visible(ai.hero_cell):
+				var point := _cell_to_minimap(ai.hero_cell)
+				draw_circle(point, 4, Color.WHITE)
+				draw_circle(point, 2.5, strategy_map._production_owner_color(ai.owner_id))
+	elif strategy_map.orc_ship_sprite != null and strategy_map.orc_ship_sprite.visible:
 		var orc_point: Vector2 = strategy_map.orc_ship_sprite.position / world_size * size
 		draw_circle(orc_point, 5.0, Color.WHITE)
 		draw_circle(orc_point, 3.0, PLAYER_TWO_COLOR)
@@ -175,7 +206,7 @@ func open_ping_dialog() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	var hint := Label.new()
-	hint.text = "Введите координаты клетки от 0 до 63"
+	hint.text = "Введите координаты клетки от 0 до %d" % (int(MAP_SIZE.x) - 1)
 	hint.custom_minimum_size.y = 30
 	column.add_child(hint)
 	var x_edit := LineEdit.new()
@@ -202,8 +233,8 @@ func _apply_ping(x_edit: LineEdit, y_edit: LineEdit) -> void:
 	var strategy_map := _strategy_map()
 	if strategy_map == null:
 		return
-	var x := clampi(int(x_edit.text), 0, 63)
-	var y := clampi(int(y_edit.text), 0, 63)
+	var x := clampi(int(x_edit.text), 0, int(MAP_SIZE.x) - 1)
+	var y := clampi(int(y_edit.text), 0, int(MAP_SIZE.y) - 1)
 	strategy_map.set_beacon(Vector2i(x, y))
 	_close_ping_dialog()
 

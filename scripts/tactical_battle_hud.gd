@@ -4,6 +4,7 @@ signal end_turn_requested
 signal return_requested
 signal auto_requested
 signal auto_mode_requested
+signal ability_requested
 
 var auto_button: Button
 var auto_mode_button: Button
@@ -13,6 +14,7 @@ var auto_mode_button: Button
 ## enemy_faction()/ENEMY_FACTION_NAMES ещё нужны tactical_battle.gd для текста
 ## победы/поражения.
 const ENEMY_TITLES := {
+	"bandit": ["МАРСИАНСКИЙ ФЛОТ", "МАРСИАНЕ", "КОМАНДИР МАРСА"],
 	"pirate": ["ПИРАТСКИЙ ФЛОТ", "ВОЛЬНЫЕ КАПЕРЫ", "КАПИТАН ПИРАТОВ"],
 	"trader": ["ТОРГОВЫЙ КОНВОЙ", "ВОЛЬНЫЕ ТОРГОВЦЫ", "СТАРШИНА КАРАВАНА"],
 	"orc": ["ОРДА ОРКОВ", "БОЕВОЙ КЛАН ПУСТОТЫ", "ВОЖДЬ ОРКОВ"],
@@ -42,6 +44,8 @@ var end_button: Button
 var back_button: Button
 var ui: Control
 var turn_order_row: HBoxContainer
+var ability_button: Button
+var hint_label: Label
 
 
 func setup(_units: Array[Dictionary], _turn_order: Array[int]) -> void:
@@ -99,6 +103,14 @@ func _build_bottom_bar() -> void:
 	turn_order_row.add_theme_constant_override("separation", 6)
 	turn_order_row.custom_minimum_size.y = TURN_ORDER_ICON_SIZE
 	column.add_child(turn_order_row)
+	ability_button = _button("ТОЧНЫЙ ЗАЛП · E", GOLD)
+	ability_button.add_theme_font_size_override("font_size", 13)
+	ability_button.pressed.connect(func(): ability_requested.emit())
+	turn_order_row.add_child(ability_button)
+	hint_label = _label("", 13, MUTED)
+	hint_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	turn_order_row.add_child(hint_label)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
@@ -149,7 +161,19 @@ static func enemy_faction(units: Array[Dictionary]) -> String:
 	return "pirate"
 
 
-const ENEMY_FACTION_NAMES := {"orc": "ОРКИ", "trader": "ТОРГОВЦЫ", "pirate": "ПИРАТЫ", "ancient": "СТРАЖИ ДРЕВНИХ", "patrol": "ПАТРУЛЬ"}
+const ENEMY_FACTION_NAMES := {"bandit": "МАРСИАНЕ", "orc": "ОРКИ", "trader": "ТОРГОВЦЫ", "pirate": "ПИРАТЫ", "ancient": "СТРАЖИ ДРЕВНИХ", "patrol": "ПАТРУЛЬ"}
+const PLAYER_FACTION_NAMES := {"bandit": "МАРСИАНЕ", "trader": "ТОРГОВЦЫ", "pirate": "ПИРАТЫ", "orc": "ОРКИ"}
+
+
+static func player_faction(units: Array[Dictionary]) -> String:
+	for unit in units:
+		if int(unit.get("side", 0)) == 1 and not bool(unit.get("is_wall", false)):
+			return String(unit.get("faction", "human"))
+	return "human"
+
+
+static func player_faction_name(units: Array[Dictionary]) -> String:
+	return String(PLAYER_FACTION_NAMES.get(player_faction(units), "ЗЕМЛЯНЕ"))
 
 
 static func _enemy_faction_name(units: Array[Dictionary]) -> String:
@@ -160,7 +184,7 @@ func update_state(units: Array[Dictionary], active_index: int, round_number: int
 	var active := units[active_index]
 	var enemy_name := _enemy_faction_name(units)
 	round_label.text = event_text if finished else "РАУНД %02d  /  %s" % [
-		round_number, "ЗЕМЛЯНЕ" if active["side"] == 1 else enemy_name
+		round_number, player_faction_name(units) if active["side"] == 1 else enemy_name
 	]
 	end_button.visible = not finished
 	end_button.disabled = locked or active["side"] != 1
@@ -168,6 +192,16 @@ func update_state(units: Array[Dictionary], active_index: int, round_number: int
 	auto_mode_button.text = "РЕЖИМ: %s" % auto_mode_label
 	auto_mode_button.disabled = finished
 	_refresh_turn_order(units, turn_order, active_index, finished)
+	hint_label.text = _hint if not _hint.is_empty() else event_text
+	hint_label.tooltip_text = hint_label.text
+
+
+func update_ability(unit: Dictionary, available: bool, round_number: int) -> void:
+	ability_button.visible = preload("res://scripts/ship_combat_rules.gd").has_ability(unit, "precise_salvo")
+	ability_button.disabled = not available or end_button.disabled
+	var remaining := maxi(0, int(unit.get("precise_ready_round", 1)) - round_number)
+	ability_button.text = "ЗАЛП: %d РАУНД." % remaining if remaining > 0 else "ОТМЕНИТЬ ЗАЛП · E" if unit.get("precise_armed", false) else "ТОЧНЫЙ ЗАЛП · E"
+	ability_button.tooltip_text = "Выберите способность, затем цель. +50% урона; точность обычная. Повтор через 3 общих раунда."
 
 
 ## Очередь хода до конца раунда, начиная с активной пачки — дальше порядок
@@ -175,7 +209,9 @@ func update_state(units: Array[Dictionary], active_index: int, round_number: int
 ## выбывшие отряды из очереди пропадают.
 func _refresh_turn_order(units: Array[Dictionary], turn_order: Array[int], active_index: int, finished: bool) -> void:
 	for child in turn_order_row.get_children():
-		child.queue_free()
+		if child != ability_button and child != hint_label:
+			turn_order_row.remove_child(child)
+			child.queue_free()
 	if finished or turn_order.is_empty():
 		turn_order_row.visible = false
 		return
@@ -193,7 +229,9 @@ func _refresh_turn_order(units: Array[Dictionary], turn_order: Array[int], activ
 		var unit: Dictionary = units[unit_index]
 		if int(unit.get("hp", 0)) <= 0:
 			continue
-		turn_order_row.add_child(_turn_order_chip(unit, offset == 0))
+		var chip := _turn_order_chip(unit, offset == 0)
+		turn_order_row.add_child(chip)
+		turn_order_row.move_child(chip, shown)
 		shown += 1
 
 
