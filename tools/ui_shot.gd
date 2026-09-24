@@ -10,6 +10,9 @@ var shot_path := "user://ui.png"
 class PreviewStrategyMap:
 	extends Node2D
 
+	var network_game := false
+	var campaign_map_id := ""
+	var current_day := 1
 	var player_one_credits := 12800
 	var player_one_resources := {
 		"Продукты": 24,
@@ -23,15 +26,33 @@ class PreviewStrategyMap:
 	func player_fleet_at_home_planet() -> bool:
 		return true
 
+	func hero_at_home_planet() -> Hero:
+		return get_node("/root/HeroRoster").player_hero()
+
+	func ship_recruit_cost(base_cost: Dictionary, count: int = 1) -> Dictionary:
+		var total := {}
+		for resource in base_cost:
+			total[resource] = int(base_cost[resource]) * count
+		return total
+
+	func can_afford(cost: Dictionary) -> bool:
+		for resource in cost:
+			if resource == "credits" and player_one_credits < int(cost[resource]):
+				return false
+			if resource != "credits" and int(player_one_resources.get(resource, 0)) < int(cost[resource]):
+				return false
+		return true
+
 
 func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	var mode := args[0] if not args.is_empty() else "menu"
 	shot_path = args[1] if args.size() > 1 else shot_path
 	var hero := Hero.create("ui_preview", "Александр Вега", "admiral")
-	if mode in ["planet", "construction", "garrison", "exchange"]:
-		var planet := preload("res://scenes/HumanPlanetScreen.tscn").instantiate()
-		if mode == "garrison":
+	if mode in ["planet", "construction", "garrison", "drag_preview", "protocol_purchase", "exchange"]:
+		var planet := preload("res://scenes/HumanPlanetTown.tscn").instantiate()
+		planet.town_faction = "earth"
+		if mode in ["garrison", "drag_preview", "protocol_purchase"]:
 			var preview_map := PreviewStrategyMap.new()
 			add_child(preview_map)
 			planet.strategy_map = preview_map
@@ -49,7 +70,19 @@ func _ready() -> void:
 			}
 		add_child(planet)
 		if mode != "planet":
-			planet.call({"construction": "_open_construction_menu", "garrison": "_open_garrison_screen", "exchange": "_open_exchange_screen"}[mode])
+			if mode == "protocol_purchase":
+				get_node("/root/HeroRoster").player_hero().has_protocol_module = false
+				await get_tree().process_frame
+			planet.call({"construction": "_open_construction_menu", "garrison": "_open_garrison_screen", "drag_preview": "_open_garrison_screen", "protocol_purchase": "_open_university_screen", "exchange": "_open_exchange_screen"}[mode])
+		if mode == "drag_preview":
+			await get_tree().process_frame
+			var card: Control = planet.garrison_drop_host.get_child(0).get_child(0).get_child(0)
+			var preview: Control = card._make_drag_preview(Vector2.ZERO)
+			var overlay := CanvasLayer.new()
+			overlay.layer = 20
+			add_child(overlay)
+			overlay.add_child(preview)
+			preview.position = Vector2(1150, 300)
 	elif mode == "battle":
 		add_child(preload("res://scenes/TacticalBattle.tscn").instantiate())
 	elif mode == "map":

@@ -13,6 +13,7 @@ const BLUE := preload("res://scripts/ui_style.gd").CYAN
 const MUTED := preload("res://scripts/ui_style.gd").MUTED
 const INK := preload("res://scripts/ui_style.gd").INK
 const PANEL_SIZE := Vector2(760, 560)
+const SKILL_ICON_DIR := "res://assets/hero_skills"
 
 var hero: Hero
 var current_offer := {}
@@ -112,6 +113,12 @@ func _skill_card(option: Dictionary) -> Control:
 	card.add_child(column)
 	var category: String = DEFS.SKILLS[option["id"]]["category"]
 	column.add_child(_label(DEFS.SKILL_CATEGORY_NAMES[category].to_upper(), 11, MUTED, true))
+	var icon := TextureRect.new()
+	icon.texture = load(SKILL_ICON_DIR.path_join("%s.png" % String(option["id"]))) as Texture2D
+	icon.custom_minimum_size = Vector2(64, 64)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	column.add_child(icon)
 	column.add_child(_label(option["name"], 19, INK, true))
 	column.add_child(_label("%s ранг%s" % [option["tier_name"], "  ·  новый навык" if option["is_new"] else ""], 12, GOLD, true))
 	column.add_child(_label(option["description"], 13, MUTED, true))

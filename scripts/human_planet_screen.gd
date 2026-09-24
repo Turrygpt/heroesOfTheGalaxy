@@ -39,6 +39,7 @@ const PLANET_MUSIC_VOLUME_DB := -8.0
 const MUSIC_FADE_DURATION := 0.6
 const MUSIC_FADED_VOLUME_DB := -40.0
 const FLEET_TRANSFER_ZONE := preload("res://scripts/fleet_transfer_zone.gd")
+const CONSTRUCTION_CARD := preload("res://scripts/construction_card.gd")
 const UNIVERSITY_DEFS := preload("res://scripts/university_defs.gd")
 const HERO_PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 const UNIVERSITY_DIALOG := preload("res://scripts/university_protocols_dialog.gd")
@@ -80,18 +81,15 @@ const BUILDING_CATALOG := [
 ## с начала игры (см. HumanPlanetState.default_state), поэтому его costs[0]
 ## пустой - платить нужно только за апгрейды.
 ##
-## Основа цен взята из Heroes of Might & Magic III, но ресурсная часть усилена:
-## после первого форта развитие требует захватывать месторождения и менять
-## ресурсы на бирже. Кредиты по-прежнему повторяют шкалу оригинала 1:1.
+## Кредитная шкала повторяет HoMM III. Ресурсная часть учитывает единственную
+## близкую шахту (+2 руды за сол): стартового запаса хватает на первый форт
+## и ангар, дальнейшее развитие требует добычи или обмена.
 ##   - Совет: как в HoMM, экономические постройки стоят чистым золотом, без
 ##     ресурсов вовсе (Village Hall бесплатен, Town Hall 2500, City Hall 5000,
 ##     Capitol 10000).
-##   - Первый форт ровно расходует стартовые 10 продуктов и 10 руды; дальше
-##     оборона требует новых месторождений.
-##   - Университет II-IV требует все четыре редких ресурса сразу, всё больше
-##     на каждом уровне.
-##   - Верфи расходуют больше руды с ростом ранга, а улучшения добавляют
-##     профильный редкий ресурс. Поэтому открыть всё одной стартовой казной нельзя.
+##   - Первый форт и ангар истребителей вместе стоят 9 из стартовых 10 руды.
+##   - Университет II-IV требует редкие ресурсы, но не месяцы добычи каждого.
+##   - Старшие верфи требуют больше руды и профильные редкие ресурсы.
 ## Потолок 20 базового ресурса / 10 редкого за постройку — оставлен как
 ## инвариант (все цифры ниже внутри него) и проверяется
 ## tools/ship_buildings_regression.gd.
@@ -114,9 +112,9 @@ var BUILDING_DEFS := {
 	"fort": {
 		"name": "Форт", "max_level": 3, "level_names": ["I", "II", "III"],
 		"costs": [
-			{"credits": 1500, "Продукты": 10, "Руда": 10},
-			{"credits": 2500, "Руда": 8},
-			{"credits": 5000, "Продукты": 15, "Руда": 15},
+			{"credits": 1500, "Продукты": 6, "Руда": 6},
+			{"credits": 2500, "Руда": 5},
+			{"credits": 5000, "Продукты": 10, "Руда": 10},
 		],
 		"requirements": [
 			{"townhall": 1},
@@ -128,7 +126,7 @@ var BUILDING_DEFS := {
 		"name": "Ангар истребителей · I ранг", "max_level": 2, "level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
 		"costs": [
 			{"credits": 400, "Руда": 3},
-			{"credits": 1000, "Руда": 5, "Научные данные": 2},
+			{"credits": 1000, "Руда": 4, "Научные данные": 2},
 		],
 		"requirements": [
 			{"fort": 1},
@@ -139,8 +137,8 @@ var BUILDING_DEFS := {
 		"name": "Ангар штурмовиков · II ранг", "max_level": 2,
 		"level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
 		"costs": [
-			{"credits": 1000, "Руда": 10},
-			{"credits": 1250, "Руда": 8, "Научные данные": 2},
+			{"credits": 1000, "Руда": 6},
+			{"credits": 1250, "Руда": 5, "Научные данные": 2},
 		],
 		"requirements": [
 			{"fort": 1, "fighter_yard": 1},
@@ -151,8 +149,8 @@ var BUILDING_DEFS := {
 		"name": "Ангар корветов · III ранг", "max_level": 2,
 		"level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
 		"costs": [
-			{"credits": 1750, "Руда": 12},
-			{"credits": 1750, "Руда": 10, "Топливо": 4},
+			{"credits": 1750, "Руда": 8},
+			{"credits": 1750, "Руда": 7, "Топливо": 3},
 		],
 		"requirements": [
 			{"fort": 2, "gunship_yard": 1},
@@ -163,8 +161,8 @@ var BUILDING_DEFS := {
 		"name": "Ангар фрегатов · IV ранг", "max_level": 2,
 		"level_names": ["ОБЫЧНАЯ", "ЭЛИТНАЯ"],
 		"costs": [
-			{"credits": 2500, "Руда": 15, "Радиоизотопы": 6},
-			{"credits": 2500, "Руда": 12, "Радиоизотопы": 8},
+			{"credits": 2500, "Руда": 10, "Радиоизотопы": 3},
+			{"credits": 2500, "Руда": 9, "Радиоизотопы": 4},
 		],
 		"requirements": [
 			{"fort": 2, "corvette_yard": 1, "townhall": 3},
@@ -175,8 +173,8 @@ var BUILDING_DEFS := {
 		"name": "Ангар эсминцев · V ранг", "max_level": 2,
 		"level_names": ["ОБЫЧНЫЙ", "ЭЛИТНЫЙ"],
 		"costs": [
-			{"credits": 3500, "Руда": 15, "Энергокристаллы": 10, "Радиоизотопы": 10},
-			{"credits": 4000, "Руда": 20, "Энергокристаллы": 10, "Радиоизотопы": 10},
+			{"credits": 3500, "Руда": 12, "Энергокристаллы": 5, "Радиоизотопы": 5},
+			{"credits": 4000, "Руда": 14, "Энергокристаллы": 6, "Радиоизотопы": 6},
 		],
 		"requirements": [
 			{"fort": 3, "frigate_yard": 1, "townhall": 4},
@@ -185,21 +183,21 @@ var BUILDING_DEFS := {
 	},
 	"tavern": {
 		"name": "Офицерский клуб", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 500, "Продукты": 8}],
+		"costs": [{"credits": 500, "Продукты": 5}],
 		"requirements": [{"townhall": 1}],
 	},
 	"marketplace": {
 		"name": "Биржа", "max_level": 1, "level_names": ["I"],
-		"costs": [{"credits": 500, "Продукты": 8}],
+		"costs": [{"credits": 500, "Продукты": 5}],
 		"requirements": [{"townhall": 1}],
 	},
 	"mage_guild": {
 		"name": "Галактический университет", "max_level": 4, "level_names": ["I", "II", "III", "IV"],
 		"costs": [
-			{"credits": 2000, "Продукты": 8, "Руда": 8},
+			{"credits": 2000, "Продукты": 5, "Руда": 4},
+			{"credits": 1000, "Продукты": 6, "Руда": 5, "Научные данные": 2, "Энергокристаллы": 2, "Топливо": 2, "Радиоизотопы": 2},
+			{"credits": 1000, "Продукты": 7, "Руда": 7, "Научные данные": 3, "Энергокристаллы": 3, "Топливо": 3, "Радиоизотопы": 3},
 			{"credits": 1000, "Продукты": 8, "Руда": 8, "Научные данные": 5, "Энергокристаллы": 5, "Топливо": 5, "Радиоизотопы": 5},
-			{"credits": 1000, "Продукты": 10, "Руда": 10, "Научные данные": 7, "Энергокристаллы": 7, "Топливо": 7, "Радиоизотопы": 7},
-			{"credits": 1000, "Продукты": 12, "Руда": 12, "Научные данные": 10, "Энергокристаллы": 10, "Топливо": 10, "Радиоизотопы": 10},
 		],
 		"requirements": [
 			{"townhall": 2},
@@ -219,8 +217,8 @@ const SHIP_BUILDING_KINDS := [
 const BUILDING_LAYOUT_PATH := "res://data/human_planet_buildings.json"
 const BUILDING_HOVER_SCALE := 1.035
 const BUILDING_HOVER_SPEED := 12.0
-const CONSTRUCTION_GRID_COLUMNS := 4
-const CONSTRUCTION_CARD_SIZE := Vector2(190, 156)
+const CONSTRUCTION_GRID_COLUMNS := 2
+const CONSTRUCTION_CARD_SIZE := Vector2(392, 190)
 
 ## Биржа (marketplace) - те же иконки ресурсов и порядок, что в
 ## HUD/ResourceBar на стратегической карте (см. SpaceStrategyMap.tscn).
@@ -498,6 +496,7 @@ func _setup_catalog_button_visuals() -> void:
 func _process(delta: float) -> void:
 	var orbit_angle := Time.get_ticks_msec() * 0.0000025
 	moon.position = moon_origin + Vector2(cos(orbit_angle) * 46.0, sin(orbit_angle) * 20.0)
+	_update_university_button_pulse()
 	_update_placement_preview()
 	_update_building_hover(delta)
 
@@ -1060,6 +1059,10 @@ func _open_university_screen() -> void:
 		_close_building_editor()
 	if is_instance_valid(university_screen):
 		return
+	var hero := _player_hero()
+	if _commander_at_city() and hero != null and not hero.has_protocol_module:
+		_offer_protocol_module(hero)
+		return
 	# Предложения и список изученных протоколов могли измениться после
 	# последнего открытия экрана, поэтому перед показом перечитываем состояние.
 	_sync_university_protocols()
@@ -1078,6 +1081,93 @@ func _open_university_screen() -> void:
 		commander_present
 	)
 	university_screen.layer = layer + 1
+
+
+func _offer_protocol_module(hero: Hero) -> void:
+	var ui_style := preload("res://scripts/ui_style.gd")
+	var dialog := CanvasLayer.new()
+	dialog.name = "ProtocolModuleOffer"
+	dialog.layer = layer + 2
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	dialog.add_child(root)
+	var shade := ColorRect.new()
+	shade.color = Color(0.0, 0.01, 0.02, 0.76)
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(shade)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(center)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(660, 260)
+	panel.add_theme_stylebox_override("panel", ui_style.surface(ui_style.CYAN, Color("1a252d"), 30, 26))
+	center.add_child(panel)
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 14)
+	panel.add_child(body)
+	var title := Label.new()
+	title.text = "МОДУЛЬ ПРОТОКОЛОВ"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 23)
+	title.add_theme_color_override("font_color", ui_style.CYAN)
+	body.add_child(title)
+	body.add_child(HSeparator.new())
+	var description := Label.new()
+	description.text = "Подключить модуль герою %s?\nОн откроет применение изученных протоколов в бою." % hero.hero_name
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.add_theme_font_size_override("font_size", 17)
+	description.add_theme_color_override("font_color", ui_style.INK)
+	body.add_child(description)
+	var credits := int(strategy_map.player_one_credits) if strategy_map != null else 0
+	var price := Label.new()
+	price.text = "СТОИМОСТЬ: 500 КРЕДИТОВ"
+	price.add_theme_font_size_override("font_size", 16)
+	price.add_theme_color_override("font_color", ui_style.GOLD)
+	body.add_child(price)
+	if credits < 500:
+		var shortage := Label.new()
+		shortage.text = "Не хватает кредитов: %d/500" % credits
+		shortage.add_theme_color_override("font_color", Color("ff6b62"))
+		body.add_child(shortage)
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 12)
+	body.add_child(buttons)
+	var buy := Button.new()
+	buy.name = "ProtocolModuleBuy"
+	buy.text = "ПОДКЛЮЧИТЬ ЗА 500"
+	buy.custom_minimum_size = Vector2(0, 46)
+	buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	buy.disabled = credits < 500
+	ui_style.apply_button(buy)
+	buy.pressed.connect(func() -> void:
+		dialog.queue_free()
+		_buy_protocol_module(hero)
+	)
+	buttons.add_child(buy)
+	var cancel := Button.new()
+	cancel.text = "ОТМЕНА"
+	cancel.custom_minimum_size = Vector2(0, 46)
+	cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ui_style.apply_button(cancel)
+	cancel.pressed.connect(dialog.queue_free)
+	buttons.add_child(cancel)
+	get_tree().root.add_child(dialog)
+
+
+func _buy_protocol_module(hero: Hero) -> void:
+	if hero == null or hero.has_protocol_module or not _commander_at_city():
+		return
+	if strategy_map == null or not strategy_map.can_afford({"credits": 500}):
+		return
+	strategy_map.pay_cost({"credits": 500})
+	hero.has_protocol_module = true
+	_save_hero_roster()
+	_commit_strategy_economy_change()
+	_update_resource_bar()
+	_update_university_button()
+	_open_university_screen()
 
 
 func _on_university_screen_closed() -> void:
@@ -2187,6 +2277,22 @@ func _format_cost(cost: Dictionary) -> String:
 	return " + ".join(parts)
 
 
+func _format_construction_cost(cost: Dictionary) -> String:
+	var names := {
+		"credits": "кр.",
+		"Продукты": "прод.",
+		"Руда": "руды",
+		"Научные данные": "науки",
+		"Энергокристаллы": "крист.",
+		"Топливо": "топлива",
+		"Радиоизотопы": "изот.",
+	}
+	var parts: Array[String] = []
+	for resource in cost:
+		parts.append("%d %s" % [int(cost[resource]), String(names.get(resource, resource))])
+	return " · ".join(parts)
+
+
 func _production_price_text(unit_id: String, max_count: int) -> String:
 	var one_cost: Dictionary = UnitDefs.get_unit(unit_id).get("cost", {})
 	var max_cost := _ship_recruit_cost(one_cost, maxi(0, max_count))
@@ -2351,80 +2457,123 @@ func _save_hero_roster() -> void:
 func _update_construction_menu() -> void:
 	for child in construction_options_list.get_children():
 		child.queue_free()
-	construction_options_list.add_theme_constant_override("separation", 0)
+	construction_options_list.add_theme_constant_override("separation", 12)
+	_construction_section("ИНФРАСТРУКТУРА", ["townhall", "fort", "marketplace", "mage_guild", "tavern"])
+	_construction_section("КОРАБЛЕСТРОЕНИЕ", SHIP_BUILDING_KINDS)
+
+
+func _construction_section(title: String, kinds: Array) -> void:
+	var heading := Label.new()
+	heading.text = title
+	heading.add_theme_font_size_override("font_size", 16)
+	heading.add_theme_color_override("font_color", Color("89cde2"))
+	construction_options_list.add_child(heading)
 	var grid := GridContainer.new()
 	grid.columns = CONSTRUCTION_GRID_COLUMNS
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 12)
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
 	construction_options_list.add_child(grid)
-	for kind in BUILDING_DEFS.keys():
-		grid.add_child(_build_construction_card(kind))
+	for kind in kinds:
+		if kind == "tavern" and strategy_map != null and strategy_map.campaign_map_id == "mars_demo_v1":
+			continue
+		grid.add_child(_build_construction_card(String(kind)))
 
 
 func _build_construction_card(kind: String) -> Control:
-	if kind == "tavern" and strategy_map != null and strategy_map.campaign_map_id == "mars_demo_v1":
-		var unavailable := Control.new()
-		unavailable.hide()
-		return unavailable
 	var def: Dictionary = BUILDING_DEFS[kind]
 	var max_level := int(def["max_level"])
-	var level_names: Array = def["level_names"]
 	var level := int(built_levels.get(kind, 0))
-	# Карточка показывает следующее доступное здание: после постройки I уровня
-	# игрок сразу видит вариант II. На максимальном уровне остаётся последний
-	# спрайт, чтобы карточка продолжала отображать уже построенное здание.
 	var icon_level := clampi(level + 1, 1, max_level)
 	var action := _construction_action_state(kind)
-
-	var card := PanelContainer.new()
+	var card := CONSTRUCTION_CARD.new()
 	card.custom_minimum_size = CONSTRUCTION_CARD_SIZE
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.add_theme_stylebox_override("panel", _construction_card_style(Color(action["color"]), bool(action["disabled"])))
-	card.tooltip_text = _building_display_name(kind, icon_level) + "\n" + String(def["name"]) + "\n" + String(action["tooltip"])
-
+	card.missing_text = String(action["missing_text"])
+	card.tooltip_text = String(action["tooltip"])
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 7)
-	margin.add_theme_constant_override("margin_top", 7)
-	margin.add_theme_constant_override("margin_right", 7)
-	margin.add_theme_constant_override("margin_bottom", 7)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 10)
 	card.add_child(margin)
-
-	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 4)
-	margin.add_child(stack)
-
+	var body := VBoxContainer.new()
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_theme_constant_override("separation", 0)
+	margin.add_child(body)
+	var header := HBoxContainer.new()
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_theme_constant_override("separation", 14)
+	body.add_child(header)
+	var image_column := VBoxContainer.new()
+	image_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	image_column.custom_minimum_size.x = 146
+	image_column.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	image_column.add_theme_constant_override("separation", 8)
+	header.add_child(image_column)
 	var image := TextureRect.new()
+	image.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	image.texture = _find_catalog_texture(kind, icon_level)
-	image.custom_minimum_size = Vector2(0, 58)
+	image.custom_minimum_size = Vector2(146, 94)
+	image.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	image.modulate = Color(1, 1, 1, 0.42) if bool(action["disabled"]) and level <= 0 else Color.WHITE
-	stack.add_child(image)
-
+	image.modulate = Color(1, 1, 1, 0.72) if bool(action["disabled"]) and level <= 0 else Color.WHITE
+	image_column.add_child(image)
+	var action_button := Button.new()
+	action_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	action_button.custom_minimum_size = Vector2(146, 38)
+	action_button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	action_button.text = String(action["label"]).to_upper()
+	action_button.disabled = bool(action["disabled"])
+	action_button.add_theme_font_size_override("font_size", 12)
+	image_column.add_child(action_button)
+	var info := VBoxContainer.new()
+	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.add_theme_constant_override("separation", 4)
+	header.add_child(info)
 	var title := Label.new()
 	title.text = _building_display_name(kind, icon_level)
-	title.custom_minimum_size.y = 36
-	title.add_theme_font_size_override("font_size", 12)
-	title.add_theme_color_override("font_color", Color(0.93, 0.96, 0.90, 1))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 17)
+	title.add_theme_color_override("font_color", Color("f1f4eb"))
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	title.tooltip_text = card.tooltip_text
-	stack.add_child(title)
-
-	var status := Label.new()
-	status.text = String(action["label"])
-	status.add_theme_font_size_override("font_size", 11)
-	status.add_theme_color_override("font_color", Color(0.98, 0.93, 0.72, 1))
-	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	status.clip_text = true
-	stack.add_child(status)
-
-	var stripe := ColorRect.new()
-	stripe.custom_minimum_size = Vector2(0, 10)
-	stripe.color = Color(action["color"])
-	stack.add_child(stripe)
-
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.add_child(title)
+	var stage := Label.new()
+	stage.text = _construction_level_name(kind, icon_level).to_upper()
+	if kind not in SHIP_BUILDING_KINDS:
+		stage.text = "УРОВЕНЬ " + stage.text
+	stage.add_theme_font_size_override("font_size", 11)
+	stage.add_theme_color_override("font_color", Color("ddb972"))
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.add_child(stage)
+	var effect := Label.new()
+	effect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	effect.text = _building_effect(kind, icon_level) if level <= 0 else "Сейчас: %s" % _building_effect(kind, level)
+	if level > 0 and level < max_level:
+		effect.text += "\nПосле: %s" % _building_effect(kind, icon_level)
+	effect.add_theme_font_size_override("font_size", 12)
+	effect.add_theme_color_override("font_color", Color("a9d4d7"))
+	effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_child(effect)
+	var spacer := Control.new()
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	info.add_child(spacer)
+	var separator := HSeparator.new()
+	separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.add_child(separator)
+	var cost := Label.new()
+	cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cost.custom_minimum_size.y = 32
+	cost.add_theme_font_size_override("font_size", 12)
+	cost.add_theme_color_override("font_color", Color("cfdae1"))
+	cost.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cost.text = "ПОСТРОЕНО" if level >= max_level else "ЦЕНА  %s" % _format_construction_cost((def["costs"] as Array)[level])
+	info.add_child(cost)
 	if not bool(action["disabled"]):
 		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		card.gui_input.connect(func(event: InputEvent) -> void:
@@ -2438,7 +2587,6 @@ func _build_construction_card(kind: String) -> Control:
 func _construction_action_state(kind: String) -> Dictionary:
 	var def: Dictionary = BUILDING_DEFS[kind]
 	var max_level := int(def["max_level"])
-	var level_names: Array = def["level_names"]
 	var level := int(built_levels.get(kind, 0))
 	var has_slot := _find_slot_index(kind) >= 0
 	var construction_used := _construction_used_this_turn()
@@ -2447,42 +2595,48 @@ func _construction_action_state(kind: String) -> Dictionary:
 	var cost: Dictionary = (def["costs"] as Array)[mini(level, max_level - 1)]
 	var state := {
 		"disabled": true,
-		"color": Color(0.56, 0.12, 0.12, 1),
+		"color": Color("8b9aa7"),
 		"label": "",
 		"tooltip": "",
+		"missing_text": "",
 	}
 	if not has_slot:
-		state["label"] = "нет места"
-		state["tooltip"] = "Место строительства не задано в редакторе (F8)."
+		state["label"] = "НЕТ МЕСТА"
+		state["missing_text"] = "Для здания нет места на планете."
+		state["tooltip"] = String(state["missing_text"])
 	elif level >= max_level:
-		state["label"] = "построено %s" % level_names[level - 1]
-		state["tooltip"] = "Максимальный уровень."
-		state["color"] = Color(0.95, 0.72, 0.12, 1)
+		state["label"] = "ГОТОВО"
+		state["tooltip"] = "Максимальный уровень построен."
+		state["color"] = Color("ddb972")
 	elif construction_used:
-		state["label"] = "доступно завтра"
-		state["tooltip"] = "В этот сол уже велось строительство."
-		state["color"] = Color(0.58, 0.46, 0.15, 1)
+		state["label"] = "ЗАВТРА"
+		state["missing_text"] = "Следующее строительство доступно в новом соле."
+		state["tooltip"] = String(state["missing_text"])
+		state["color"] = Color("b9a46e")
 	elif not missing_requirements.is_empty():
-		state["label"] = "нужно здание"
-		state["tooltip"] = "%s\nНужно: %s" % [_construction_status_prefix(level, level_names), _format_building_requirements(missing_requirements)]
+		state["label"] = "ЗАКРЫТО"
+		state["missing_text"] = "Не хватает:\n%s" % _format_building_requirements(missing_requirements)
+		if strategy_map != null and not strategy_map.can_afford(cost):
+			state["missing_text"] += "\n%s" % _missing_cost_text(cost)
+		state["tooltip"] = String(state["missing_text"])
 	elif strategy_map == null or not strategy_map.can_afford(cost):
-		state["label"] = "не хватает ресурсов"
-		state["tooltip"] = "%s\nЦена: %s%s" % [_construction_status_prefix(level, level_names), _format_cost(cost), _requirements_suffix(kind, next_level)]
-		state["color"] = Color(0.58, 0.35, 0.12, 1)
+		state["label"] = "НЕТ РЕСУРСОВ"
+		state["missing_text"] = "Не хватает:\n%s" % _missing_cost_text(cost)
+		state["tooltip"] = String(state["missing_text"])
 	else:
 		state["disabled"] = false
-		state["color"] = Color(0.12, 0.56, 0.18, 1)
-		state["label"] = "строить %s" % level_names[next_level - 1] if level <= 0 else "улучшить до %s" % level_names[next_level - 1]
-		state["tooltip"] = "%s\nЦена: %s%s" % [_construction_status_prefix(level, level_names), _format_cost(cost), _requirements_suffix(kind, next_level)]
+		state["color"] = Color("70d9a1")
+		state["label"] = "СТРОИТЬ" if level <= 0 else "УЛУЧШИТЬ"
+		state["tooltip"] = ""
 	return state
 
 
 func _construction_card_style(status_color: Color, disabled: bool) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.12, 0.075, 0.045, 0.97) if not disabled else Color(0.07, 0.055, 0.05, 0.93)
-	style.border_color = status_color.lerp(Color(0.95, 0.78, 0.35, 1), 0.35)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(3)
+	style.bg_color = Color("17303a") if not disabled else Color("14232c")
+	style.border_color = status_color.darkened(0.22) if not disabled else Color("3c5664")
+	style.set_border_width_all(2 if not disabled else 1)
+	style.set_corner_radius_all(8)
 	style.content_margin_left = 0
 	style.content_margin_top = 0
 	style.content_margin_right = 0
@@ -2664,8 +2818,52 @@ func _requirements_suffix(kind: String, level: int) -> String:
 func _format_building_requirements(requirements: Dictionary) -> String:
 	var parts: Array[String] = []
 	for required_kind in requirements.keys():
-		parts.append("%s %s" % [_building_display_name(String(required_kind)), _roman_level(int(requirements[required_kind]))])
+		var required_level := int(requirements[required_kind])
+		parts.append("%s %s" % [_building_display_name(String(required_kind)), _construction_level_name(String(required_kind), required_level)])
 	return ", ".join(parts)
+
+
+func _construction_level_name(kind: String, level: int) -> String:
+	var names: Array = BUILDING_DEFS[kind]["level_names"]
+	var name := String(names[clampi(level - 1, 0, names.size() - 1)])
+	return name.to_lower() if kind in SHIP_BUILDING_KINDS else name
+
+
+func _missing_cost_text(cost: Dictionary) -> String:
+	if strategy_map == null:
+		return "ресурсы"
+	var parts: Array[String] = []
+	for resource in cost:
+		var available := int(strategy_map.player_one_credits) if resource == "credits" else int(strategy_map.player_one_resources.get(resource, 0))
+		var required := int(cost[resource])
+		if available < required:
+			parts.append("%s %d/%d" % ["кредиты" if resource == "credits" else String(resource), available, required])
+	return ", ".join(parts)
+
+
+func _building_effect(kind: String, level: int) -> String:
+	match kind:
+		"townhall":
+			return "+%d кредитов за сол" % HumanPlanetState.council_income(level)
+		"fort":
+			return "+%d%% к недельному приросту кораблей" % roundi(HumanPlanetState.FORT_GROWTH_BONUS_BY_LEVEL[level] * 100.0)
+		"fighter_yard":
+			return "Найм %s истребителей каждую неделю" % ("элитных" if level > 1 else "обычных")
+		"gunship_yard":
+			return "Найм %s штурмовиков каждую неделю" % ("элитных" if level > 1 else "обычных")
+		"corvette_yard":
+			return "Найм %s корветов каждую неделю" % ("элитных" if level > 1 else "обычных")
+		"frigate_yard":
+			return "Найм %s фрегатов каждую неделю" % ("элитных" if level > 1 else "обычных")
+		"destroyer_yard":
+			return "Найм %s эсминцев каждую неделю" % ("элитных" if level > 1 else "обычных")
+		"marketplace":
+			return "Обмен ресурсов на бирже"
+		"tavern":
+			return "Найм новых командующих"
+		"mage_guild":
+			return "Изучение протоколов %s ранга" % _roman_level(level)
+	return ""
 
 
 func _building_display_name(kind: String, level: int = -1) -> String:
@@ -2673,7 +2871,7 @@ func _building_display_name(kind: String, level: int = -1) -> String:
 	var names: Array = def.get("stage_names", [])
 	if level > 0 and not names.is_empty():
 		return String(names[clampi(level - 1, 0, names.size() - 1)])
-	return String(def.get("name", kind)).split(" · ")[0]
+	return String(def.get("name", kind))
 
 
 func _roman_level(level: int) -> String:
@@ -2750,13 +2948,25 @@ func _load_planet_state() -> void:
 		built_levels[kind] = clampi(int(saved_levels.get(kind, minimum_level)), minimum_level, max_level)
 
 
-## Протоколы доступны только после постройки хотя бы первого уровня университета.
 func _update_university_button() -> void:
 	var level := int(built_levels.get("mage_guild", 0))
-	# Книга должна открываться и до строительства академии: окно объяснит,
-	# что именно нужно построить, вместо «мёртвой» кнопки без реакции.
 	university_button.disabled = false
-	university_button.tooltip_text = "Постройте университет, чтобы изучать протоколы." if level <= 0 else "Открыть протоколы героя."
+	var hero := _player_hero()
+	if _commander_at_city() and hero != null and not hero.has_protocol_module:
+		university_button.tooltip_text = "Модуль протоколов для %s · 500 кредитов" % hero.hero_name
+	else:
+		university_button.tooltip_text = "Постройте академию тактических систем, чтобы изучать протоколы." if level <= 0 else "Открыть протоколы героя."
+
+
+func _update_university_button_pulse() -> void:
+	var hero := _player_hero()
+	var can_buy: bool = _commander_at_city() and hero != null and not hero.has_protocol_module \
+		and strategy_map != null and strategy_map.can_afford({"credits": 500})
+	if can_buy:
+		var glow := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.003)
+		university_button.modulate = Color(1.0, 1.0, 1.0, 0.78 + 0.22 * glow)
+	else:
+		university_button.modulate = Color.WHITE
 
 
 func _sync_university_protocols() -> void:

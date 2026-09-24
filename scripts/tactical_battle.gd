@@ -372,6 +372,7 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup(units, turn_order)
 	hud.ability_requested.connect(_toggle_precise_salvo)
+	hud.protocols_requested.connect(_toggle_book)
 	hud.end_turn_requested.connect(_end_active_turn)
 	hud.return_requested.connect(_return_to_map)
 	hud.auto_requested.connect(_toggle_auto_battle)
@@ -1405,7 +1406,7 @@ func _end_active_turn() -> void:
 ## мёртвый отряд всё равно ничего больше не может, ход обязан пойти дальше.
 func _maybe_finish_active_turn() -> void:
 	var active := _active_unit()
-	if active["hp"] <= 0 or (active["moved"] and active["shot"]):
+	if active["hp"] <= 0 or active["shot"]:
 		turn_pending = true
 
 
@@ -2002,11 +2003,6 @@ func _check_battle_end() -> void:
 	enemy_attack_delay = -1.0
 	turn_pending = false
 	last_event = "ПОБЕДА %s" % _player_faction_genitive() if player_alive else "ПОБЕДА %s" % _enemy_faction_genitive()
-	if not quick_battle and not mute_battle_audio:
-		if player_alive:
-			SampleSfx.play_victory()
-		else:
-			SampleSfx.play_defeat()
 	if quick_battle:
 		_grant_experience()
 	else:
@@ -2052,6 +2048,11 @@ func _show_battle_results(player_hero: Hero, player_won: bool, xp_gained: int) -
 	add_child(dialog)
 	dialog.setup(player_hero, units, player_won, xp_gained)
 	dialog.finished.connect(_on_battle_results_closed.bind(player_hero, player_won))
+	if not mute_battle_audio:
+		if player_won:
+			SampleSfx.play_victory()
+		else:
+			SampleSfx.play_defeat()
 
 
 ## И победа, и поражение закрывают бой окончательно (переигровки нет) —
@@ -2372,9 +2373,8 @@ func _has_line_of_sight(from: Vector2i, to: Vector2i) -> bool:
 
 
 # --- Протоколы героев --------------------------------------------------------
-# Отдельная надстройка над боем: наведение, эффекты и энергия героя. Не трогает
-# tactical_battle_hud.gd — книга протоколов рисуется собственным CanvasLayer'ом
-# (scripts/protocol_book_hud.gd), а энергия видна через _hover_hint().
+# Отдельная надстройка над боем: наведение, эффекты и энергия героя. Книга
+# рисуется своим CanvasLayer, а кнопка её открытия находится в боевом HUD.
 
 func _can_cast(side: int, id: String) -> bool:
 	if battle_finished or not heroes.has(side) or PROTOCOLS.get_protocol(id).is_empty():
@@ -3500,6 +3500,14 @@ func _update_hud() -> void:
 		hud.auto_button.disabled = battle_finished
 		hud.update_state(units, active_unit_index, round_number, last_event, battle_finished, _actions_locked(), _hover_hint(), String(AUTO_MODE_LABELS[auto_battle_mode]), turn_order)
 		hud.update_ability(_active_unit(), _precise_available(_active_unit()), round_number)
+		var player_hero: Dictionary = heroes.get(1, {})
+		var learned: Array = player_hero.get("book", [])
+		var protocol_ready := false
+		for id in learned:
+			if _can_cast(1, String(id)):
+				protocol_ready = true
+				break
+		hud.update_protocols(not learned.is_empty(), _player_can_cast(), protocol_ready)
 
 
 func _visuals_busy() -> bool:

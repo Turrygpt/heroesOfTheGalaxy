@@ -650,8 +650,8 @@
       "id": "demo_observation",
       "kind": "observation_tower",
       "cell": [
-        47,
-        20
+        23,
+        19
       ],
       "size": 1
     },

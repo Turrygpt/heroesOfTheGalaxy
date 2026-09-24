@@ -8,6 +8,7 @@ const CampaignMissionMap := preload("res://scripts/campaign_mission_map.gd")
 const TACTICAL_BATTLE := preload("res://scenes/TacticalBattle.tscn")
 const STATION_SERVICES := preload("res://scripts/station_services.gd")
 const BATTLE_REWARDS := preload("res://scripts/battle_rewards.gd")
+const BATTLE_RESULTS_DIALOG := preload("res://scripts/battle_results_dialog.gd")
 @export var map_seed := STARTER_MAP_SEED
 
 const CELL_SIZE := 96.0
@@ -275,6 +276,8 @@ var beacon_cell := Vector2i(-1, -1)
 var hovered_obstacle := -1
 var dragging_map := false
 var navigation_message := ""
+var end_day_hint_active := false
+var end_day_hint_time := 0.0
 var navigation_grid := AStarGrid2D.new()
 var map_random := RandomNumberGenerator.new()
 
@@ -434,6 +437,11 @@ func _ready() -> void:
 	_setup_hero_portrait_backgrounds()
 	next_cell = current_cell
 	_reveal_around(current_cell, FOG_REVEAL_RADIUS)
+	if snapshot.is_empty() and campaign_map_id == CampaignMissionMap.ID:
+		for site in production_sites:
+			if String(site.get("resource", "")) == "Руда" and Vector2i(site["cell"]).distance_to(home_planet_cell) < 16.0:
+				_reveal_around(Vector2i(site["cell"]), 1)
+				break
 	ship_position = _cell_center(current_cell)
 	human_planet.position = _cell_center(home_planet_cell)
 	bandit_planet.position = _cell_center(opponent_planet_cell)
@@ -606,6 +614,11 @@ func resume_music() -> void:
 
 
 func _process(delta: float) -> void:
+	if end_day_hint_active:
+		end_day_hint_time += delta
+		end_day_button.modulate = Color.WHITE.lerp(Color("ffd166"), 0.25 + 0.25 * sin(end_day_hint_time * 4.0))
+	else:
+		end_day_button.modulate = Color.WHITE
 	_refresh_fog_visibility()
 	# Кометы летят непрерывно, поэтому фон карты теперь перерисовывается каждый
 	# кадр - дёшево: пара кругов на туманность/комету и сетка, которая и так
@@ -1077,6 +1090,11 @@ func _draw() -> void:
 		_draw_secret_passage_marker(Vector2i(22, 40), "Секретный фарватер")
 	if campaign_story != null and campaign_story.has_seen("trader_complete"):
 		_draw_secret_passage_marker(Vector2i(29, 18), "Транзитный допуск Лиги")
+	if campaign_map_id == CampaignMissionMap.ID:
+		for index in range(mini(production_sites.size(), production_owners.size())):
+			if String(production_sites[index].get("resource", "")) == "Руда" and production_owners[index] != 1 and Vector2i(production_sites[index]["cell"]).distance_to(home_planet_cell) < 16.0:
+				_draw_secret_passage_marker(Vector2i(production_sites[index]["cell"]), "Руда · шахта")
+				break
 	if beacon_cell != Vector2i(-1, -1):
 		var beacon_rect := Rect2(Vector2(beacon_cell) * CELL_SIZE, Vector2.ONE * CELL_SIZE)
 		draw_rect(beacon_rect, Color("ffd166"), false, 5.0)
@@ -1327,6 +1345,11 @@ func _update_navigation_hud() -> void:
 	terrain.text = "Пояса и разломы непроходимы · туманности: движение ×2"
 	if not random_map_layout.is_empty():
 		terrain.text = "Пояса непроходимы · ионные обходы: движение ×2"
+	elif campaign_map_id == CampaignMissionMap.ID:
+		for index in range(mini(production_sites.size(), production_owners.size())):
+			if String(production_sites[index].get("resource", "")) == "Руда" and production_owners[index] != 1 and Vector2i(production_sites[index]["cell"]).distance_to(home_planet_cell) < 16.0:
+				terrain.text = "Руда: шахта юго-западнее базы, клетка %s. Займите её флотом." % str(production_sites[index]["cell"])
+				break
 	if hovered_cell != Vector2i(-1, -1) and not is_cell_explored(hovered_cell):
 		terrain.text = "▪ Неизведанная область — подлетите ближе, чтобы рассмотреть"
 		return
@@ -1589,6 +1612,8 @@ func _update_hud() -> void:
 	fuel_value.text = str(player_one_resources["Топливо"])
 	isotopes_value.text = str(player_one_resources["Радиоизотопы"])
 	end_day_button.disabled = is_moving or campaign_outcome != ""
+	var planet_state := HumanPlanetState.load_state()
+	end_day_hint_active = movement_points <= 0 and int(planet_state.get("last_construction_day", 0)) == current_day and not end_day_button.disabled
 	_update_right_menu_lists()
 	_update_side_hero_movement_steps()
 	_update_navigation_hud()
@@ -2250,7 +2275,7 @@ func _capture_production_at(cell: Vector2i) -> String:
 	var resource_name: String = site["resource"]
 	var bonus_amount := map_random.randi_range(5, 10)
 	add_resource(resource_name, bonus_amount)
-	return "Захвачена «%s»: +%d %s сразу, затем +%d %s каждый сол." % [
+	return "Захвачен объект «%s»: +%d %s сразу, затем +%d %s каждый сол." % [
 		String(site["name"]), bonus_amount, resource_name,
 		int(site["daily_income"]), resource_name]
 
@@ -3066,8 +3091,7 @@ func _run_quick_battle(player_fleet: Array[Dictionary], enemy_fleet: Array[Dicti
 	add_child(battle)
 	battle.visible = false
 	battle.set_process(false)
-	# Опыт и окна результатов тактической сцены здесь не нужны: результат
-	# применит карта после завершения скрытого расчёта.
+	# Опыт и результат применяются картой после завершения скрытого расчёта.
 	battle.experience_granted = true
 	var deadline_ms := Time.get_ticks_msec() + 45000
 	while not battle.battle_finished and Time.get_ticks_msec() < deadline_ms:
@@ -3075,17 +3099,25 @@ func _run_quick_battle(player_fleet: Array[Dictionary], enemy_fleet: Array[Dicti
 	var battle_units: Array = battle.units.duplicate(true)
 	var player_won: bool = battle._side_alive(1) and not battle._side_alive(2)
 	battle.free()
-	_award_quick_battle_experience(battle_units, not bandit_battle_kind.is_empty(), hero_at_home_planet() if bandit_battle_kind == "planet" else _player_hero())
-	if guardian_index >= 0:
-		_resolve_guardian_battle(guardian_index, battle_units, player_won)
-	elif not bandit_battle_kind.is_empty():
-		# Ветки были перепутаны: быстрый расчёт против марсианских бандитов уходил в return,
-		# и штурм базы не давал ни потерь, ни победы, ни конца кампании.
-		_resolve_bandit_battle(bandit_battle_kind, battle_units, player_won)
+	var hero := hero_at_home_planet() if bandit_battle_kind == "planet" else _player_hero()
+	var xp_gained := _award_quick_battle_experience(battle_units, not bandit_battle_kind.is_empty(), hero)
+	var results: CanvasLayer = BATTLE_RESULTS_DIALOG.new()
+	var previous_mode := process_mode
+	process_mode = Node.PROCESS_MODE_DISABLED
+	get_tree().root.add_child(results)
+	results.setup(hero, battle_units, player_won, xp_gained)
+	results.finished.connect(func() -> void:
+		process_mode = previous_mode
+		if guardian_index >= 0:
+			_resolve_guardian_battle(guardian_index, battle_units, player_won)
+		elif not bandit_battle_kind.is_empty():
+			_resolve_bandit_battle(bandit_battle_kind, battle_units, player_won)
+	)
 
 
-func _award_quick_battle_experience(battle_units: Array, enemy_commanded: bool, hero: Hero) -> void:
+func _award_quick_battle_experience(battle_units: Array, enemy_commanded: bool, hero: Hero) -> int:
 	var roster := get_node_or_null("/root/HeroRoster")
+	var xp_before := hero.experience if hero != null else 0
 	if hero != null and roster != null:
 		var player_experience := BATTLE_REWARDS.experience_for_battle(battle_units, 1, true)
 		roster.award_experience(hero, player_experience)
@@ -3098,6 +3130,7 @@ func _award_quick_battle_experience(battle_units: Array, enemy_commanded: bool, 
 		roster.award_experience(enemy_hero, enemy_experience)
 		BATTLE_REWARDS.auto_apply(enemy_hero)
 	_save_hero_roster()
+	return hero.experience - xp_before if hero != null else 0
 
 
 func _start_guardian_battle(index: int, start_immediately: bool = false) -> void:
@@ -4471,21 +4504,12 @@ func _refresh_production_nameplate(index: int) -> void:
 		return
 	var owner := production_owners[index] if index < production_owners.size() else 0
 	var color := Color("c5d0d8")
-	var border := Color(0.35, 0.55, 0.7, 0.7)
 	if owner > 0:
 		color = _production_owner_color(owner)
-		border = color
-	var style := plate.get_meta("plate_style", null) as StyleBoxFlat
-	if style != null:
-		style.border_color = border
 	if plate.get_child_count() > 0:
 		var label := plate.get_child(0) as Label
 		if label != null:
 			label.add_theme_color_override("font_color", color)
-	if index < production_sprites.get_child_count():
-		var visual := production_sprites.get_child(index) as Node2D
-		if visual.get_child_count() > 0:
-			(visual.get_child(0) as CanvasItem).modulate = Color.WHITE.lerp(color, 0.35) if owner > 0 else Color.WHITE
 
 
 func _production_owner_color(owner: int) -> Color:

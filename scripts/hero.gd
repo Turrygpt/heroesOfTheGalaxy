@@ -18,6 +18,7 @@ var stats := {"attack": 0, "defense": 0, "power": 0, "wisdom": 0}
 var skills := {}  # skill_id -> ранг 1..3
 var artifacts := {}  # artifact_id (см. HeroDefs.ARTIFACTS) -> true, без тиров
 var learned_protocols: Array[String] = []  # протоколы, загруженные в университетах
+var has_protocol_module := false
 var energy := 0
 var army := {}  # unit_id (см. unit_defs.gd) -> количество кораблей
 var army_slots: Array[Dictionary] = []  # до 7 стеков: {"unit_id": String, "count": int}
@@ -293,6 +294,8 @@ func max_ability_rank() -> int:
 ## Книга протоколов: герой должен и загрузить протокол в университете, и иметь
 ## достаточную Мудрость/Криптоанализ для его исполнения.
 func protocol_book() -> Array:
+	if not has_protocol_module:
+		return []
 	var rank := max_ability_rank()
 	var book: Array = []
 	for protocol_id in learned_protocols:
@@ -589,6 +592,7 @@ func to_dict() -> Dictionary:
 		"skills": skills.duplicate(),
 		"artifacts": artifacts.duplicate(),
 		"learned_protocols": learned_protocols.duplicate(),
+		"has_protocol_module": has_protocol_module,
 		"energy": energy,
 		"pending_level_ups": pending_level_ups,
 		"army": army.duplicate(),
@@ -630,6 +634,8 @@ static func from_dict(data: Dictionary) -> Hero:
 		for protocol_id in DEFS.PROTOCOLS.PROTOCOLS:
 			if DEFS.protocol_rank(protocol_id) <= hero.max_ability_rank():
 				hero.learned_protocols.append(String(protocol_id))
+	# Сохранения до появления модуля сохраняют прежний доступ к книге.
+	hero.has_protocol_module = bool(data.get("has_protocol_module", true))
 	hero.energy = int(data.get("energy", hero.max_energy()))
 	hero.pending_level_ups = int(data.get("pending_level_ups", 0))
 	var slots = data.get("army_slots", [])

@@ -206,6 +206,9 @@ func _test_protocol_book() -> void:
 	_check(UNIVERSITY.level_protocols(state, 3).size() == 2, "Уровень III содержит два протокола")
 	_check(UNIVERSITY.level_protocols(state, 4).size() == 2, "Уровень IV содержит два протокола")
 	hero.learn_protocols(UNIVERSITY.protocols_through_level(state, 4))
+	_check(hero.protocol_book().is_empty(), "Без модуля книга протоколов закрыта")
+	hero.has_protocol_module = true
+	_check(Hero.from_dict(hero.to_dict()).has_protocol_module, "Купленный модуль сохраняется у героя")
 	var book_before: Array = hero.protocol_book()
 	hero.skills["cryptanalysis"] = 3
 	hero.learn_protocols(UNIVERSITY.protocols_through_level(state, 4))

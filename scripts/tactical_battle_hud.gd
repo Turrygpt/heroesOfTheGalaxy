@@ -5,6 +5,7 @@ signal return_requested
 signal auto_requested
 signal auto_mode_requested
 signal ability_requested
+signal protocols_requested
 
 var auto_button: Button
 var auto_mode_button: Button
@@ -44,7 +45,10 @@ var back_button: Button
 var ui: Control
 var turn_order_row: HBoxContainer
 var ability_button: Button
+var protocols_button: Button
 var hint_label: Label
+var protocols_ready := false
+var protocols_pulse_time := 0.0
 
 
 func setup(_units: Array[Dictionary], _turn_order: Array[int]) -> void:
@@ -53,6 +57,16 @@ func setup(_units: Array[Dictionary], _turn_order: Array[int]) -> void:
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(ui)
 	_build_bottom_bar()
+
+
+func _process(delta: float) -> void:
+	if protocols_button == null:
+		return
+	if protocols_ready:
+		protocols_pulse_time += delta
+		protocols_button.modulate = Color.WHITE.lerp(Color("89e8ff"), 0.18 + 0.22 * sin(protocols_pulse_time * 4.0))
+	else:
+		protocols_button.modulate = Color.WHITE
 
 
 func _style(border: Color, background: Color = Color(0.022, 0.045, 0.07, 0.94)) -> StyleBoxFlat:
@@ -106,6 +120,11 @@ func _build_bottom_bar() -> void:
 	ability_button.add_theme_font_size_override("font_size", 13)
 	ability_button.pressed.connect(func(): ability_requested.emit())
 	turn_order_row.add_child(ability_button)
+	protocols_button = _button("ПРОТОКОЛЫ · Q", GOLD)
+	protocols_button.add_theme_font_size_override("font_size", 13)
+	protocols_button.tooltip_text = "Книга изученных протоколов. Доступные сейчас протоколы подсвечиваются."
+	protocols_button.pressed.connect(func(): protocols_requested.emit())
+	turn_order_row.add_child(protocols_button)
 	hint_label = _label("", 13, MUTED)
 	hint_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -203,12 +222,18 @@ func update_ability(unit: Dictionary, available: bool, round_number: int) -> voi
 	ability_button.tooltip_text = "Выберите способность, затем цель. +50% урона; точность обычная. Повтор через 3 общих раунда."
 
 
+func update_protocols(has_learned: bool, can_open: bool, can_use: bool) -> void:
+	protocols_button.visible = has_learned
+	protocols_button.disabled = not can_open
+	protocols_ready = has_learned and can_open and can_use
+
+
 ## Очередь хода до конца раунда, начиная с активной пачки — дальше порядок
 ## неизвестен заранее: _rebuild_turn_order пересобирает его каждый раунд и
 ## выбывшие отряды из очереди пропадают.
 func _refresh_turn_order(units: Array[Dictionary], turn_order: Array[int], active_index: int, finished: bool) -> void:
 	for child in turn_order_row.get_children():
-		if child != ability_button and child != hint_label:
+		if child != ability_button and child != protocols_button and child != hint_label:
 			turn_order_row.remove_child(child)
 			child.queue_free()
 	if finished or turn_order.is_empty():

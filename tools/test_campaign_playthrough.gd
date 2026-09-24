@@ -9,6 +9,7 @@ extends SceneTree
 
 const DIALOGUE := preload("res://scripts/intro_dialogue.gd")
 const STORY_DEFS := preload("res://scripts/campaign_story_defs.gd")
+const BATTLE_RESULTS := preload("res://scripts/battle_results_dialog.gd")
 
 var failures := 0
 var played: Array[String] = []
@@ -217,6 +218,15 @@ func _run() -> void:
 	await expect_dialogue(map, "grak_battle", "разговор перед штурмом")
 	check(await answer_battle_preview(), "Штурм базы не открыл окно прогноза боя")
 	await process_frame
+	var battle_results: Node = null
+	for child in root.get_children():
+		if child.get_script() == BATTLE_RESULTS:
+			battle_results = child
+			break
+	check(battle_results != null, "Быстрый бой не показал составы и потери")
+	if battle_results != null:
+		battle_results._on_continue()
+		await process_frame
 	if map.campaign_outcome != "victory":
 		print("Диагностика штурма: исход=", map.campaign_outcome,
 			", владелец Марса=", map.bandit_planet_owner,

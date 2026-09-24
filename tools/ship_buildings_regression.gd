@@ -250,22 +250,31 @@ func _check_building_resource_cap(screen: Node) -> void:
 					return
 
 
-## Первый форт доступен из стартового запаса, но уже следующий ангар требует
-## новой руды. Марсианские бандиты платят за военную инфраструктуру по той же шкале.
+## Первый форт и первый ангар доступны из стартового запаса; следующий ангар
+## уже требует шахты. Ресурсные цены ИИ не снижены вместе с ценами игрока.
 func _check_building_resource_progression(screen: Node) -> void:
 	var fort_cost: Dictionary = screen.BUILDING_DEFS["fort"]["costs"][0]
-	if fort_cost.get("Продукты") != 10 or fort_cost.get("Руда") != 10:
-		_fail("Первый форт должен расходовать стартовые продукты и руду")
+	if fort_cost.get("Продукты") != 6 or fort_cost.get("Руда") != 6:
+		_fail("Первый форт должен оставлять ресурсы для первого ангара")
 		return
 	var fighter_cost: Dictionary = screen.BUILDING_DEFS["fighter_yard"]["costs"][0]
-	if int(fighter_cost.get("Руда", 0)) <= 0:
-		_fail("Первый ангар должен требовать добычи новой руды")
+	var gunship_cost: Dictionary = screen.BUILDING_DEFS["gunship_yard"]["costs"][0]
+	if int(fort_cost.get("Руда", 0)) + int(fighter_cost.get("Руда", 0)) > 10 \
+		or int(fort_cost.get("Руда", 0)) + int(fighter_cost.get("Руда", 0)) + int(gunship_cost.get("Руда", 0)) <= 10:
+		_fail("Стартовой руды должно хватать на форт и первый ангар, но не на второй")
 		return
 	for human_kind in ["fort", "fighter_yard", "gunship_yard", "corvette_yard", "frigate_yard", "destroyer_yard"]:
 		var bandit_kind: String = human_kind if human_kind == "fort" else "marauder_" + human_kind
-		if screen.BUILDING_DEFS[human_kind]["costs"] != BanditDefs.BUILDING_DEFS[bandit_kind]["costs"]:
-			_fail("Цены военных зданий разошлись у людей и марсианских бандитов: %s" % human_kind)
-			return
+		var player_costs: Array = screen.BUILDING_DEFS[human_kind]["costs"]
+		var bandit_costs: Array = BanditDefs.BUILDING_DEFS[bandit_kind]["costs"]
+		for level in range(player_costs.size()):
+			if int(player_costs[level].get("credits", 0)) != int(bandit_costs[level].get("credits", 0)):
+				_fail("Кредитная цена военных зданий должна совпадать: %s" % human_kind)
+				return
+			for resource in player_costs[level]:
+				if resource != "credits" and int(player_costs[level][resource]) > int(bandit_costs[level].get(resource, 0)):
+					_fail("Ресурсная цена игрока выше цены ИИ: %s" % human_kind)
+					return
 
 
 ## Форт добавляет к недельному приросту всех ангаров +25/+50/+100% по своим
