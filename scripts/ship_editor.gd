@@ -74,6 +74,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _toggle() -> void:
+	if preload("res://scripts/demo_edition.gd").enabled():
+		return
 	if not is_instance_valid(root_panel):
 		_build_ui()
 		_start_new_ship()

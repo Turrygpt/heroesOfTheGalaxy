@@ -151,5 +151,10 @@ func _finish(menu: Node) -> void:
 	if is_instance_valid(menu):
 		menu.loading_scene = ""
 		menu.pending_packed_scene = null
+	# Завершаем уже запущенное чтение перед выходом. Иначе движок выгружает
+	# импортированные ресурсы, пока фоновый поток ещё компилирует сцену боя.
+	var path := "res://scenes/StrategicMain.tscn"
+	if ResourceLoader.load_threaded_get_status(path) in [ResourceLoader.THREAD_LOAD_IN_PROGRESS, ResourceLoader.THREAD_LOAD_LOADED]:
+		ResourceLoader.load_threaded_get(path)
 	print("INTRO_VIDEO_TEST_FAILURES=", failures)
 	quit(1 if failures else 0)

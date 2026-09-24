@@ -16,6 +16,7 @@ const MUSIC_FADED_VOLUME_DB := -40.0
 ## картинками остаётся фолбэком, если слоёв нет.
 const MENU_LAYERS_DIR := "res://assets/ui/main_menu_layers"
 const MENU_BACKGROUNDS_DIR := "res://assets/ui/main_menu_backgrounds"
+const DEMO := preload("res://scripts/demo_edition.gd")
 const GAME_VERSION := "0.2.0"
 const IntroVideoPlayer := preload("res://scripts/intro_video_player.gd")
 
@@ -92,9 +93,13 @@ func _ready() -> void:
 	primary.grab_focus()
 	var load_button := _button(column, "Загрузить игру", _load_game)
 	load_button.disabled = CampaignSave.read_save().is_empty()
-	_button(column, "Случайная карта", _random_game)
+	if not DEMO.enabled():
+		_button(column, "Случайная карта", _random_game)
+	else:
+		_button(column, "О демо и управлении", _show_demo_help)
 	_button(column, "Настройки", GameSettings.open_menu)
-	_button(column, "Сетевая игра (LAN)", func() -> void: get_tree().change_scene_to_file("res://scenes/LanGame.tscn"))
+	if not DEMO.enabled():
+		_button(column, "Сетевая игра (LAN)", func() -> void: get_tree().change_scene_to_file("res://scenes/LanGame.tscn"))
 	_button(column, "Выход", get_tree().quit)
 
 	status = Label.new()
@@ -126,7 +131,7 @@ func set_logo_visible(is_visible: bool) -> void:
 func _build_version_label() -> void:
 	var label := Label.new()
 	version_label = label
-	label.text = "Ранняя версия · %s" % GAME_VERSION
+	label.text = ("ДЕМО · %s" if DEMO.enabled() else "Ранняя версия · %s") % GAME_VERSION
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	label.offset_left = -220
@@ -311,6 +316,8 @@ func _try_apply_pending_scene() -> void:
 
 
 func _random_game() -> void:
+	if DEMO.enabled():
+		return
 	if transition_started or get_node_or_null("FactionSelection") != null:
 		return
 	_preload_scene("res://scenes/StrategicMain.tscn")
@@ -431,3 +438,10 @@ func _fade_music() -> void:
 		var tween := fading_player.create_tween()
 		tween.tween_property(fading_player, "volume_db", MUSIC_FADED_VOLUME_DB, MENU_MUSIC_FADE_DURATION)
 		tween.finished.connect(fading_player.queue_free)
+
+
+## Справка доступна до начала кампании и не требует внешней страницы.
+func _show_demo_help() -> void:
+	var dialog := preload("res://scripts/object_reward_dialog.gd").new()
+	add_child(dialog)
+	dialog.setup("МАРСИАНСКИЙ УЗЕЛ · ДЕМО", "Одна законченная миссия за полковника Павлову: освободите Марс, исследуйте станции и решите судьбу секретного архива. Контракты нейтралов необязательны.\n\nПКМ — проложить маршрут, пробел — продолжить полёт. WASD — камера, колесо — масштаб. Кнопка «Завершить сол» восстанавливает ход; Esc — сохранение и настройки. Журнал миссии хранит цели.\n\nКорабли нанимаются на Земле и на вольной верфи. Недельные станции пополняются в солы 1, 8, 15… Дополнительных героев в этой миссии нет.")

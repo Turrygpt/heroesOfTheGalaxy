@@ -74,9 +74,10 @@ static func populate(map: Node2D) -> void:
 		map.map_generation.add_map_object(_cell(entry.cell), entry.kind, int(entry.size))
 		var object: Dictionary = map.map_objects[-1]
 		object["mission_id"] = entry.id
-		if entry.kind == "resource_cache":
-			object["resource_name"] = entry.resource_name
-			object["amount"] = int(entry.amount)
+		# Параметры авторских услуг хранятся в JSON вместе с геометрией.
+		for field in ["resource_name", "amount", "ship_tier", "ship_count", "veteran_unit", "secret_cell"]:
+			if entry.has(field):
+				object[field] = _cell(entry[field]) if field == "secret_cell" else entry[field]
 
 
 static func _cell(value: Array) -> Vector2i:

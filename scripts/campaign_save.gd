@@ -1,6 +1,7 @@
 ## Единый снимок кампании. Настройки звука и редактора не относятся к прогрессу.
 extends Node
 
+const DEMO := preload("res://scripts/demo_edition.gd")
 const PLANET_PATH := "res://scripts/human_planet_state.gd"
 ## Идентификатор героя не требует загрузки ИИ и всех его текстур.
 const ORC_HERO_ID := "orc_warlord"
@@ -44,6 +45,8 @@ func read_save(path: String = SAVE_PATH) -> Dictionary:
 	for field in MAP_FIELDS:
 		if not data.map.has(field):
 			return {}
+	if not DEMO.accepts_save(data.map):
+		return {}
 	return data
 
 
@@ -108,6 +111,8 @@ func prepare_load(path: String = SAVE_PATH) -> bool:
 
 
 func prepare_new_game(random_map: bool = false) -> void:
+	if DEMO.enabled():
+		random_map = false
 	if not random_map:
 		selected_faction = "earth"
 	save_on_start = true

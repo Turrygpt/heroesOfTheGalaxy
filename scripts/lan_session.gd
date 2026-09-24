@@ -46,6 +46,8 @@ func _process(_delta: float) -> void:
 		_lost("Время подключения истекло. Проверьте адрес хоста и брандмауэр.")
 
 func host(player_name: String, faction: String, port: int = PORT) -> Error:
+	if preload("res://scripts/demo_edition.gd").enabled():
+		return ERR_UNAVAILABLE
 	leave()
 	var peer := ENetMultiplayerPeer.new()
 	var error := peer.create_server(port, 3)
@@ -58,6 +60,8 @@ func host(player_name: String, faction: String, port: int = PORT) -> Error:
 	return OK
 
 func join(address: String, player_name: String, faction: String, port: int = PORT) -> Error:
+	if preload("res://scripts/demo_edition.gd").enabled():
+		return ERR_UNAVAILABLE
 	leave()
 	local_name = player_name.strip_edges().left(24)
 	local_faction = faction

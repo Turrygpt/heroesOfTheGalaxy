@@ -588,6 +588,8 @@ func _exit_tree() -> void:
 
 
 func _toggle_building_editor() -> void:
+	if preload("res://scripts/demo_edition.gd").enabled():
+		return
 	construction_menu.hide()
 	garrison_screen.hide()
 	_close_exchange_screen()
@@ -2361,6 +2363,10 @@ func _update_construction_menu() -> void:
 
 
 func _build_construction_card(kind: String) -> Control:
+	if kind == "tavern" and strategy_map != null and strategy_map.campaign_map_id == "mars_demo_v1":
+		var unavailable := Control.new()
+		unavailable.hide()
+		return unavailable
 	var def: Dictionary = BUILDING_DEFS[kind]
 	var max_level := int(def["max_level"])
 	var level_names: Array = def["level_names"]
@@ -2485,6 +2491,10 @@ func _construction_card_style(status_color: Color, disabled: bool) -> StyleBoxFl
 
 
 func _build_construction_row(kind: String) -> Control:
+	if kind == "tavern" and strategy_map != null and strategy_map.campaign_map_id == "mars_demo_v1":
+		var unavailable := Control.new()
+		unavailable.hide()
+		return unavailable
 	var def: Dictionary = BUILDING_DEFS[kind]
 	var max_level := int(def["max_level"])
 	var level_names: Array = def["level_names"]
@@ -2571,6 +2581,8 @@ func _build_construction_row(kind: String) -> Control:
 
 
 func _construct_kind(kind: String) -> void:
+	if kind == "tavern" and strategy_map != null and strategy_map.campaign_map_id == "mars_demo_v1":
+		return
 	if _find_slot_index(kind) < 0:
 		return
 	if _construction_used_this_turn():

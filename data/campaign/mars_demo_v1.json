@@ -293,8 +293,8 @@
       "id": "landmark_3",
       "kind": "upgrade_lab",
       "cell": [
-        9,
-        38
+        14,
+        11
       ],
       "size": 2
     },
@@ -574,7 +574,7 @@
       "kind": "beacon",
       "cell": [
         4,
-        25
+        32
       ],
       "size": 1
     },
@@ -613,29 +613,125 @@
         32
       ],
       "size": 1
+    },
+    {
+      "id": "demo_credit_terminal",
+      "kind": "weekly_credit_terminal",
+      "cell": [
+        5,
+        14
+      ],
+      "size": 2,
+      "amount": 400
+    },
+    {
+      "id": "demo_weekly_shipyard",
+      "kind": "weekly_shipyard",
+      "cell": [
+        16,
+        12
+      ],
+      "size": 2,
+      "ship_tier": 1,
+      "ship_count": 5
+    },
+    {
+      "id": "demo_resource_hub",
+      "kind": "weekly_resource_hub",
+      "cell": [
+        11,
+        18
+      ],
+      "size": 2,
+      "resource_name": "Энергокристаллы",
+      "amount": 3
+    },
+    {
+      "id": "demo_impulse",
+      "kind": "impulse_station",
+      "cell": [
+        16,
+        18
+      ],
+      "size": 1
+    },
+    {
+      "id": "demo_observation",
+      "kind": "observation_tower",
+      "cell": [
+        23,
+        18
+      ],
+      "size": 1
+    },
+    {
+      "id": "demo_veterans",
+      "kind": "veteran_outpost",
+      "cell": [
+        33,
+        34
+      ],
+      "size": 2,
+      "veteran_unit": "heavy_interceptor"
+    },
+    {
+      "id": "demo_forward_reactor",
+      "kind": "archive_station",
+      "cell": [
+        36,
+        38
+      ],
+      "size": 1
+    },
+    {
+      "id": "demo_simulator",
+      "kind": "combat_simulator",
+      "cell": [
+        32,
+        9
+      ],
+      "size": 2
+    },
+    {
+      "id": "demo_obelisk_north",
+      "kind": "obelisk",
+      "cell": [
+        25,
+        15
+      ],
+      "size": 1
+    },
+    {
+      "id": "demo_obelisk_mars",
+      "kind": "obelisk",
+      "cell": [
+        52,
+        45
+      ],
+      "size": 1
     }
   ],
   "guardians": [
-  {
-    "id": "kowalski",
+    {
+      "id": "kowalski",
       "cell": [
         20,
         20
       ],
-      "template": "patrol_elite",
+      "template": "patrol_strong",
       "name": "Маршал Ковальски",
-    "aggro_radius": 1
-  },
-  {
-    "id": "central_patrol",
-    "cell": [
-      31,
-      31
-    ],
-    "template": "central_patrol",
-    "name": "Центральный патруль",
-    "aggro_radius": 2
-  },
+      "aggro_radius": 1
+    },
+    {
+      "id": "central_patrol",
+      "cell": [
+        31,
+        31
+      ],
+      "template": "patrol_strong",
+      "name": "Центральный патруль",
+      "aggro_radius": 2
+    },
     {
       "id": "pirate_patrol",
       "cell": [
@@ -743,5 +839,5 @@
       "color": "e89979"
     }
   ],
-  "revision": 3
+  "revision": 4
 }

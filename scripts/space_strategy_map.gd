@@ -3682,8 +3682,19 @@ func _complete_station_training(index: int, hero: Hero) -> void:
 
 
 func _trigger_obelisk(index: int) -> void:
+	if bool(map_objects[index].get("consumed", false)):
+		return
+	var hero := _player_hero()
+	var ship_id := "elite_frigate" if campaign_map_id == CampaignMissionMap.ID else "pirate_dreadnought"
+	var ship_count := 2 if campaign_map_id == CampaignMissionMap.ID else 1
+	if obelisks_collected == MapObjectDefs.OBELISK_TARGET - 1 and (hero == null or not hero.can_add_to_army(ship_id)):
+		navigation_message = "Хранилище готово выдать корабли: освободите слот флота и вернитесь к маяку."
+		_update_hud()
+		return
 	var def := MapObjectDefs.get_kind(map_objects[index]["kind"])
 	map_objects[index]["consumed"] = true
+	if obelisks_collected >= MapObjectDefs.OBELISK_TARGET:
+		return
 	obelisks_collected += 1
 	var target := MapObjectDefs.OBELISK_TARGET
 	if obelisks_collected < target:
@@ -3693,17 +3704,15 @@ func _trigger_obelisk(index: int) -> void:
 		return
 	var description := "Последний маяк найден — древнее хранилище открывается!"
 	var reward_items: Array[Dictionary] = []
-	var hero := _player_hero()
 	if hero != null:
-		var ship_id := "pirate_dreadnought"
-		hero.add_to_army(ship_id, 1)
+		hero.add_to_army(ship_id, ship_count)
 		_save_hero_roster()
-		description += "\nПолучен пиратский линкор VII уровня."
-		reward_items.append({"icon": UnitDefs.get_unit(ship_id).get("texture"), "amount": 1})
+		description += "\nПолучено: %s ×%d." % [UnitDefs.display_name(ship_id), ship_count]
+		reward_items.append({"icon": UnitDefs.get_unit(ship_id).get("texture"), "amount": ship_count})
 	for resource_name in player_one_resources:
 		add_resource(String(resource_name), 10)
-		description += "\n+10 всех ресурсов."
 		reward_items.append(_resource_reward_item(String(resource_name), 10))
+	description += "\n+10 всех ресурсов."
 	if hero != null and hero.can_gain_experience():
 		var before := hero.experience
 		BattleRewards.award(self, hero, 3000)
