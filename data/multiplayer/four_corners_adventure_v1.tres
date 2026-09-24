@@ -4083,12 +4083,12 @@ Vector2i(62, 14): 37
 "sector": "crystal",
 "seed": 4058113130
 }, {
-"biome": "orc",
+"biome": "bandit",
 "cells": Array[Vector2i]([Vector2i(45, 44), Vector2i(46, 44), Vector2i(45, 43), Vector2i(46, 43), Vector2i(45, 42), Vector2i(44, 41), Vector2i(44, 42), Vector2i(44, 40), Vector2i(43, 40), Vector2i(42, 39), Vector2i(43, 39), Vector2i(42, 38), Vector2i(41, 37), Vector2i(42, 37), Vector2i(41, 36), Vector2i(40, 35), Vector2i(40, 36), Vector2i(41, 35)]),
 "kind": "debris_field",
 "passages": [],
 "rect": Rect2i(40, 35, 7, 10),
-"sector": "orc",
+"sector": "bandit",
 "seed": 1435925238
 }, {
 "biome": "volcanic",
@@ -4307,16 +4307,16 @@ Vector2i(62, 14): 37
 "sector": "ion",
 "seed": 2480987036
 }, {
-"biome": "orc",
+"biome": "bandit",
 "cells": Array[Vector2i]([Vector2i(46, 45), Vector2i(45, 46), Vector2i(47, 43), Vector2i(47, 44), Vector2i(46, 46), Vector2i(46, 47)]),
 "kind": "nebula",
 "passages": [],
 "rect": Rect2i(45, 43, 3, 5),
-"sector": "orc",
+"sector": "bandit",
 "seed": 143237443
 }]),
-"orc_planet_owner": 2,
-"orc_planetary_council_level": 1,
+"bandit_planet_owner": 2,
+"bandit_planetary_council_level": 1,
 "passage_at": {},
 "pirate_balance_version": 5,
 "player_one_credits": 2000,
@@ -4617,7 +4617,7 @@ Vector2i(62, 14): 37
 "seed": 1241271747
 }, {
 "center": Vector2i(54, 54),
-"id": "orc",
+"id": "bandit",
 "name": "Багровая туманность",
 "seed": 536755258
 }]),

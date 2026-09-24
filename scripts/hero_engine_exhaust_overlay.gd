@@ -29,9 +29,9 @@ func _draw() -> void:
 	var player_ship := map.get("ship_sprite") as Sprite2D
 	if player_ship != null and player_ship.visible:
 		_draw_ship_exhaust(player_ship, PLAYER_ONE_COLOR, 0.0)
-	var orc_ship := map.get("orc_ship_sprite") as Sprite2D
-	if orc_ship != null and orc_ship.visible:
-		_draw_ship_exhaust(orc_ship, PLAYER_TWO_COLOR, 1.4)
+	var bandit_ship := map.get("bandit_ship_sprite") as Sprite2D
+	if bandit_ship != null and bandit_ship.visible:
+		_draw_ship_exhaust(bandit_ship, PLAYER_TWO_COLOR, 1.4)
 
 
 func _draw_ship_exhaust(ship: Sprite2D, color: Color, phase_offset: float) -> void:

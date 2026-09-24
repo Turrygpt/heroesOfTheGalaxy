@@ -96,15 +96,15 @@ func _run() -> void:
 				var cell := Vector2i(x, y)
 				if map._cell_is_inside_map(cell):
 					map.navigation_grid.set_point_solid(cell, true)
-	for destination in [Vector2i(54, 4), Vector2i(5, 53), map.ORC_PLANET_CENTER]:
+	for destination in [Vector2i(54, 4), Vector2i(5, 53), map.BANDIT_PLANET_CENTER]:
 		_check(not map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, destination).is_empty(),
 			"Дополнительные флоты перекрыли обязательный маршрут к " + str(destination))
 	map.navigation_grid.clear()
 	map._build_navigation_grid()
-	_check(not map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, map.ORC_PLANET_CENTER).is_empty(), "Марс недоступен")
+	_check(not map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, map.BANDIT_PLANET_CENTER).is_empty(), "Марс недоступен")
 	var central_index := guardian_index(map, "central_patrol")
 	_check(central_index >= 0 and int(map.guardians[central_index].aggro_radius) == 2, "Центральный патруль должен контролировать квадрат 5×5")
-	_check(not map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, map.ORC_PLANET_CENTER).is_empty(), "Через туманность должен существовать обходной путь")
+	_check(not map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, map.BANDIT_PLANET_CENTER).is_empty(), "Через туманность должен существовать обходной путь")
 	for destination in [Vector2i(54, 4), Vector2i(5, 53)]:
 		_check(not map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, destination).is_empty(), "Боковая ветвь зависит от патруля")
 	map.navigation_grid.clear()
@@ -124,7 +124,7 @@ func _run() -> void:
 			continue
 		for point in map._footprint_cells(object.cell, object.size):
 			map.navigation_grid.set_point_solid(point, true)
-	_check(not map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, map.ORC_PLANET_CENTER).is_empty(), "Основной путь зависит от визитов на базы")
+	_check(not map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, map.BANDIT_PLANET_CENTER).is_empty(), "Основной путь зависит от визитов на базы")
 	map.navigation_grid.clear()
 	map._build_navigation_grid()
 	var save := root.get_node("CampaignSave")

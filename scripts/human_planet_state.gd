@@ -16,8 +16,8 @@ const STATE_PATH := "user://human_planet_state.json"
 ## уровень форта, нулевой элемент — форта нет. Таблица, а не множитель на
 ## уровень: прибавка растёт неравномерно, последний уровень ощутимо дороже
 ## и ощутимо щедрее.
-## Общая для обеих фракций: орочий ИИ считает свой прирост этой же функцией
-## (см. orc_ai.gd:_apply_weekly_growth).
+## Общая для обеих фракций: марсианский ИИ считает свой прирост этой же функцией
+## (см. bandit_ai.gd:_apply_weekly_growth).
 const FORT_GROWTH_BONUS_BY_LEVEL := [0.0, 0.25, 0.5, 1.0]
 ## Доход планетарного совета по уровням I-IV — не линейный, а удваивается с
 ## каждым уровнем. Общий источник для карты (SpaceStrategyMap) и экрана
@@ -73,6 +73,7 @@ static func load_state() -> Dictionary:
 	if not file:
 		return state
 	var parsed = JSON.parse_string(file.get_as_text())
+	parsed = preload("res://scripts/faction_save_migration.gd").migrate(parsed)
 	file.close()
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return state

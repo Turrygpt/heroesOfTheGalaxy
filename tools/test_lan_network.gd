@@ -31,5 +31,5 @@ func _run() -> void:
 		if not ("LAN_PEER %s: 0 ошибок" % roles[i]) in log or "ERROR:" in log:
 			failures += 1
 			push_error("Сетевой процесс %s: %s" % [roles[i], log])
-	print("LAN_NETWORK: %d ошибок; журналы %s" % [failures, directory])
+	print("LAN_NETWMARAUDER: %d ошибок; журналы %s" % [failures, directory])
 	quit(1 if failures else 0)

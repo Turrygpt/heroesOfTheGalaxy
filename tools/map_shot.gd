@@ -2,10 +2,10 @@ extends Node
 
 ## Отладочная съёмка глобальной карты: фиксирует сид, ставит камеру в клетку
 ## и сохраняет PNG. Запуск:
-##   godot --path . res://tools/MapShot.tscn -- <файл.png> <cell_x> <cell_y> <zoom> <seed> [orc_turns]
-## Последний необязательный аргумент — сколько солов проиграть за орков перед
-## съёмкой (см. orc_ai.gd) и открыть весь туман: так на снимке видно вождя
-## орков и захваченные им месторождения.
+##   godot --path . res://tools/MapShot.tscn -- <файл.png> <cell_x> <cell_y> <zoom> <seed> [bandit_turns]
+## Последний необязательный аргумент — сколько солов проиграть за марсианских бандитов перед
+## съёмкой (см. bandit_ai.gd) и открыть весь туман: так на снимке видно главаря
+## марсианских бандитов и захваченные им месторождения.
 ## Координаты -1 -1 автоматически наводят камеру на холодный сектор.
 
 const MAP_SCENE := preload("res://scenes/SpaceStrategyMap.tscn")
@@ -53,17 +53,17 @@ func _ready() -> void:
 	camera.reset_smoothing()
 	camera.force_update_scroll()
 	map.get_node("HUD").visible = false
-	var orc_turns := int(args[5]) if args.size() >= 6 else 0
-	if orc_turns > 0:
+	var bandit_turns := int(args[5]) if args.size() >= 6 else 0
+	if bandit_turns > 0:
 		map._reveal_around(Vector2i(32, 32), 64)
 		map.fog_overlay.queue_redraw()
-		for day in range(orc_turns):
+		for day in range(bandit_turns):
 			map.current_day = day + 1
-			map.orc_ai.take_turn(map)
-			map._refresh_orc_ship_sprite()
+			map.bandit_ai.take_turn(map)
+			map._refresh_bandit_ship_sprite()
 			map.queue_redraw()
-			print("orcs: ", map.orc_ai.built_levels, " cell=", map.orc_ai.hero_cell,
-				" army=", map.orc_hero().army)
+			print("bandits: ", map.bandit_ai.built_levels, " cell=", map.bandit_ai.hero_cell,
+				" army=", map.bandit_hero().army)
 	# Иначе штатный _process карты возвращает камеру к флагману между
 	# настройкой кадра выше и фактическим сохранением PNG.
 	map.set_process(false)

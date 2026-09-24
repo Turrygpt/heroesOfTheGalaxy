@@ -1,0 +1,15 @@
+{
+  "quality": 0.9,
+  "directories": [
+    "assets/planet_surface",
+    "assets/persons",
+    "assets/ships",
+    "assets/map_objects",
+    "assets/space",
+    "assets/biomes",
+    "assets/planets",
+    "assets/buildings",
+    "assets/heroes",
+    "assets/hero_ships"
+  ]
+}

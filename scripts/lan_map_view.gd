@@ -26,7 +26,7 @@ var mine_textures := {
 }
 var planet_textures := {
 	"earth": preload("res://assets/planets/human.png"),
-	"mars": preload("res://assets/planets/orc.png"),
+	"mars": preload("res://assets/planets/bandit.png"),
 	"trader": preload("res://assets/planets/league.png"),
 	"pirate": preload("res://assets/planets/pirate.png"),
 }

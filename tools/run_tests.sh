@@ -2,7 +2,7 @@
 # Прогоняет все headless-тесты из tools/ одной командой.
 #
 #   sh tools/run_tests.sh                  # все тесты
-#   sh tools/run_tests.sh orc battle       # только те, чьё имя содержит orc или battle
+#   sh tools/run_tests.sh bandit battle       # только те, чьё имя содержит bandit или battle
 #
 # Движок ищется автоматически: переменная GODOT, затем godot/godot4 в PATH,
 # затем Godot_v*_console.exe / Godot_v*.exe в корне репозитория.

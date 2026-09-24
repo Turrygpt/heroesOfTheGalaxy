@@ -4,7 +4,7 @@ extends Node
 ## и умеет сохранять их в user://heroes.json.
 
 ## Идентификатор героя не требует загрузки ИИ и всех его текстур.
-const ORC_HERO_ID := "orc_warlord"
+const BANDIT_HERO_ID := "bandit_raider_leader"
 const UNIT_DEFS := preload("res://scripts/unit_defs.gd")
 
 const PLAYER_HEROES := {
@@ -35,8 +35,8 @@ var session_active := false
 var campaign_heroes: Dictionary = {}
 var campaign_active_player_id := "player_admiral"
 var active_player_id := "player_admiral"
-## Выбранный противник случайной партии; у кампании прежний вождь.
-var active_enemy_id := ORC_HERO_ID
+## Выбранный противник случайной партии; у кампании прежний главарь.
+var active_enemy_id := BANDIT_HERO_ID
 
 var heroes := {}  # id -> Hero
 
@@ -54,7 +54,7 @@ func reset_to_default() -> void:
 func reset_for_faction(faction: String, elite_start: bool = false) -> void:
 	heroes.clear()
 	active_player_id = "player_admiral"
-	active_enemy_id = ORC_HERO_ID
+	active_enemy_id = BANDIT_HERO_ID
 	var definition: Dictionary = PLAYER_HEROES.get(faction, PLAYER_HEROES["earth"])
 	# Стабильный id сохраняет совместимость карты, боя и сейвов, а личность,
 	# класс, навыки и корабли определяет выбранная сторона случайной карты.
@@ -68,10 +68,10 @@ func reset_for_faction(faction: String, elite_start: bool = false) -> void:
 		starting_army = elite_army
 	commander.set_army_from_dict(starting_army)
 	register(commander)
-	# Вождь орков — герой стороны 2. Его army и есть флот ИИ на карте
-	# (см. orc_ai.gd), поэтому он живёт в общем ростере и сохраняется вместе
-	# с героем игрока. Стартовый флот выдаёт OrcAI при создании кампании.
-	register(Hero.create(ORC_HERO_ID, "Вождь Гракх Железный Клык", "warlord"))
+	# Главарь марсианских бандитов — герой стороны 2. Его army и есть флот ИИ на карте
+	# (см. bandit_ai.gd), поэтому он живёт в общем ростере и сохраняется вместе
+	# с героем игрока. Стартовый флот выдаёт BanditAI при создании кампании.
+	register(Hero.create(BANDIT_HERO_ID, "Главарь Грак", "raider_leader"))
 
 
 func register(hero: Hero) -> void:
@@ -86,7 +86,7 @@ func player_hero() -> Hero:
 	return get_hero(active_player_id)
 
 
-## Противник в текущем бою. У кампании исходный вождь, у случайной партии — выбранный ИИ.
+## Противник в текущем бою. У кампании исходный главарь, у случайной партии — выбранный ИИ.
 ## Нейтральные стражи ходят без героя (см. tactical_battle.gd:_make_hero).
 func enemy_hero() -> Hero:
 	return get_hero(active_enemy_id)
@@ -119,7 +119,7 @@ func save_state() -> void:
 
 func load_state() -> bool:
 	active_player_id = "player_admiral"
-	active_enemy_id = ORC_HERO_ID
+	active_enemy_id = BANDIT_HERO_ID
 	if not FileAccess.file_exists(SAVE_PATH):
 		return false
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
@@ -145,7 +145,7 @@ func begin_network_session(hero_data: Dictionary) -> void:
 		session_active = true
 	heroes = {"player_admiral": Hero.from_dict(hero_data)}
 	active_player_id = "player_admiral"
-	active_enemy_id = ORC_HERO_ID
+	active_enemy_id = BANDIT_HERO_ID
 
 
 func end_network_session() -> void:

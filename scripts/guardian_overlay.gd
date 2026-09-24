@@ -6,9 +6,7 @@ extends Node2D
 const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
 
 const PIRATE_COLOR := Color("ff3b30")
-const TRADER_COLOR := Color("e5b956")
 const PATROL_COLOR := Color("4fa8e0")
-const KIND_COLORS := {"trader": TRADER_COLOR, "patrol": PATROL_COLOR}
 const ICON_DIAMETER := 46.0
 ## Все кораблики-стражи (пираты и нейтральные торговцы) одного размера —
 ## пиратов отличает только акцентная красная обводка потолще, не масштаб.
@@ -81,8 +79,6 @@ func _draw_guardian(strategy_map: Node2D, guardian: Dictionary) -> void:
 		_draw_object_guardian(center, object_kind, size, Color.WHITE.lerp(owner_color, 0.42))
 		_draw_object_name(center, String(MapObjectDefs.get_kind(object_kind).get("name", object_kind)), size, true, owner_color)
 		return
-	var kind := String(guardian["kind"])
-	var color: Color = KIND_COLORS.get(kind, PIRATE_COLOR)
 	var icon_id: String = GuardianDefs.icon_unit_id(guardian["template"])
 	var unit: Dictionary = UnitDefs.get_unit(icon_id)
 	if unit.has("texture"):
@@ -91,7 +87,6 @@ func _draw_guardian(strategy_map: Node2D, guardian: Dictionary) -> void:
 		draw_set_transform(center, 0.0, Vector2.ONE * scale_factor)
 		draw_texture_rect_region(unit["texture"], Rect2(-region.size * 0.5, region.size), region)
 		draw_set_transform(Vector2.ZERO)
-	draw_line(center + Vector2(-16.0, 36.0), center + Vector2(16.0, 36.0), color, 3.0, true)
 	if guardian.has("display_name"):
 		_draw_object_name(center, String(guardian.display_name), 1, false)
 

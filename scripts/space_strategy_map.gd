@@ -23,11 +23,11 @@ const GRID_COLOR := Color("171c26")
 const MAP_BACKGROUND_COLOR := Color(0.01, 0.02, 0.04, 0.55)
 const MOVEMENT_POINTS_PER_DAY := 10
 ## С чем герой остаётся после проигранного боя или бегства: один корабль
-## I ранга. То же правило у орков (см. orc_ai.gd:RESPAWN_ARMY) — обе стороны
+## I ранга. То же правило у марсианских бандитов (см. bandit_ai.gd:RESPAWN_ARMY) — обе стороны
 ## отстраивают флот заново из гарнизона своей планеты.
 const RETREAT_ARMY := {"interceptor": 1}
 const HUMAN_PLANET_CENTER := Vector2i(6, 6)
-const ORC_PLANET_CENTER := Vector2i(57, 57)
+const BANDIT_PLANET_CENTER := Vector2i(57, 57)
 const PLAYER_ONE_START_CELL := HUMAN_PLANET_CENTER + Vector2i(2, 0)
 const PLANET_FOOTPRINT_RADIUS := 1
 const PRODUCTION_MAX_PLANET_DISTANCE := 24
@@ -49,7 +49,7 @@ const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
 const SpaceDecorations := preload("res://scripts/space_decorations.gd")
 const STRATEGIC_NEBULA_TEXTURE := preload("res://assets/space/backdrops/strategic_nebula_background.png")
 const TradingPost := preload("res://scripts/trading_post.gd")
-const OrcAI := preload("res://scripts/orc_ai.gd")
+const BanditAI := preload("res://scripts/bandit_ai.gd")
 const HERO_PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 const UNIVERSITY_DEFS := preload("res://scripts/university_defs.gd")
 const PROTOCOL_BOOK_HUD := preload("res://scripts/protocol_book_hud.gd")
@@ -70,20 +70,20 @@ const HERO_SHIP_TEXTURES := {
 	"trader": preload("res://assets/hero_ships/trader.png"),
 	"pirate": preload("res://assets/hero_ships/pirate.png"),
 }
-## Флагман вождя орков остаётся на собственном вытянутом холсте 702x1301.
-const ORC_HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/orc.png")
+## Флагман главаря марсианских бандитов остаётся на собственном вытянутом холсте 702x1301.
+const BANDIT_HERO_SHIP_TEXTURE := preload("res://assets/hero_ships/bandit.png")
 ## Спрайт корабля героя рисуется в масштабе 0.16 (см. Ship в
 ## SpaceStrategyMap.tscn).
 const HERO_SHIP_SCALE := 0.16
-## Холст ORC_HERO_SHIP_TEXTURE вытянут (1301 по большей стороне против 512 у
+## Холст BANDIT_HERO_SHIP_TEXTURE вытянут (1301 по большей стороне против 512 у
 ## фракционных спрайтов) — свой масштаб, чтобы на карте оба флагмана были одного
 ## размера (по большей стороне холста), а не просто одной scale-константы.
-const ORC_HERO_SHIP_SCALE := HERO_SHIP_SCALE * 512.0 / 1301.0
+const BANDIT_HERO_SHIP_SCALE := HERO_SHIP_SCALE * 512.0 / 1301.0
 const HUMAN_PLANET_SCREEN := preload("res://scenes/HumanPlanetScreen.tscn")
 const HUMAN_PLANET_TOWN := preload("res://scenes/HumanPlanetTown.tscn")
-## Временная визуальная подмена: человеческая планета открывает орочью панораму.
-const ORC_PLANET_SCREEN := preload("res://scenes/OrcPlanetScreen.tscn")
-const ORC_PLANET_TEXTURE := preload("res://assets/planets/orc.png")
+## Временная визуальная подмена: человеческая планета открывает марсианскую панораму.
+const BANDIT_PLANET_SCREEN := preload("res://scenes/BanditPlanetScreen.tscn")
+const BANDIT_PLANET_TEXTURE := preload("res://assets/planets/bandit.png")
 ## Фоновая музыка карты. На время тактического боя ставится на паузу
 ## (см. _swap_to_battle) и возобновляется при возврате (tactical_battle.gd:_return_to_map).
 ## Папка со всеми треками — любое количество mp3, _start_music берёт случайный
@@ -198,10 +198,10 @@ const PRODUCTION_BLUEPRINTS := [
 @onready var resource_bar: Control = $HUD/ResourceBar
 @onready var right_sidebar: Control = $HUD/RightSidebar
 @onready var human_planet: Sprite2D = $HumanPlanet
-@onready var orc_planet: Sprite2D = $OrcPlanet
+@onready var bandit_planet: Sprite2D = $BanditPlanet
 @onready var planet_nameplate: Control = $PlanetNameplate
 @onready var human_planet_name_button: Button = $PlanetNameplate/Name
-@onready var orc_planet_nameplate: Control = $OrcPlanetNameplate
+@onready var bandit_planet_nameplate: Control = $BanditPlanetNameplate
 @onready var production_sprites: Node2D = $ProductionSprites
 @onready var production_overlay: Node2D = $ProductionOverlay
 @onready var guardian_overlay: Node2D = $GuardianOverlay
@@ -297,14 +297,14 @@ var music_player: AudioStreamPlayer
 var player_one_credits := 2000
 var player_two_credits := 0
 var human_planet_owner := 1
-var orc_planet_owner := 2
-## Искусственный противник (см. orc_ai.gd). Ходит сразу после игрока,
+var bandit_planet_owner := 2
+## Искусственный противник (см. bandit_ai.gd). Ходит сразу после игрока,
 ## его состояние уезжает в сейв кампании отдельным словарём.
-var orc_ai: OrcAI
-var orc_ship_sprite: Sprite2D
+var bandit_ai: BanditAI
+var bandit_ship_sprite: Sprite2D
 var hero_engine_exhaust_overlay: Node2D
-## Отчёт орков за последний сол — показывается в панели навигации.
-var orc_report := ""
+## Отчёт марсианских бандитов за последний сол — показывается в панели навигации.
+var bandit_report := ""
 ## "" пока кампания идёт, иначе "victory" / "defeat" — дальше ходов нет.
 var campaign_outcome := ""
 var fog_enabled := FOG_ENABLED
@@ -330,7 +330,7 @@ var campaign_map_id := ""
 var story_state: Dictionary = {}
 var campaign_story: Node
 var human_planetary_council_level := 1
-var orc_planetary_council_level := 1
+var bandit_planetary_council_level := 1
 var player_one_resources := {
 	"Продукты": 10,
 	"Руда": 10,
@@ -345,7 +345,7 @@ var player_one_resources := {
 var network_game := false
 var session_snapshot: Dictionary = {}
 var home_planet_cell := HUMAN_PLANET_CENTER
-var opponent_planet_cell := ORC_PLANET_CENTER
+var opponent_planet_cell := BANDIT_PLANET_CENTER
 
 func _ready() -> void:
 	if open_tactical_when_run_directly and get_tree().current_scene == self:
@@ -431,14 +431,14 @@ func _ready() -> void:
 	_create_obstacle_sprites()
 	_build_navigation_grid()
 	_sync_human_planet_state()
-	_setup_orc_ai(snapshot)
+	_setup_bandit_ai(snapshot)
 	_apply_home_planet_faction()
 	_setup_hero_portrait_backgrounds()
 	next_cell = current_cell
 	_reveal_around(current_cell, FOG_REVEAL_RADIUS)
 	ship_position = _cell_center(current_cell)
 	human_planet.position = _cell_center(home_planet_cell)
-	orc_planet.position = _cell_center(opponent_planet_cell)
+	bandit_planet.position = _cell_center(opponent_planet_cell)
 	var human_planet_hit_area := Area2D.new()
 	human_planet_hit_area.name = "HumanPlanetHitArea"
 	human_planet_hit_area.position = human_planet.position
@@ -455,9 +455,9 @@ func _ready() -> void:
 		-planet_nameplate.size.x * 0.5,
 		CELL_SIZE * 0.58
 	)
-	orc_planet_nameplate.size = Vector2(CELL_SIZE * 2.5, CELL_SIZE * 0.7)
-	orc_planet_nameplate.position = orc_planet.position + Vector2(
-		-orc_planet_nameplate.size.x * 0.5,
+	bandit_planet_nameplate.size = Vector2(CELL_SIZE * 2.5, CELL_SIZE * 0.7)
+	bandit_planet_nameplate.position = bandit_planet.position + Vector2(
+		-bandit_planet_nameplate.size.x * 0.5,
 		CELL_SIZE * 0.58
 	)
 	var ship_faction := player_faction
@@ -466,7 +466,7 @@ func _ready() -> void:
 	ship_sprite.texture = HERO_SHIP_TEXTURES.get(ship_faction, HERO_SHIP_TEXTURES["earth"])
 	ship_sprite.position = ship_position
 	ship_sprite.rotation = -PI / 2.0 - SHIP_SOURCE_ANGLE
-	_refresh_orc_ship_sprite()
+	_refresh_bandit_ship_sprite()
 	_create_hero_engine_exhaust_overlay()
 	_setup_random_hero_markers()
 	_update_camera_limits()
@@ -513,7 +513,7 @@ func _ready() -> void:
 			campaign_story.call_deferred("_show_ending" if story_state.has("ending") else "finish_mission")
 	if campaign_outcome == "defeat":
 		call_deferred("_show_campaign_outcome", false, "ПОРАЖЕНИЕ",
-			"Оборона столицы прорвана. Родная планета потеряна. Начните новую игру, чтобы снова освободить Марс." if campaign_story != null else "Родная планета пала под натиском орков.")
+			"Оборона столицы прорвана. Родная планета потеряна. Начните новую игру, чтобы снова освободить Марс." if campaign_story != null else "Родная планета пала под натиском марсианских бандитов.")
 	elif campaign_outcome == "victory" and campaign_story == null:
 		call_deferred("_show_campaign_outcome", true, "ПОБЕДА", "Вражеская база захвачена. Ваш флот отстоял свой сектор галактики.")
 	if snapshot.is_empty() and starter_map_mode and campaign_story != null:
@@ -626,7 +626,7 @@ func _process(delta: float) -> void:
 			var previous_cell := current_cell
 			current_cell = next_cell
 			# Бой имеет приоритет над захватом: если на клетке враг, сначала
-			# разбираемся с ним (см. _resolve_orc_victory/_resolve_guardian_battle),
+			# разбираемся с ним (см. _resolve_bandit_victory/_resolve_guardian_battle),
 			# и только победа отдаёт месторождение — иначе игрок захватывал
 			# шахту прямо под вражеским флотом, так и не увидев боя.
 			var had_encounter := _check_arrival_encounters(current_cell, previous_cell)
@@ -711,7 +711,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if event.button_index == MOUSE_BUTTON_MIDDLE:
-			# СКМ по своему флоту/вождю орков/нейтральному стражу открывает
+			# СКМ по своему флоту/главарю марсианских бандитов/нейтральному стражу открывает
 			# просмотр состава, а не начинает драг — драг картой запускается
 			# только если под курсором ничего такого нет (см. ПКМ раньше).
 			if event.pressed and not is_moving \
@@ -783,10 +783,10 @@ func _try_open_fleet_inspection(cell: Vector2i) -> bool:
 			if other != null:
 				_show_fleet_roster("Флот: " + other.hero_name, Hero._slots_from_army(other.army, 7))
 		return true
-	if orc_ai != null and orc_ai.hero_alive and cell == orc_ai.hero_cell and is_cell_visible(cell):
-		var warlord := orc_hero()
-		if warlord != null:
-			_show_fleet_roster("Флот орочьего вождя", OrcAI.army_entries(warlord.army))
+	if bandit_ai != null and bandit_ai.hero_alive and cell == bandit_ai.hero_cell and is_cell_visible(cell):
+		var raider_leader := bandit_hero()
+		if raider_leader != null:
+			_show_fleet_roster("Флот марсианского главаря", BanditAI.army_entries(raider_leader.army))
 			return true
 	var guardian_index := int(guardian_at.get(cell, -1))
 	if guardian_index >= 0 and guardian_index < guardians.size():
@@ -862,7 +862,7 @@ func _apply_home_planet_faction() -> void:
 	if starter_map_mode:
 		player_faction = "earth"
 	var is_mars := player_faction == "mars"
-	human_planet.texture = ORC_PLANET_TEXTURE if is_mars else preload("res://assets/planets/human.png")
+	human_planet.texture = BANDIT_PLANET_TEXTURE if is_mars else preload("res://assets/planets/human.png")
 	if player_faction == "trader":
 		human_planet.texture = load("res://assets/planets/league.png")
 	elif player_faction == "pirate":
@@ -1338,13 +1338,13 @@ func _update_navigation_hud() -> void:
 		var kind_name: String = obstacles[hovered_obstacle]["kind"]
 		terrain.text = ("≈ %s · движение ×2 · 2 очка за клетку" if kind_name == "nebula"
 			else "⊘ %s · непроходимо") % SpaceObstacles.title(kind_name)
-	if orc_ai != null and orc_ai.hero_alive and hovered_cell == orc_ai.hero_cell and is_cell_visible(hovered_cell):
-		terrain.text = "⚔ Главарь бандитов · подойдите, чтобы завязать бой" if campaign_map_id != "" else "⚔ Вождь орков · подойдите, чтобы завязать бой"
+	if bandit_ai != null and bandit_ai.hero_alive and hovered_cell == bandit_ai.hero_cell and is_cell_visible(hovered_cell):
+		terrain.text = "⚔ Главарь бандитов · подойдите, чтобы завязать бой" if campaign_map_id != "" else "⚔ Главарь марсианских бандитов · подойдите, чтобы завязать бой"
 	elif _cell_is_in_planet(hovered_cell, opponent_planet_cell):
-		terrain.text = "⌂ База орков · захватите её, чтобы выиграть кампанию" if orc_planet_owner == 2 \
-			else "⌂ База орков · захвачена вами"
+		terrain.text = "⌂ База марсианских бандитов · захватите её, чтобы выиграть кампанию" if bandit_planet_owner == 2 \
+			else "⌂ База марсианских бандитов · захвачена вами"
 	if campaign_map_id != "" and _cell_is_in_planet(hovered_cell, opponent_planet_cell):
-		terrain.text = "⌂ Марс · уничтожьте базу бандитов" if orc_planet_owner == 2 else "⌂ Марс освобождён"
+		terrain.text = "⌂ Марс · уничтожьте базу бандитов" if bandit_planet_owner == 2 else "⌂ Марс освобождён"
 	var visible_guardian := false
 	if guardian_at.has(hovered_cell):
 		var guardian: Dictionary = guardians[guardian_at[hovered_cell]]
@@ -1496,7 +1496,7 @@ func _sync_human_planet_state() -> void:
 
 
 ## Порядок хода: игрок жмёт кнопку — доигрывается его сол (доход, добыча,
-## недельный прирост), сразу за ним отрабатывает ИИ орков (_run_orc_turn).
+## недельный прирост), сразу за ним отрабатывает ИИ марсианских бандитов (_run_bandit_turn).
 func _end_day() -> void:
 	if is_moving or campaign_outcome != "":
 		return
@@ -1521,17 +1521,17 @@ func _end_day() -> void:
 				navigation_message = "%s %s" % [growth_text, navigation_message]
 			else:
 				navigation_message = growth_text
-	_run_orc_turn()
+	_run_bandit_turn()
 
 
-## Порядок проверок при входе в клетку: стражи, потом орки (планета важнее
-## вождя — если он дома, штурм всё равно застаёт его в обороне), потом мирные
+## Порядок проверок при входе в клетку: стражи, потом марсианские бандиты (планета важнее
+## главаря — если он дома, штурм всё равно застаёт его в обороне), потом мирные
 ## объекты приключений. Любая сработавшая проверка обрывает полёт.
 func _check_arrival_encounters(cell: Vector2i, previous_cell: Vector2i = Vector2i(-1, -1)) -> bool:
 	_teach_protocols_on_home_planet_visit(cell)
 	return _check_guardian_encounter(cell, previous_cell) \
-		or _check_orc_planet_encounter(cell) \
-		or _check_orc_hero_encounter(cell) \
+		or _check_bandit_planet_encounter(cell) \
+		or _check_bandit_hero_encounter(cell) \
 		or _check_map_object_encounter(cell, previous_cell)
 
 
@@ -1581,8 +1581,8 @@ func _update_hud() -> void:
 	var council_income := 0
 	if human_planet_owner == 1:
 		council_income += HumanPlanetState.council_income(human_planetary_council_level)
-	if orc_planet_owner == 1:
-		council_income += HumanPlanetState.council_income(orc_planetary_council_level)
+	if bandit_planet_owner == 1:
+		council_income += HumanPlanetState.council_income(bandit_planetary_council_level)
 	income_label.text = "Доход: +%d/сол" % [council_income + bonus_daily_income + _hero_daily_income_bonus()]
 	products_value.text = str(player_one_resources["Продукты"])
 	ore_value.text = str(player_one_resources["Руда"])
@@ -1972,6 +1972,8 @@ func _refresh_random_hero_gallery() -> void:
 		portrait.get_node("EnergySteps").call("set_energy", hero.energy, hero.max_energy())
 		(details.get_child(1) as Label).text = _short_hero_name(hero.hero_name)
 		var moves := movement_points if id == random_active_hero_id else int(random_hero_states[id]["movement"])
+		var movement_max := _movement_limit(hero, weekly_movement_bonus if id == random_active_hero_id else int(random_hero_states[id].get("weekly_bonus", 0)))
+		_update_hero_movement_steps(portrait.get_node("MovementSteps") as VBoxContainer, moves, movement_max)
 		(details.get_child(2) as Label).text = "%d ход." % moves
 		card.tooltip_text = "%s · ур. %d\nХоды: %d · Энергия: %d/%d" % [hero.hero_name, hero.level, moves, hero.energy, hero.max_energy()]
 		(card.get_theme_stylebox("panel") as StyleBoxFlat).border_color = Color("e6c87b") if id == random_active_hero_id else Color("53697a")
@@ -2024,6 +2026,17 @@ func _make_random_hero_card(id: String) -> PanelContainer:
 	energy_steps.offset_bottom = -5.0
 	energy_steps.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	portrait.add_child(energy_steps)
+	var movement_steps := VBoxContainer.new()
+	movement_steps.name = "MovementSteps"
+	movement_steps.anchor_bottom = 1.0
+	movement_steps.offset_left = 5.0
+	movement_steps.offset_right = 14.0
+	movement_steps.offset_top = 5.0
+	movement_steps.offset_bottom = -5.0
+	movement_steps.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	movement_steps.add_theme_constant_override("separation", 2)
+	portrait.add_child(movement_steps)
+	_setup_hero_movement_steps(movement_steps, 6)
 	for font_size in [11, 10]:
 		var label := Label.new()
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2047,7 +2060,11 @@ func _on_random_hero_card_input(event: InputEvent, id: String) -> void:
 ## перемещения героя из HoMM: полный столбик в начале сола, пустой — после
 ## всех ходов. Разделители сохраняются и при полном запасе шагов.
 func _setup_side_hero_movement_steps() -> void:
-	for child in side_hero_movement_steps.get_children():
+	_setup_hero_movement_steps(side_hero_movement_steps)
+
+
+func _setup_hero_movement_steps(steps: VBoxContainer, segment_height: float = 10.0) -> void:
+	for child in steps.get_children():
 		child.queue_free()
 	var background := StyleBoxFlat.new()
 	background.bg_color = Color("17252a")
@@ -2059,12 +2076,12 @@ func _setup_side_hero_movement_steps() -> void:
 	fill.set_border_width_all(1)
 	for _segment in range(5):
 		var step := Panel.new()
-		step.custom_minimum_size = Vector2(0, 10)
+		step.custom_minimum_size = Vector2(0, segment_height)
 		step.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		step.set_meta("active_style", fill)
 		step.set_meta("inactive_style", background)
 		step.add_theme_stylebox_override("panel", background)
-		side_hero_movement_steps.add_child(step)
+		steps.add_child(step)
 
 
 func _setup_side_hero_energy_steps() -> void:
@@ -2082,14 +2099,18 @@ func _setup_side_hero_energy_steps() -> void:
 
 
 func _update_side_hero_movement_steps() -> void:
-	var movement_max := maxi(1, _movement_limit(_player_hero(), weekly_movement_bonus))
-	var remaining := clampi(movement_points, 0, movement_max)
-	var active_segments := ceili(float(remaining) / float(movement_max) * side_hero_movement_steps.get_child_count())
-	for index in side_hero_movement_steps.get_child_count():
-		var step := side_hero_movement_steps.get_child(index) as Panel
-		var style_key := "active_style" if index >= side_hero_movement_steps.get_child_count() - active_segments else "inactive_style"
+	_update_hero_movement_steps(side_hero_movement_steps, movement_points, _movement_limit(_player_hero(), weekly_movement_bonus))
+
+
+func _update_hero_movement_steps(steps: VBoxContainer, movement: int, maximum: int) -> void:
+	var movement_max := maxi(1, maximum)
+	var remaining := clampi(movement, 0, movement_max)
+	var active_segments := ceili(float(remaining) / float(movement_max) * steps.get_child_count())
+	for index in steps.get_child_count():
+		var step := steps.get_child(index) as Panel
+		var style_key := "active_style" if index >= steps.get_child_count() - active_segments else "inactive_style"
 		step.add_theme_stylebox_override("panel", step.get_meta(style_key) as StyleBox)
-	side_hero_movement_steps.tooltip_text = "Осталось шагов: %d из %d" % [
+	steps.tooltip_text = "Осталось шагов: %d из %d" % [
 		remaining,
 		movement_max,
 	]
@@ -2182,7 +2203,7 @@ func _short_hero_name(full_name: String) -> String:
 		return parts[1]
 	if parts[0] == "Полковник" and parts.size() > 1:
 		return parts[1]
-	if parts[0] == "Вождь" and parts.size() > 1:
+	if parts[0] == "Главарь" and parts.size() > 1:
 		return parts[1]
 	return parts[0]
 
@@ -2238,7 +2259,7 @@ func _capture_production_at(cell: Vector2i) -> String:
 
 func _collect_daily_income() -> void:
 	_collect_planet_income(human_planet_owner, human_planetary_council_level)
-	_collect_planet_income(orc_planet_owner, orc_planetary_council_level)
+	_collect_planet_income(bandit_planet_owner, bandit_planetary_council_level)
 	player_one_credits += bonus_daily_income + _hero_daily_income_bonus()
 
 
@@ -2337,40 +2358,40 @@ func _apply_trading_post_weekly_growth() -> void:
 			TradingPost.apply_weekly_growth(guardian, current_day)
 
 
-# --- Искусственный противник: орки (сторона 2) ------------------------------
+# --- Искусственный противник: марсианские бандиты (сторона 2) ------------------------------
 # Ходы строго по очереди: игрок завершает сол (_end_day) — сразу за ним
-# отрабатывает _run_orc_turn(). Все решения принимает orc_ai.gd, здесь только
-# связь с картой: спрайт вождя, запуск настоящих боёв и разбор их итогов.
+# отрабатывает _run_bandit_turn(). Все решения принимает bandit_ai.gd, здесь только
+# связь с картой: спрайт главаря, запуск настоящих боёв и разбор их итогов.
 
-func _setup_orc_ai(snapshot: Dictionary) -> void:
-	orc_ai = OrcAI.from_dict(snapshot.get("orc_ai", {}), opponent_planet_cell)
-	var warlord := orc_hero()
-	if snapshot.is_empty() and warlord != null and warlord.army.is_empty():
-		warlord.army = OrcAI.START_ARMY.duplicate()
+func _setup_bandit_ai(snapshot: Dictionary) -> void:
+	bandit_ai = BanditAI.from_dict(snapshot.get("bandit_ai", {}), opponent_planet_cell)
+	var raider_leader := bandit_hero()
+	if snapshot.is_empty() and raider_leader != null and raider_leader.army.is_empty():
+		raider_leader.army = BanditAI.START_ARMY.duplicate()
 		_save_hero_roster()
-	orc_ship_sprite = Sprite2D.new()
-	orc_ship_sprite.name = "OrcShip"
-	orc_ship_sprite.texture = ORC_HERO_SHIP_TEXTURE
-	orc_ship_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	orc_ship_sprite.scale = Vector2.ONE * ORC_HERO_SHIP_SCALE
-	orc_ship_sprite.z_index = 3
-	add_child(orc_ship_sprite)
-	_refresh_orc_planet_nameplate()
+	bandit_ship_sprite = Sprite2D.new()
+	bandit_ship_sprite.name = "BanditShip"
+	bandit_ship_sprite.texture = BANDIT_HERO_SHIP_TEXTURE
+	bandit_ship_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	bandit_ship_sprite.scale = Vector2.ONE * BANDIT_HERO_SHIP_SCALE
+	bandit_ship_sprite.z_index = 3
+	add_child(bandit_ship_sprite)
+	_refresh_bandit_planet_nameplate()
 
 
-## Подпись планеты орков меняется на захваченную — как цвет таблички
+## Подпись планеты марсианских бандитов меняется на захваченную — как цвет таблички
 ## месторождения при смене владельца (см. _refresh_production_nameplate).
-func _refresh_orc_planet_nameplate() -> void:
-	var label := orc_planet_nameplate.get_node_or_null("Name") as Label
+func _refresh_bandit_planet_nameplate() -> void:
+	var label := bandit_planet_nameplate.get_node_or_null("Name") as Label
 	if label == null:
 		return
-	var planet_title := "Марс" if campaign_map_id == CampaignMissionMap.ID else "Орка"
-	label.text = planet_title + (" • Бандиты" if orc_planet_owner == 2 else " • захвачена вами")
+	var planet_title := "Марс"
+	label.text = planet_title + (" • Бандиты" if bandit_planet_owner == 2 else " • захвачена вами")
 
 
-## Маршрут для ИИ орков: те же правила, что у игрока (_build_path), плюс
-## объезд клеток, которые вождю сейчас не по зубам — живые стражи, слишком
-## сильные для его флота (см. orc_ai.gd:_avoided_cells). Клетки помечаются
+## Маршрут для ИИ марсианских бандитов: те же правила, что у игрока (_build_path), плюс
+## объезд клеток, которые главарю сейчас не по зубам — живые стражи, слишком
+## сильные для его флота (см. bandit_ai.gd:_avoided_cells). Клетки помечаются
 ## непроходимыми только на время расчёта, сама сетка не меняется.
 func build_path_avoiding(from_cell: Vector2i, to_cell: Vector2i, avoid: Dictionary) -> Array[Vector2i]:
 	var marked: Array[Vector2i] = []
@@ -2385,21 +2406,21 @@ func build_path_avoiding(from_cell: Vector2i, to_cell: Vector2i, avoid: Dictiona
 	return path
 
 
-func orc_hero() -> Hero:
+func bandit_hero() -> Hero:
 	var roster := get_node_or_null("/root/HeroRoster")
 	return roster.enemy_hero() if roster != null else null
 
 
-## Вождя прячет и туман войны (FogOverlay поверх всего), но скрытый спрайт
+## Главаря прячет и туман войны (FogOverlay поверх всего), но скрытый спрайт
 ## ещё и не «просвечивает» на границе открытой области.
-func _refresh_orc_ship_sprite() -> void:
-	if orc_ship_sprite == null:
+func _refresh_bandit_ship_sprite() -> void:
+	if bandit_ship_sprite == null:
 		return
-	orc_ship_sprite.visible = orc_ai.hero_alive and is_cell_visible(orc_ai.hero_cell)
-	orc_ship_sprite.position = _cell_center(orc_ai.hero_cell)
+	bandit_ship_sprite.visible = bandit_ai.hero_alive and is_cell_visible(bandit_ai.hero_cell)
+	bandit_ship_sprite.position = _cell_center(bandit_ai.hero_cell)
 
 
-## Точка входа для orc_ai.gd: захват месторождения орками идёт через ту же
+## Точка входа для bandit_ai.gd: захват месторождения марсианскими бандитами идёт через ту же
 ## пару «подпись + оверлей», что и захват игроком (_capture_production_at).
 func set_production_owner(index: int, new_owner: int) -> void:
 	if index < 0 or index >= production_owners.size():
@@ -2411,68 +2432,68 @@ func set_production_owner(index: int, new_owner: int) -> void:
 	queue_redraw()
 
 
-## Опыт вождю за автобои на его ходу (см. orc_ai.gd:_fight_guardian).
+## Опыт главарю за автобои на его ходу (см. bandit_ai.gd:_fight_guardian).
 ## Уровни ИИ разбирает сам, без окна выбора навыка.
-func _award_orc_experience(amount: int) -> void:
-	var warlord := orc_hero()
-	if warlord == null or amount <= 0:
+func _award_bandit_experience(amount: int) -> void:
+	var raider_leader := bandit_hero()
+	if raider_leader == null or amount <= 0:
 		return
-	warlord.gain_experience(amount)
-	BattleRewards.auto_apply(warlord)
+	raider_leader.gain_experience(amount)
+	BattleRewards.auto_apply(raider_leader)
 	_save_hero_roster()
 
 
-## Ход компьютера. Если орки вышли на игрока, ход прерывается настоящим боем
-## и доигрывается уже в _resolve_orc_battle.
-func _run_orc_turn() -> void:
+## Ход компьютера. Если марсианские бандиты вышли на игрока, ход прерывается настоящим боем
+## и доигрывается уже в _resolve_bandit_battle.
+func _run_bandit_turn() -> void:
 	if campaign_outcome != "":
 		return
-	var result := orc_ai.take_turn(self)
-	orc_report = String(result["report"])
+	var result := bandit_ai.take_turn(self)
+	bandit_report = String(result["report"])
 	_save_hero_roster()
-	_refresh_orc_ship_sprite()
+	_refresh_bandit_ship_sprite()
 	var battle_kind := String(result["battle"])
 	if battle_kind != "":
-		_start_orc_battle(battle_kind)
+		_start_bandit_battle(battle_kind)
 		return
-	_finish_orc_turn()
+	_finish_bandit_turn()
 
 
-func _finish_orc_turn() -> void:
-	if orc_report != "":
-		navigation_message = ("%s | Орки: %s" % [navigation_message, orc_report]) if navigation_message != "" \
-			else "Орки: %s" % orc_report
+func _finish_bandit_turn() -> void:
+	if bandit_report != "":
+		navigation_message = ("%s | Марсианские бандиты: %s" % [navigation_message, bandit_report]) if navigation_message != "" \
+			else "Марсианские бандиты: %s" % bandit_report
 	_update_hud()
 	route_overlay.queue_redraw()
 	queue_redraw()
 
 
-## Бой, который начали орки: окно прогноза не показываем — у обороняющегося
+## Бой, который начали марсианские бандиты: окно прогноза не показываем — у обороняющегося
 ## выбора нет. Состав игрока собирается так же, как для боя со стражем.
 ## При осаде столицы (kind == "planet") добавляются укрепления форта: пушки —
 ## отдельная пачка "orbital_platform" по штуке за уровень форта, стена — плоский
 ## бонус защиты всем отрядам игрока на этот бой (см. tactical_battle.gd:
 ## home_defense_bonus). Пушки — последний рубеж: они участвуют в бою, даже
 ## если у героя не осталось ни армии, ни гарнизона.
-func _start_orc_battle(kind: String) -> void:
+func _start_bandit_battle(kind: String) -> void:
 	var player_fleet: Array[Dictionary] = _player_battle_fleet(kind == "planet")
 	var fort_level := 0
 	if kind == "planet":
 		fort_level = int(HumanPlanetState.load_state()["built_levels"].get("fort", 0))
 		if fort_level > 0:
 			player_fleet.append({"unit_id": "orbital_platform", "count": fort_level})
-	var enemy_fleet: Array[Dictionary] = orc_ai.hero_fleet(self)
+	var enemy_fleet: Array[Dictionary] = bandit_ai.hero_fleet(self)
 	if enemy_fleet.is_empty():
-		_finish_orc_turn()
+		_finish_bandit_turn()
 		return
 	if player_fleet.is_empty():
 		# Оборонять нечем — бой считается проигранным без тактической сцены.
-		_resolve_orc_battle(kind, [], false, false)
+		_resolve_bandit_battle(kind, [], false, false)
 		return
 	var battle = load("res://scenes/TacticalBattle.tscn").instantiate()
 	battle.player_units_override = player_fleet
 	battle.enemy_units_override = enemy_fleet
-	battle.orc_battle_kind = kind
+	battle.bandit_battle_kind = kind
 	battle.enemy_has_admiral = true
 	battle.home_defense_bonus = fort_level
 	if kind == "planet":
@@ -2503,18 +2524,18 @@ func _player_battle_fleet(include_garrison: bool) -> Array[Dictionary]:
 	return entries
 
 
-## Игрок сам напал на вождя или на базу орков — здесь выбор есть, поэтому
+## Игрок сам напал на главаря или на базу марсианских бандитов — здесь выбор есть, поэтому
 ## сначала окно прогноза, как у стражей (см. _start_guardian_battle).
-func _start_player_attack_on_orcs(kind: String) -> void:
+func _start_player_attack_on_bandits(kind: String) -> void:
 	var hero := _player_hero()
 	if hero == null or hero.army_is_empty():
 		navigation_message = "Флот уничтожен — наймите корабли в замке."
 		_update_hud()
 		return
 	var player_fleet: Array[Dictionary] = _player_battle_fleet(false)
-	var enemy_fleet: Array[Dictionary] = orc_ai.planet_defence(self) if kind == "orc_planet" else orc_ai.hero_fleet(self)
+	var enemy_fleet: Array[Dictionary] = bandit_ai.planet_defence(self) if kind == "bandit_planet" else bandit_ai.hero_fleet(self)
 	if enemy_fleet.is_empty():
-		_resolve_orc_battle(kind, [], true, false)
+		_resolve_bandit_battle(kind, [], true, false)
 		return
 	var dialog := preload("res://scripts/battle_preview_dialog.gd").new()
 	var previous_mode := process_mode
@@ -2532,35 +2553,35 @@ func _start_player_attack_on_orcs(kind: String) -> void:
 			var battle = TACTICAL_BATTLE.instantiate()
 			battle.player_units_override = player_fleet
 			battle.enemy_units_override = enemy_fleet
-			battle.orc_battle_kind = kind
+			battle.bandit_battle_kind = kind
 			battle.enemy_has_admiral = true
 			_swap_to_battle(battle)
 	)
 
 
-## Хук на прибытие игрока в клетку вождя орков (см. _process).
-func _check_orc_hero_encounter(cell: Vector2i) -> bool:
-	if not orc_ai.hero_alive or cell != orc_ai.hero_cell:
+## Хук на прибытие игрока в клетку главаря марсианских бандитов (см. _process).
+func _check_bandit_hero_encounter(cell: Vector2i) -> bool:
+	if not bandit_ai.hero_alive or cell != bandit_ai.hero_cell:
 		return false
-	_start_player_attack_on_orcs("hero")
+	_start_player_attack_on_bandits("hero")
 	return true
 
 
-## Хук на прибытие игрока на планету орков — штурм базы: гарнизон логов плюс
-## флот вождя, если он дома.
-func _check_orc_planet_encounter(cell: Vector2i) -> bool:
-	if orc_planet_owner != 2 or not _cell_is_in_planet(cell, opponent_planet_cell):
+## Хук на прибытие игрока на планету марсианских бандитов — штурм базы: гарнизон логов плюс
+## флот главаря, если он дома.
+func _check_bandit_planet_encounter(cell: Vector2i) -> bool:
+	if bandit_planet_owner != 2 or not _cell_is_in_planet(cell, opponent_planet_cell):
 		return false
 	if campaign_story != null and campaign_story.begin_mars_assault():
 		return true
-	_start_player_attack_on_orcs("orc_planet")
+	_start_player_attack_on_bandits("bandit_planet")
 	return true
 
 
-## Итоги любого боя с орками (см. tactical_battle.gd:_return_to_map).
+## Итоги любого боя с марсианскими бандитами (см. tactical_battle.gd:_return_to_map).
 ## Потери обеих сторон фиксируются всегда, дальше расходится по типу боя.
-func _resolve_orc_battle(kind: String, battle_units: Array, player_won: bool, retreated: bool = false) -> void:
-	var warlord := orc_hero()
+func _resolve_bandit_battle(kind: String, battle_units: Array, player_won: bool, retreated: bool = false) -> void:
+	var raider_leader := bandit_hero()
 	var hero := hero_at_home_planet() if kind == "planet" else _player_hero()
 	if not battle_units.is_empty():
 		if hero != null and not retreated:
@@ -2568,59 +2589,59 @@ func _resolve_orc_battle(kind: String, battle_units: Array, player_won: bool, re
 				hero.set_army_from_dict(_surviving_player_army(battle_units))
 			else:
 				hero.set_army_from_slots(_surviving_player_slots(battle_units))
-		if warlord != null:
-			warlord.set_army_from_dict(OrcAI.surviving_army(battle_units))
+		if raider_leader != null:
+			raider_leader.set_army_from_dict(BanditAI.surviving_army(battle_units))
 	if retreated:
 		_retreat_player_home("Герой сбежал в замок. Из флота уцелел 1 истребитель.")
 	elif player_won:
-		_resolve_orc_victory(kind)
+		_resolve_bandit_victory(kind)
 	else:
-		_resolve_orc_defeat(kind)
-	_after_orc_battle(kind)
+		_resolve_bandit_defeat(kind)
+	_after_bandit_battle(kind)
 
 
-func _resolve_orc_victory(kind: String) -> void:
+func _resolve_bandit_victory(kind: String) -> void:
 	match kind:
-		"orc_planet":
+		"bandit_planet":
 			# Логова и уцелевший гарнизон достаются победителю как трофей
-			# планеты — отдельного экрана орочьей базы пока нет.
-			orc_planet_owner = 1
+			# планеты — отдельного экрана марсианской базы пока нет.
+			bandit_planet_owner = 1
 			_refresh_fog_visibility()
-			orc_ai.garrison.clear()
-			orc_ai.kill_hero(self)
-			_refresh_orc_planet_nameplate()
+			bandit_ai.garrison.clear()
+			bandit_ai.kill_hero(self)
+			_refresh_bandit_planet_nameplate()
 			campaign_outcome = "victory"
-			navigation_message = "База орков пала. Кампания выиграна!"
+			navigation_message = "База марсианских бандитов пала. Кампания выиграна!"
 			if campaign_story != null:
 				navigation_message = "Марс освобождён!"
 				campaign_story.call_deferred("finish_mission")
 			else:
 				_show_campaign_outcome(true, "ПОБЕДА",
-					"Флот вождя разбит, логова орков захвачены. Человечество отстояло свой сектор галактики.")
+					"Флот главаря разбит, логова марсианских бандитов захвачены. Человечество отстояло свой сектор галактики.")
 		"planet":
-			orc_ai.kill_hero(self)
-			navigation_message = "Штурм отбит: орда вождя уничтожена у вашей планеты."
+			bandit_ai.kill_hero(self)
+			navigation_message = "Штурм отбит: эскадра главаря уничтожена у вашей планеты."
 			_show_object_reward_dialog("Штурм отбит", navigation_message)
 		_:
-			orc_ai.kill_hero(self)
-			navigation_message = "Вождь орков разбит — его орда рассеяна."
+			bandit_ai.kill_hero(self)
+			navigation_message = "Главарь марсианских бандитов разбит — его эскадра рассеяна."
 			var captured := _capture_production_at(current_cell)
 			if captured != "":
 				navigation_message += " " + captured
 			_show_object_reward_dialog("Победа — итоги сражения", navigation_message)
 
 
-func _resolve_orc_defeat(kind: String) -> void:
-	_transfer_player_artifacts_to_orc()
+func _resolve_bandit_defeat(kind: String) -> void:
+	_transfer_player_artifacts_to_bandit()
 	if kind == "planet":
 		human_planet_owner = 2
 		_refresh_fog_visibility()
 		campaign_outcome = "defeat"
-		navigation_message = "Орки взяли вашу планету. Кампания проиграна."
+		navigation_message = "Марсианские бандиты взяли вашу планету. Кампания проиграна."
 		_show_campaign_outcome(false, "ПОРАЖЕНИЕ",
-			"Орда вождя прорвала оборону столицы. Родная планета пала под натиском орков.")
+			"Марсианские бандиты прорвали оборону столицы. Родная планета захвачена.")
 		return
-	_retreat_player_home("Вождь орков разбил ваш флот. Уцелел 1 истребитель.")
+	_retreat_player_home("Главарь марсианских бандитов разбил ваш флот. Уцелел 1 истребитель.")
 
 
 ## Общий откат после проигранного боя — тот же, что при бегстве от стража
@@ -2628,11 +2649,11 @@ func _resolve_orc_defeat(kind: String) -> void:
 ## от базы и не может ни лететь, ни воевать.
 ## Возвращает на home_planet_cell или соседнюю свободную клетку, если центр
 ## уже занят другим героем. PLAYER_ONE_START_CELL лежит вне футпринта планеты
-## (_cell_is_in_planet) и на прямом пути орков к столице. Орк, перехвативший
+## (_cell_is_in_planet) и на прямом пути марсианских бандитов к столице. Бандит, перехвативший
 ## героя именно там, засчитывал
 ## это как обычную полевую стычку в обход осады (гарнизон и оборона планеты не
 ## участвовали) — герой отбивался открытым флотом бой за боем и не мог ни разу
-## восстановиться. См. orc_ai.gd:_resolve_arrival.
+## восстановиться. См. bandit_ai.gd:_resolve_arrival.
 func _retreat_player_home(message: String) -> void:
 	var hero := _player_hero()
 	if hero != null:
@@ -2675,13 +2696,13 @@ func _decline_battle_before_start() -> void:
 	_update_hud()
 
 
-## Бой на ходу орков этот ход прерывал — его надо доиграть; бой, начатый
+## Бой на ходу марсианских бандитов этот ход прерывал — его надо доиграть; бой, начатый
 ## игроком, доигрывать нечего.
-func _after_orc_battle(kind: String) -> void:
+func _after_bandit_battle(kind: String) -> void:
 	_save_hero_roster()
-	_refresh_orc_ship_sprite()
+	_refresh_bandit_ship_sprite()
 	if kind == "hero" or kind == "planet":
-		_finish_orc_turn()
+		_finish_bandit_turn()
 	else:
 		_update_hud()
 		queue_redraw()
@@ -2709,7 +2730,7 @@ func _surviving_side_slots(battle_units: Array, side: int) -> Array[Dictionary]:
 		var hull := int((unit as Dictionary).get("hull", 1))
 		var hp := int((unit as Dictionary).get("hp", 0))
 		var unit_id := String((unit as Dictionary).get("unit_id", ""))
-		# Орбитальные платформы и сегменты стены (см. _start_orc_battle,
+		# Орбитальные платформы и сегменты стены (см. _start_bandit_battle,
 		# _start_guardian_battle, tactical_battle.gd:_spawn_guardian_wall) —
 		# часть обороны планеты, синтезируются заново на каждый штурм и не
 		# должны оседать в мобильной армии героя/сохранённом флоте стража —
@@ -2721,13 +2742,13 @@ func _surviving_side_slots(battle_units: Array, side: int) -> Array[Dictionary]:
 	return surviving
 
 
-func _transfer_player_artifacts_to_orc() -> void:
+func _transfer_player_artifacts_to_bandit() -> void:
 	var hero := _player_hero()
-	var warlord := orc_hero()
-	if hero == null or warlord == null or hero.artifacts.is_empty():
+	var raider_leader := bandit_hero()
+	if hero == null or raider_leader == null or hero.artifacts.is_empty():
 		return
 	for artifact_id in hero.artifacts:
-		warlord.artifacts[String(artifact_id)] = true
+		raider_leader.artifacts[String(artifact_id)] = true
 	hero.artifacts.clear()
 
 
@@ -2874,7 +2895,7 @@ func _owned_planet_cells() -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	if human_planet_owner == 1:
 		cells.append(home_planet_cell)
-	if orc_planet_owner == 1:
+	if bandit_planet_owner == 1:
 		cells.append(opponent_planet_cell)
 	return cells
 
@@ -2926,8 +2947,8 @@ func _refresh_fog_visibility(force: bool = false) -> void:
 	fog_texture.update(fog_image)
 	if is_instance_valid(fog_overlay):
 		fog_overlay.queue_redraw()
-	if orc_ai != null and orc_ship_sprite != null:
-		_refresh_orc_ship_sprite()
+	if bandit_ai != null and bandit_ship_sprite != null:
+		_refresh_bandit_ship_sprite()
 	if is_instance_valid(guardian_overlay):
 		guardian_overlay.queue_redraw()
 
@@ -3031,17 +3052,17 @@ func _hero_can_gain_experience() -> bool:
 
 ## Автобой с карты: прогоняет тактический движок скрыто и сразу применяет
 ## потери, победу и награды, не открывая сцену боя игроку.
-func _run_quick_battle(player_fleet: Array[Dictionary], enemy_fleet: Array[Dictionary], guardian_index: int = -1, orc_battle_kind: String = "", fort_level: int = 0) -> void:
+func _run_quick_battle(player_fleet: Array[Dictionary], enemy_fleet: Array[Dictionary], guardian_index: int = -1, bandit_battle_kind: String = "", fort_level: int = 0) -> void:
 	var battle = TACTICAL_BATTLE.instantiate()
 	battle.player_units_override = player_fleet
 	battle.enemy_units_override = enemy_fleet
 	battle.guardian_index = guardian_index
 	battle.guardian_fort_level = fort_level
-	battle.orc_battle_kind = orc_battle_kind
-	if orc_battle_kind == "planet":
+	battle.bandit_battle_kind = bandit_battle_kind
+	if bandit_battle_kind == "planet":
 		var defender := hero_at_home_planet()
 		battle.player_hero_id_override = defender.id if defender != null else "__garrison__"
-	battle.enemy_has_admiral = not orc_battle_kind.is_empty()
+	battle.enemy_has_admiral = not bandit_battle_kind.is_empty()
 	battle.auto_battle = true
 	battle.quick_battle = true
 	add_child(battle)
@@ -3056,13 +3077,13 @@ func _run_quick_battle(player_fleet: Array[Dictionary], enemy_fleet: Array[Dicti
 	var battle_units: Array = battle.units.duplicate(true)
 	var player_won: bool = battle._side_alive(1) and not battle._side_alive(2)
 	battle.free()
-	_award_quick_battle_experience(battle_units, not orc_battle_kind.is_empty(), hero_at_home_planet() if orc_battle_kind == "planet" else _player_hero())
+	_award_quick_battle_experience(battle_units, not bandit_battle_kind.is_empty(), hero_at_home_planet() if bandit_battle_kind == "planet" else _player_hero())
 	if guardian_index >= 0:
 		_resolve_guardian_battle(guardian_index, battle_units, player_won)
-	elif not orc_battle_kind.is_empty():
-		# Ветки были перепутаны: быстрый расчёт против орков уходил в return,
+	elif not bandit_battle_kind.is_empty():
+		# Ветки были перепутаны: быстрый расчёт против марсианских бандитов уходил в return,
 		# и штурм базы не давал ни потерь, ни победы, ни конца кампании.
-		_resolve_orc_battle(orc_battle_kind, battle_units, player_won)
+		_resolve_bandit_battle(bandit_battle_kind, battle_units, player_won)
 
 
 func _award_quick_battle_experience(battle_units: Array, enemy_commanded: bool, hero: Hero) -> void:
@@ -3086,7 +3107,7 @@ func _start_guardian_battle(index: int, start_immediately: bool = false) -> void
 	var guardian: Dictionary = guardians[index]
 	# Дипломатия действует только на обычные живые полевые пиратские/торговые
 	# флоты. Сюжетные патрули и контрактные цели требуют боя либо своего
-	# сюжетного пропуска. Базы, планеты, орки и
+	# сюжетного пропуска. Базы, планеты, марсианские бандиты и
 	# гарнизоны зданий также всегда требуют боя/осады.
 	var contract_convoy: bool = campaign_story != null and campaign_story.is_required_battle(guardian)
 	var can_diplomacy := not guardian.has("object_kind") \
@@ -3293,7 +3314,7 @@ var reward_resume_input := false
 const CAMPAIGN_OUTCOME_DIALOG := preload("res://scripts/campaign_outcome_dialog.gd")
 
 
-## Конец кампании (взятие базы орков или падение родной планеты) — отдельный
+## Конец кампании (взятие базы марсианских бандитов или падение родной планеты) — отдельный
 ## полноэкранный итог, а не маленький попап находки: дальше играть уже нельзя
 ## (campaign_outcome блокирует день и перемещение), поэтому нужен явный выход
 ## в главное меню, а не "закрыть и вернуться на карту".

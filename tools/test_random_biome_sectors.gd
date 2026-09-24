@@ -40,7 +40,7 @@ func _run() -> void:
 			!= preload("res://scripts/space_obstacles.gd").minimap_color("planetoid"),
 		"Холодный сектор не выделяется на миникарте")
 	var prop_count := 0
-	_check(map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, map.ORC_PLANET_CENTER).size() > 0,
+	_check(map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, map.BANDIT_PLANET_CENTER).size() > 0,
 		"Декор холодного сектора изменил доступность маршрута между планетами")
 	for path in [
 		"res://assets/biomes/ice/props_small.png",

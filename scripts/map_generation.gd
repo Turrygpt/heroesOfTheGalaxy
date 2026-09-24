@@ -233,7 +233,7 @@ func _generate_patrols() -> void:
 		if not _cell_is_free_for_object(cell, 12):
 			continue
 		if map._chebyshev_distance(cell, map.HUMAN_PLANET_CENTER) < 10 \
-			or map._chebyshev_distance(cell, map.ORC_PLANET_CENTER) < 10:
+			or map._chebyshev_distance(cell, map.BANDIT_PLANET_CENTER) < 10:
 			continue
 		var patrol_kind := "pirate" if placed % 2 == 0 else "trader"
 		var template := _guardian_template_for_distance(_threat_distance(cell)) if patrol_kind == "pirate" \
@@ -303,15 +303,15 @@ func production_guard_template(site: Dictionary, cell: Vector2i) -> String:
 
 
 ## Пояс угрозы клетки. Считается от БЛИЖАЙШЕЙ из двух родных планет, а не
-## только от людской: иначе всё вокруг базы орков охраняли бы флагманские
-## флоты, и ИИ (см. orc_ai.gd) не мог бы расширяться так же, как игрок.
+## только от людской: иначе всё вокруг базы марсианских бандитов охраняли бы флагманские
+## флоты, и ИИ (см. bandit_ai.gd) не мог бы расширяться так же, как игрок.
 ## Награда с пикапов, наоборот, по-прежнему растёт с удалением от дома
 ## игрока (см. _distance_loot_amount) — это про ценность похода, а не про
 ## сопротивление.
 func _threat_distance(cell: Vector2i) -> int:
 	return mini(
 		map._chebyshev_distance(cell, map.HUMAN_PLANET_CENTER),
-		map._chebyshev_distance(cell, map.ORC_PLANET_CENTER)
+		map._chebyshev_distance(cell, map.BANDIT_PLANET_CENTER)
 	)
 
 
@@ -392,7 +392,7 @@ func _map_object_spawn_count(kind: String) -> int:
 
 
 ## Две нейтральные планеты в углах, не занятых родными планетами игрока и
-## орков (см. MapObjectDefs.TRADE_PLANET_CENTER/PIRATE_PLANET_CENTER) — в
+## марсианских бандитов (см. MapObjectDefs.TRADE_PLANET_CENTER/PIRATE_PLANET_CENTER) — в
 ## отличие от остальных объектов приключений ставятся не случайным поиском
 ## свободной клетки, а на фиксированное место, поэтому сначала расчищают его
 ## от того, что процедурная генерация уже успела там поставить.
@@ -547,8 +547,8 @@ func _find_free_object_cell_near(preferred_cell: Vector2i, footprint: int = 1) -
 				if not _footprint_is_free_for_object(cell, footprint, 4):
 					continue
 				var human_distance: int = map._chebyshev_distance(cell, map.HUMAN_PLANET_CENTER)
-				var orc_distance: int = map._chebyshev_distance(cell, map.ORC_PLANET_CENTER)
-				var score: int = absi(human_distance - orc_distance) * 100 + map._chebyshev_distance(cell, preferred_cell)
+				var bandit_distance: int = map._chebyshev_distance(cell, map.BANDIT_PLANET_CENTER)
+				var score: int = absi(human_distance - bandit_distance) * 100 + map._chebyshev_distance(cell, preferred_cell)
 				if score < best_score:
 					best_score = score
 					best_cell = cell
@@ -583,7 +583,7 @@ func _find_free_hard_object_cell(footprint: int) -> Vector2i:
 func _nearest_planet_distance(cell: Vector2i) -> int:
 	return mini(
 		map._chebyshev_distance(cell, map.HUMAN_PLANET_CENTER),
-		map._chebyshev_distance(cell, map.ORC_PLANET_CENTER))
+		map._chebyshev_distance(cell, map.BANDIT_PLANET_CENTER))
 
 
 func _hard_object_location(cell: Vector2i, footprint: int) -> bool:
@@ -819,7 +819,7 @@ func _cell_is_free_for_object(cell: Vector2i, min_distance_from_start: int) -> b
 	for site in production_sites:
 		if map._cell_in_footprint(cell, site["cell"]):
 			return false
-	if map._cell_is_in_planet(cell, map.HUMAN_PLANET_CENTER) or map._cell_is_in_planet(cell, map.ORC_PLANET_CENTER):
+	if map._cell_is_in_planet(cell, map.HUMAN_PLANET_CENTER) or map._cell_is_in_planet(cell, map.BANDIT_PLANET_CENTER):
 		return false
 	if map._chebyshev_distance(cell, map.PLAYER_ONE_START_CELL) < min_distance_from_start:
 		return false
@@ -856,7 +856,7 @@ func generate_production_sites() -> void:
 	production_sites.clear()
 	var occupied_cells: Array[Vector2i] = []
 	_add_random_production_cluster(map.HUMAN_PLANET_CENTER, map_random, occupied_cells)
-	_add_random_production_cluster(map.ORC_PLANET_CENTER, map_random, occupied_cells)
+	_add_random_production_cluster(map.BANDIT_PLANET_CENTER, map_random, occupied_cells)
 	_add_distant_production_sites(occupied_cells, STARTER_RARE_RESOURCE_COPIES if map.starter_map_mode else 3)
 
 
@@ -864,7 +864,7 @@ func generate_production_sites() -> void:
 ## поля, планетоиды, обломки флотов и гравитационные аномалии перекрывают
 ## клетки насовсем, туманности пролетаются, но вдвое медленнее.
 func generate_obstacles() -> void:
-	var must_reach_cells: Array = [map.HUMAN_PLANET_CENTER, map.ORC_PLANET_CENTER]
+	var must_reach_cells: Array = [map.HUMAN_PLANET_CENTER, map.BANDIT_PLANET_CENTER]
 	for site in production_sites:
 		must_reach_cells.append(site["cell"])
 	map.obstacles = SpaceObstacles.generate(
@@ -901,15 +901,15 @@ func generate_obstacles() -> void:
 ## поэтому вокруг них препятствия не ставятся вовсе.
 func build_reserved_cells() -> Dictionary:
 	var reserved := {}
-	for center in [map.HUMAN_PLANET_CENTER, map.ORC_PLANET_CENTER]:
+	for center in [map.HUMAN_PLANET_CENTER, map.BANDIT_PLANET_CENTER]:
 		_reserve_around(reserved, center, map.PLANET_FOOTPRINT_RADIUS + OBSTACLE_CLEARANCE)
 	for site in production_sites:
 		_reserve_box(reserved, site["cell"], site["cell"] + map.PRODUCTION_FOOTPRINT - Vector2i.ONE, OBSTACLE_CLEARANCE)
 	_reserve_around(reserved, map.PLAYER_ONE_START_CELL, OBSTACLE_CLEARANCE)
 	# Узкий межпланетный коридор оставляет только одну безопасную нитку пути;
 	# широкая свободная магистраль сделала бы всю карту открытым полем.
-	_reserve_corridor(reserved, map.HUMAN_PLANET_CENTER, map.ORC_PLANET_CENTER, 0)
-	for center in [map.HUMAN_PLANET_CENTER, map.ORC_PLANET_CENTER]:
+	_reserve_corridor(reserved, map.HUMAN_PLANET_CENTER, map.BANDIT_PLANET_CENTER, 0)
+	for center in [map.HUMAN_PLANET_CENTER, map.BANDIT_PLANET_CENTER]:
 		for site in production_sites:
 			if map._chebyshev_distance(site["cell"], center) <= LOCAL_PRODUCTION_MAX_DISTANCE + 1:
 				_reserve_corridor(reserved, center, site["cell"], 0)
@@ -1016,7 +1016,7 @@ func _find_production_in_sector(sector: Vector2i, occupied_cells: Array[Vector2i
 		if not _production_footprint_is_far_from_planets(candidate, RARE_PRODUCTION_MIN_PLANET_DISTANCE):
 			continue
 		if _footprint_overlaps_planet(candidate, map.HUMAN_PLANET_CENTER) \
-			or _footprint_overlaps_planet(candidate, map.ORC_PLANET_CENTER):
+			or _footprint_overlaps_planet(candidate, map.BANDIT_PLANET_CENTER):
 			continue
 		if _production_position_is_free(candidate, occupied_cells):
 			return candidate
@@ -1071,6 +1071,6 @@ func _object_footprint_is_far_from_planets(anchor: Vector2i, size: int, minimum_
 func _production_footprint_is_far_from_planets(anchor: Vector2i, minimum_distance: int) -> bool:
 	for cell in map._footprint_cells(anchor, map.PRODUCTION_FOOTPRINT.x):
 		if map._chebyshev_distance(cell, map.HUMAN_PLANET_CENTER) < minimum_distance \
-			or map._chebyshev_distance(cell, map.ORC_PLANET_CENTER) < minimum_distance:
+			or map._chebyshev_distance(cell, map.BANDIT_PLANET_CENTER) < minimum_distance:
 			return false
 	return true

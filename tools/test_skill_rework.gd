@@ -96,5 +96,5 @@ func _run() -> void:
 	_check(int(network_unit.repair_per_turn) == 20 and int(network_unit.protocol_damage_reduction_percent) == 45 \
 		and int(network_unit.boarding_bonus_percent) == 10, "Сетевой бой использует навыки переданного героя")
 	lan_battle.free()
-	print("SKILL_REWORK: %d ошибок" % failures)
+	print("SKILL_REWMARAUDER: %d ошибок" % failures)
 	quit(1 if failures else 0)

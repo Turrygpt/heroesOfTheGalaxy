@@ -62,7 +62,7 @@ static func player_snapshot(state: Dictionary, slot: int) -> Dictionary:
 	snapshot["current_day"] = state.day
 	snapshot["player_faction"] = p.faction
 	snapshot["human_planet_owner"] = 1 if p.alive else 0
-	snapshot["orc_planet_owner"] = 0
+	snapshot["bandit_planet_owner"] = 0
 	snapshot["campaign_outcome"] = ""
 	for i in range(snapshot.production_owners.size()):
 		var owner := int(snapshot.production_owners[i])

@@ -45,8 +45,8 @@ func _ready() -> void:
 	super._ready()
 	human_planet_name_button.pressed.disconnect(_open_human_planet)
 	human_planet_name_button.pressed.connect(_open_colony.bind(local_slot))
-	orc_planet.hide()
-	orc_planet_nameplate.hide()
+	bandit_planet.hide()
+	bandit_planet_nameplate.hide()
 	player_markers = Node2D.new()
 	player_markers.z_index = 3
 	add_child(player_markers)
@@ -225,10 +225,10 @@ func _vision_ship_cells() -> Array[Vector2i]:
 			cells.append(Vector2i(party[id].current_cell))
 	return cells
 
-func _setup_orc_ai(snapshot: Dictionary) -> void:
-	super._setup_orc_ai(snapshot)
-	orc_ai.hero_alive = false
-	orc_ship_sprite.hide()
+func _setup_bandit_ai(snapshot: Dictionary) -> void:
+	super._setup_bandit_ai(snapshot)
+	bandit_ai.hero_alive = false
+	bandit_ship_sprite.hide()
 
 func _refresh_players() -> void:
 	if player_markers == null:
@@ -244,7 +244,7 @@ func _refresh_players() -> void:
 		var texture: Texture2D = human_planet.texture
 		match str(p.faction):
 			"earth": texture = load("res://assets/planets/human.png")
-			"mars": texture = ORC_PLANET_TEXTURE
+			"mars": texture = BANDIT_PLANET_TEXTURE
 			"trader": texture = load("res://assets/planets/league.png")
 			"pirate": texture = load("res://assets/map_objects/pirate_home_station.png")
 		var owner: int = session.world.state.planet_owners[i]
@@ -380,7 +380,7 @@ func _update_hud() -> void:
 		if selected_colony >= 0:
 			var faction: String = session.world.state.players[selected_colony].planet.faction
 			var paths := {"earth": "res://assets/planets/human.png", "trader": "res://assets/planets/league.png", "pirate": "res://assets/map_objects/pirate_home_station.png"}
-			side_planet_portrait.texture = ORC_PLANET_TEXTURE if faction == "mars" else load(paths[faction])
+			side_planet_portrait.texture = BANDIT_PLANET_TEXTURE if faction == "mars" else load(paths[faction])
 		var income := 0
 		for i in range(session.world.state.players.size()):
 			if int(session.world.state.planet_owners[i]) == local_slot:
@@ -486,10 +486,10 @@ func can_use_campaign_menu() -> bool:
 func _open_tactical_battle() -> void:
 	pass
 
-func _check_orc_hero_encounter(_cell: Vector2i) -> bool:
+func _check_bandit_hero_encounter(_cell: Vector2i) -> bool:
 	return false
 
-func _check_orc_planet_encounter(_cell: Vector2i) -> bool:
+func _check_bandit_planet_encounter(_cell: Vector2i) -> bool:
 	return false
 
 func _resolve_landing_cell(cell: Vector2i) -> Vector2i:
@@ -527,7 +527,7 @@ func _check_arrival_encounters(cell: Vector2i, previous_cell: Vector2i = Vector2
 func _open_guardian_battle(_player_fleet: Array[Dictionary], _enemy_fleet: Array[Dictionary], index: int, quick: bool = false, _fort_level: int = 0) -> void:
 	call_deferred("_request_network_battle", {"guardian": index, "quick": quick})
 
-func _run_quick_battle(_player_fleet: Array[Dictionary], _enemy_fleet: Array[Dictionary], guardian_index: int = -1, _orc_battle_kind: String = "", _fort_level: int = 0) -> void:
+func _run_quick_battle(_player_fleet: Array[Dictionary], _enemy_fleet: Array[Dictionary], guardian_index: int = -1, _bandit_battle_kind: String = "", _fort_level: int = 0) -> void:
 	call_deferred("_request_network_battle", {"guardian": guardian_index, "quick": true})
 
 func _request_network_battle(request: Dictionary) -> void:

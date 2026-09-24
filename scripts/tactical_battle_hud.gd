@@ -14,10 +14,9 @@ var auto_mode_button: Button
 ## enemy_faction()/ENEMY_FACTION_NAMES ещё нужны tactical_battle.gd для текста
 ## победы/поражения.
 const ENEMY_TITLES := {
-	"bandit": ["МАРСИАНСКИЙ ФЛОТ", "МАРСИАНЕ", "КОМАНДИР МАРСА"],
+	"bandit": ["ФЛОТ МАРСИАНСКИХ БАНДИТОВ", "МАРСИАНСКИЕ БАНДИТЫ", "ГЛАВАРЬ БАНДИТОВ"],
 	"pirate": ["ПИРАТСКИЙ ФЛОТ", "ВОЛЬНЫЕ КАПЕРЫ", "КАПИТАН ПИРАТОВ"],
 	"trader": ["ТОРГОВЫЙ КОНВОЙ", "ВОЛЬНЫЕ ТОРГОВЦЫ", "СТАРШИНА КАРАВАНА"],
-	"orc": ["ОРДА ОРКОВ", "БОЕВОЙ КЛАН ПУСТОТЫ", "ВОЖДЬ ОРКОВ"],
 	"ancient": ["СТРАЖИ ДРЕВНИХ", "ПРОБУЖДЁННЫЕ КОНСТРУКТЫ", "СТРАЖ-КОЛОСС"],
 	"patrol": ["КОСМИЧЕСКИЙ ПАТРУЛЬ", "ПОГРАНИЧНАЯ СТРАЖА", "КОМЕНДАНТ ПАТРУЛЯ"],
 }
@@ -147,7 +146,7 @@ func _build_bottom_bar() -> void:
 	row.add_child(end_button)
 
 
-## Фракция стороны 2: "orc" | "trader" | "pirate". Определяется по самим
+## Фракция стороны 2: "bandit" | "trader" | "pirate". Определяется по самим
 ## пачкам (поле faction, см. unit_defs.gd), а не по режиму боя — в одном бою
 ## противник всегда одной фракции. Пачки без поля считаются пиратами: так
 ## ведёт себя отладочный состав UNIT_BLUEPRINTS.
@@ -161,8 +160,8 @@ static func enemy_faction(units: Array[Dictionary]) -> String:
 	return "pirate"
 
 
-const ENEMY_FACTION_NAMES := {"bandit": "МАРСИАНЕ", "orc": "ОРКИ", "trader": "ТОРГОВЦЫ", "pirate": "ПИРАТЫ", "ancient": "СТРАЖИ ДРЕВНИХ", "patrol": "ПАТРУЛЬ"}
-const PLAYER_FACTION_NAMES := {"bandit": "МАРСИАНЕ", "trader": "ТОРГОВЦЫ", "pirate": "ПИРАТЫ", "orc": "ОРКИ"}
+const ENEMY_FACTION_NAMES := {"bandit": "МАРСИАНСКИЕ БАНДИТЫ", "trader": "ТОРГОВЦЫ", "pirate": "ПИРАТЫ", "ancient": "СТРАЖИ ДРЕВНИХ", "patrol": "ПАТРУЛЬ"}
+const PLAYER_FACTION_NAMES := {"bandit": "МАРСИАНЕ", "trader": "ТОРГОВЦЫ", "pirate": "ПИРАТЫ"}
 
 
 static func player_faction(units: Array[Dictionary]) -> String:

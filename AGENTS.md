@@ -55,6 +55,12 @@ sed -n '913,1006p' scripts/space_strategy_map.gd                  # нужный
 
 ## 1. Запуск и проверки
 
+**«Собрать демо» = выпустить дистрибутив с установщиком.** Запуск:
+`./tools/build_demo.ps1 -Version 0.1.0` (без номера — версия из `project.godot`).
+Отдавать `build/releases/demo/<версия>/*-setup.exe`, не отдельный игровой exe.
+Полный пайплайн, Inno Setup, версии и проверки — `docs/release.md`.
+Игровой exe и PCK раздельные; ресурсы больше не встраивать в exe.
+
 Движок лежит прямо в репозитории (`Godot_v4.7.1-stable_win64.exe`, в .gitignore).
 
 ```bash
@@ -66,7 +72,7 @@ sed -n '913,1006p' scripts/space_strategy_map.gd                  # нужный
 
 ```bash
 sh tools/run_tests.sh              # все тесты
-sh tools/run_tests.sh orc battle   # только те, чьё имя содержит orc или battle
+sh tools/run_tests.sh bandit battle   # только те, чьё имя содержит bandit или battle
 ```
 
 Движок скрипт ищет сам (переменная `GODOT`, `godot` в PATH, `Godot_v*.exe` в
@@ -85,7 +91,7 @@ sh tools/run_tests.sh orc battle   # только те, чьё имя содер
 | `tools/test_auto_battle.gd` | автобитва, переключение управления, быстрый расчёт без записи сейвов |
 | `tools/test_battle_cinematic_fx.gd` | синхронизация попаданий и протоколов; `--capture` снимает витрину эффектов |
 | `tools/test_hero_progression.gd` | опыт, уровни, навыки, протоколы, награда, сохранение |
-| `tools/test_orc_ai.gd` | каталог орков, экономика и ход ИИ, автобой, оборона базы, итоги боёв, сейв |
+| `tools/test_bandit_ai.gd` | каталог марсианских бандитов, экономика и ход ИИ, автобой, оборона базы, итоги боёв, сейв |
 | `tools/test_pirate_balance.gd` | семь тиров пиратов: формулы, рост угрозы, размещение, пробные автобои |
 | `tools/test_campaign_map.gd` | авторская миссия: доступность, горловина, сохранение, повторяемость |
 | `tools/test_campaign_story.gd` | квесты: порядок событий, дипломатия, одноразовые награды, сейв |
@@ -103,7 +109,7 @@ sh tools/run_tests.sh orc battle   # только те, чьё имя содер
 | `tools/test_main_menu.gd` | меню в отдельном профиле: редактор, настройки, переход и возврат |
 | `tools/test_intro_video.gd` | интро-ролик: включён в "Новой игре", играет, пропускается; без файла игра всё равно стартует |
 
-Снимки экрана, отладочные прогоны (`debug_orc_turns.gd`, `debug_map_objects.gd`),
+Снимки экрана, отладочные прогоны (`debug_bandit_turns.gd`, `debug_map_objects.gd`),
 балансовый измеритель `balance_sim.gd`, генерация плейсхолдеров и сборка игры
 (`tools/build_game.sh`, интро-ролик) — `docs/tools.md`.
 
@@ -185,16 +191,16 @@ build/, .godot/  генерируемое, в .gitignore
 |---|---|
 | `human_planet_screen.gd` (~2800) | экран планеты: стройка, найм, гарнизон, биржа, редактор раскладки зданий |
 | `human_planet_state.gd` | единственная точка чтения/записи `user://human_planet_state.json` |
-| `unit_defs.gd` | общий справочник кораблей: и покупаемые юниты, и составы стражей. `get_unit()` отдаёт и орочьи корабли (см. ниже) |
+| `unit_defs.gd` | общий справочник кораблей: и покупаемые юниты, и составы стражей. `get_unit()` отдаёт и марсианские корабли (см. ниже) |
 | `faction_ship_profiles.gd` | семь характеристик, типы урона и элитные способности покупаемых марсианских, торговых и пиратских кораблей I–V рангов |
 
-**Орки — искусственный противник (сторона 2):**
+**Марсианские бандиты — искусственный противник (сторона 2):**
 
 | Файл | Роль |
 |---|---|
-| `orc_defs.gd` | каталог фракции: 10 кораблей (ранги I–V × обычный/элитный), постройки базы, их спрайты. Только данные и чистые функции |
-| `orc_ai.gd` | `class_name OrcAI`: экономика, стройка, недельный прирост, наём, выбор целей и дневной перелёт вождя, автобой со стражами |
-| `orc_base_overlay.gd` | постройки базы вокруг планеты орков; узел создаётся кодом в `_setup_orc_ai`, а не в .tscn |
+| `bandit_defs.gd` | каталог фракции: 10 кораблей (ранги I–V × обычный/элитный), постройки базы, их спрайты. Только данные и чистые функции |
+| `bandit_ai.gd` | `class_name BanditAI`: экономика, стройка, недельный прирост, наём, выбор целей и дневной перелёт главаря, автобой со стражами |
+| `bandit_base_overlay.gd` | постройки базы вокруг планеты марсианских бандитов; узел создаётся кодом в `_setup_bandit_ai`, а не в .tscn |
 
 **Оценка силы флота** — `fleet_power.gd` (`class_name FleetPower`). Отдельная
 от `battle_rewards.gd:ship_value` метрика: `ship_value` отвечает «сколько
@@ -202,11 +208,11 @@ build/, .godot/  генерируемое, в .gitignore
 бою». Вторая нужна потому, что бой подчиняется квадратичному закону, и по
 линейной `ship_value` рой истребителей выглядит сильнее отряда эсминцев, хотя
 проигрывает ему всухую. По `FleetPower` считают прогноз перед боем
-(`battle_preview_dialog.gd`) и все пороги ИИ (`orc_ai.gd`).
+(`battle_preview_dialog.gd`) и все пороги ИИ (`bandit_ai.gd`).
 
-Флот вождя — это `army` героя `orc_warlord` из `HeroRoster`, поэтому бой, опыт
-и сейв героев работают без отдельного кода. Экономика и позиция вождя живут в
-полях `OrcAI` и уезжают в сейв кампании словарём `orc_ai` (`to_dict`/`from_dict`).
+Флот главаря — это `army` героя `bandit_raider_leader` из `HeroRoster`, поэтому бой, опыт
+и сейв героев работают без отдельного кода. Экономика и позиция главаря живут в
+полях `BanditAI` и уезжают в сейв кампании словарём `bandit_ai` (`to_dict`/`from_dict`).
 
 ---
 
@@ -218,9 +224,9 @@ StrategicMain (_enter_tree: HumanPlanetState.reset_to_default)
         ├── _open_human_planet()      → HumanPlanetScreen как child, карта на паузе
         │     └── close_requested     → _close_human_planet() → _sync_human_planet_state()
         ├── _open_guardian_battle()   → TacticalBattle с реальными флотами
-        ├── _end_day()                → _run_orc_turn() — ход ИИ орков сразу
+        ├── _end_day()                → _run_bandit_turn() — ход ИИ марсианских бандитов сразу
         │     └── бой с игроком       → TacticalBattle, ход доигрывается
-        │                               в _resolve_orc_battle
+        │                               в _resolve_bandit_battle
         └── _open_tactical_battle()   → TacticalBattle с отладочным составом
 ```
 
@@ -235,12 +241,12 @@ StrategicMain (_enter_tree: HumanPlanetState.reset_to_default)
 battle.player_units_override = player_fleet   # Array[Dictionary]
 battle.enemy_units_override  = enemy_fleet
 battle.guardian_index        = index          # -1 = отладочный бой
-battle.orc_battle_kind       = "hero"         # "" = бой не с орками
+battle.bandit_battle_kind       = "hero"         # "" = бой не с марсианскими бандитами
 ```
 
-`orc_battle_kind` — бой с фракцией орков: `"hero"` (столкновение флотов),
-`"planet"` (орки штурмуют планету игрока), `"orc_planet"` (игрок штурмует базу
-орков). Итог разбирает `space_strategy_map.gd:_resolve_orc_battle`, как
+`bandit_battle_kind` — бой с фракцией марсианских бандитов: `"hero"` (столкновение флотов),
+`"planet"` (марсианские бандиты штурмуют планету игрока), `"bandit_planet"` (игрок штурмует базу
+марсианских бандитов). Итог разбирает `space_strategy_map.gd:_resolve_bandit_battle`, как
 `guardian_index` разбирает `_resolve_guardian_battle`.
 
 Пустые override сохраняют старое поведение — фиксированный состав
@@ -264,7 +270,7 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 | Гексовая геометрия (расстояния, LoS, пути) | `tactical_battle.gd:_offset_to_cube / _cube_to_offset / _hex_neighbors / _hex_line` — острая вершина, cube-координаты "odd-r" (смещаются нечётные РЯДЫ, не колонки) |
 | Мультиклеточные корабли (IV+ ранг — 2 клетки по горизонтали) | `tactical_battle.gd:MULTI_CELL_MIN_TIER` + `_footprint_cells / _footprint_for_move / _footprint_valid / _secondary_cell` |
 | Параллакс и фоновая декорация боя (планета/луна/туманность) | `tactical_battle.gd:PARALLAX_LAYERS` + `_draw_background / _update_parallax_target`; декорации — `assets/space/backdrops/` (см. `README.md` там же, промт для генерации — §9 ниже) |
-| Выхлоп двигателей (цвет по стороне/фракции) | `tactical_battle.gd:_draw_engine_exhaust / _engine_color` — игрок синий (`PLAYER_COLOR`), орки красный (`ENEMY_COLOR`), торговцы/пираты жёлтый (`NEUTRAL_ENGINE_COLOR`); рисуется в локальных координатах корабля до текстуры, так что зеркальный `draw_set_transform` для игрока (см. §7a) сам разворачивает хвост на нужную сторону |
+| Выхлоп двигателей (цвет по стороне/фракции) | `tactical_battle.gd:_draw_engine_exhaust / _engine_color` — игрок синий (`PLAYER_COLOR`), марсианские бандиты красный (`ENEMY_COLOR`), торговцы/пираты жёлтый (`NEUTRAL_ENGINE_COLOR`); рисуется в локальных координатах корабля до текстуры, так что зеркальный `draw_set_transform` для игрока (см. §7a) сам разворачивает хвост на нужную сторону |
 | Заклинания-протоколы | `hero_protocols.gd:PROTOCOLS` + применение в `tactical_battle.gd:_cast_protocol` (≈990) |
 | Опыт за бой | `battle_rewards.gd:ship_value()` |
 | Прокачка героя, навыки | `hero_defs.gd` (данные, `MAX_SKILL_SLOTS = 6`) + `hero.gd:roll_level_up / apply_level_up` |
@@ -279,17 +285,17 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 | Область карты и то, что HUD её не перекрывает | `space_strategy_map.gd:_update_camera_limits / _clamp_camera_position / _camera_position_for` — пределы камеры расширены за край карты на полосы HUD (см. §7c) |
 | Сила стражей от удалённости | `space_strategy_map.gd:_threat_distance / _guardian_template_for_distance` + `guardian_defs.gd:TEMPLATES` |
 | Красный курс, если маршрут упирается в стража | `route_overlay.gd:_first_guardian_index / _draw_danger_marker` — хвост пути после первой живой охраняемой клетки красный и пунктирный, сама клетка обведена кольцом; источник опасности тот же `guardian_at`, что и в `space_strategy_map.gd:_check_guardian_encounter` |
-| Баланс орочьих кораблей | `orc_defs.gd:UNITS` — множители фракции в шапке файла |
-| Постройки и цены базы орков | `orc_defs.gd:BUILDING_DEFS` + порядок стройки `orc_ai.gd:BUILD_PRIORITY` |
-| Агрессивность и осторожность ИИ | `orc_ai.gd` — `ASSAULT_POWER_RATIO`, `HUNT_POWER_RATIO`/`HUNT_RANGE`, `GUARDIAN_ATTACK_RATIO`, `AUTO_BATTLE_ATTRITION`, `REGROUP_GARRISON_RATIO` |
-| Ход компьютера, бои с орками, конец кампании | `space_strategy_map.gd:_run_orc_turn / _resolve_orc_battle / campaign_outcome` |
+| Баланс марсианских кораблей | `bandit_defs.gd:UNITS` — множители фракции в шапке файла |
+| Постройки и цены базы марсианских бандитов | `bandit_defs.gd:BUILDING_DEFS` + порядок стройки `bandit_ai.gd:BUILD_PRIORITY` |
+| Агрессивность и осторожность ИИ | `bandit_ai.gd` — `ASSAULT_POWER_RATIO`, `HUNT_POWER_RATIO`/`HUNT_RANGE`, `GUARDIAN_ATTACK_RATIO`, `AUTO_BATTLE_ATTRITION`, `REGROUP_GARRISON_RATIO` |
+| Ход компьютера, бои с марсианскими бандитами, конец кампании | `space_strategy_map.gd:_run_bandit_turn / _resolve_bandit_battle / campaign_outcome` |
 | Оценка силы флота (прогноз и пороги ИИ) | `fleet_power.gd` — НЕ `battle_rewards.gd:ship_value`, тот только про опыт |
 | Объекты в углах карты и их трофей | `map_object_defs.gd:CORNER_LAYOUT` + `_generate_corner_objects` и `TREASURE_*` в `space_strategy_map.gd` |
 | Постоянный HUD боя (раунд/ход, три кнопки) | `tactical_battle_hud.gd:_build_bottom_bar` — намеренно минимальный, карта занимает почти весь экран (см. §7b) |
 | Новый объект приключений | `map_object_defs.gd:KINDS` + `SPAWN_COUNT` + обработчик `_trigger_*` в `space_strategy_map.gd` (≈1113–1275) |
 | Ход дня, доход, недельный прирост | `space_strategy_map.gd:_end_day` (≈520) + `human_planet_state.gd:apply_weekly_growth` |
 | Бонус форта к приросту (+25/+50/+100%) | `human_planet_state.gd:FORT_GROWTH_BONUS_BY_LEVEL` — общий для обеих фракций |
-| С чем герой остаётся после поражения | `space_strategy_map.gd:RETREAT_ARMY` и `orc_ai.gd:RESPAWN_ARMY` — правило одинаковое |
+| С чем герой остаётся после поражения | `space_strategy_map.gd:RETREAT_ARMY` и `bandit_ai.gd:RESPAWN_ARMY` — правило одинаковое |
 | Новое здание | `human_planet_screen.gd:BUILDING_CATALOG` + `BUILDING_DEFS` (строки 10–95), спрайт в `assets/planet_surface/human/` |
 | Найм / гарнизон / передача флота герою | `human_planet_screen.gd:1025–1230` |
 | Биржа ресурсов | `human_planet_screen.gd:756–935` + `RESOURCE_SELL_RATE`, `EXCHANGE_BUY_MARKUP` |
@@ -334,17 +340,17 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 8. **Esc открывает меню настроек** (`game_settings.gd`), а не закрывает экран
    планеты. Вложенные окна (книга протоколов, прицел заклинания, редактор
    зданий, F8-редактор корабля) перехватывают Esc раньше и закрываются сами.
-9. **Корабли орков лежат в `orc_defs.gd`, а не в `unit_defs.gd`**, но
+9. **Корабли марсианских бандитов лежат в `bandit_defs.gd`, а не в `unit_defs.gd`**, но
    `UnitDefs.get_unit()` отдаёт и их. Значит, `UnitDefs.UNITS[id]` напрямую
-   индексировать нельзя — только через `get_unit()`, иначе орочий id уронит код.
+   индексировать нельзя — только через `get_unit()`, иначе марсианский id уронит код.
 10. **Пояс угрозы стража считается от БЛИЖАЙШЕЙ планеты**
    (`space_strategy_map.gd:_threat_distance`), а не от людской. Иначе вокруг
-   базы орков стоят флагманские флоты и ИИ не может расширяться вообще.
+   базы марсианских бандитов стоят флагманские флоты и ИИ не может расширяться вообще.
 11. **Две метрики силы, не путать.** `BattleRewards.ship_value` — только для
    опыта и наград. Для «кто кого» — `FleetPower.ship_strength`. Подстановка
    одной вместо другой ломает и прогноз игроку, и решения ИИ.
 12. **`CampaignSave.VERSION = 2`.** Старые сейвы (с героем `pirate_captain`,
-   без блока `orc_ai`) не грузятся — это ожидаемо, не баг.
+   без блока `bandit_ai`) не грузятся — это ожидаемо, не баг.
 13. **`await node.ready` после `add_child` не разрешается никогда.** `add_child`
    прогоняет `_ready` синхронно, сигнал к моменту `await` уже отправлен, и
    корутина висит вечно вместе с недостроенным окном. Так вставал торговый пост
@@ -384,7 +390,7 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
   константы и `static func`. Состояние туда не кладут.
 - Свежий `class_name` не виден до пересканирования проекта редактором, поэтому
   в автозагрузках и в скриптах, которые грузятся headless, ссылайся на новые
-  классы явным `preload` (см. `const OrcAI := preload(...)` в `hero_roster.gd`).
+  классы явным `preload` (см. `const BanditAI := preload(...)` в `hero_roster.gd`).
 - Оверлеи (`*_overlay.gd`) — `Node2D`, читают состояние **прямо из родителя**,
   собственных данных не держат.
 - Многие UI-окна строятся кодом (`CanvasLayer` + `setup()`), а не в .tscn — так
@@ -399,11 +405,11 @@ battle.orc_battle_kind       = "hero"         # "" = бой не с орками
 Их легко разъехать по невнимательности, поэтому они вынесены отдельно:
 
 * **Прирост от форта** — `HumanPlanetState.FORT_GROWTH_BONUS_BY_LEVEL`
-  (`+25/+50/+100%` по уровням I/II/III). Орочий ИИ считает свой прирост этой
+  (`+25/+50/+100%` по уровням I/II/III). Марсианский ИИ считает свой прирост этой
   же функцией `scaled_weekly_growth`, отдельной таблицы у него нет.
 * **Флот после поражения** — один корабль I ранга у обеих сторон, сразу же,
   без паузы: `space_strategy_map.gd:RETREAT_ARMY` (`interceptor`) и
-  `orc_ai.gd:RESPAWN_ARMY` (`ork_fighter`, см. `kill_hero`). Вождь орков
+  `bandit_ai.gd:RESPAWN_ARMY` (`marauder_fighter`, см. `kill_hero`). Главарь марсианских бандитов
   забирает накопленный гарнизон логов на следующем ходу ИИ, как обычно —
   через `_reinforce_hero`, а не разовым бонусом при возрождении.
 * **Оценка силы флота** — `FleetPower`, а не `BattleRewards.ship_value`.
@@ -444,11 +450,11 @@ LAN-режим для 1–4 игроков открывается из меню:
 `test_lan_adventure_battle.gd`, `test_lan_simultaneous.gd`, `test_lan_ownership.gd`,
 `test_lan_hero_party.gd`, `test_lan_network.gd` (четыре процесса).
 
-Локализации пока нет. Орки — полноценный противник под управлением ИИ
-(`orc_ai.gd`), но **не играбельная раса**: у их базы нет экрана планеты, стройку
-и наём ведёт код, спрайты боевых кораблей, зданий и портрет вождя — всё ещё
-плейсхолдеры (`tools/make_orc_placeholders.py`); флагман на карте
-(`assets/hero_ships/orc.png`, `space_strategy_map.gd:ORC_HERO_SHIP_TEXTURE`) —
+Локализации пока нет. Марсианские бандиты — полноценный противник под управлением ИИ
+(`bandit_ai.gd`), но **не играбельная раса**: у их базы нет экрана планеты, стройку
+и наём ведёт код, спрайты боевых кораблей, зданий и портрет главаря — всё ещё
+плейсхолдеры (`tools/make_bandit_placeholders.py`); флагман на карте
+(`assets/hero_ships/bandit.png`, `space_strategy_map.gd:BANDIT_HERO_SHIP_TEXTURE`) —
 уже настоящий арт. Озвучки UI нет. `data/ship_configs/` пустой — редактор
 кораблей (F8) ещё ничего не сохранял.
 

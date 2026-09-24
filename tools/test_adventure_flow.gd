@@ -90,9 +90,9 @@ func _run() -> void:
 	var moved := false
 	for day in range(1, 41):
 		expedition.current_day = day
-		var result: Dictionary = expedition.orc_ai.take_turn(expedition)
-		moved = moved or expedition.orc_ai.hero_cell != expedition.ORC_PLANET_CENTER
-		_check(not expedition.blocked_cells.has(expedition.orc_ai.hero_cell), "ИИ вошёл в непроходимую область")
+		var result: Dictionary = expedition.bandit_ai.take_turn(expedition)
+		moved = moved or expedition.bandit_ai.hero_cell != expedition.BANDIT_PLANET_CENTER
+		_check(not expedition.blocked_cells.has(expedition.bandit_ai.hero_cell), "ИИ вошёл в непроходимую область")
 		if not String(result.battle).is_empty():
 			break
 	_check(moved, "ИИ не выходит из дома")

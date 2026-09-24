@@ -597,6 +597,7 @@ func to_dict() -> Dictionary:
 
 
 static func from_dict(data: Dictionary) -> Hero:
+	data = preload("res://scripts/faction_save_migration.gd").migrate(data)
 	var hero := Hero.new()
 	hero.id = str(data.get("id", "hero"))
 	hero.hero_name = str(data.get("hero_name", "Безымянный"))

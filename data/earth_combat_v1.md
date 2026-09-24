@@ -12,7 +12,7 @@
 Проходят `test_earth_combat`, `test_tactical_battle`, `test_battle_tactics`,
 `test_auto_battle`, `test_battle_cinematic_fx`, `test_ship_rank_skills`,
 `test_skill_rework`, `test_hero_progression`, `test_lan_battle`,
-`test_lan_adventure_battle`, `test_lan_simultaneous`, `test_orc_ai`,
+`test_lan_adventure_battle`, `test_lan_simultaneous`, `test_bandit_ai`,
 `test_campaign_playthrough` (все 14 диалогов и финал миссии).
 
 `test_pirate_balance`: формулы пиратов и пробные автобои проходят. Проверки
@@ -48,7 +48,7 @@
 | Эсминец | 7 |
 | Элитный эсминец | 5 |
 
-Земляне начальных рангов существенно сильнее старого каталога орков.
+Земляне начальных рангов существенно сильнее старого каталога марсианских бандитов.
 Флагман в дуэли одного стека закономерно не получает пользы от своей ауры;
 его ценность нужно сравнивать в смешанном строю. В итоговом столкновении
 кампании земляне выиграли 7/7, сохранив в среднем 52,1 корабля из 91.

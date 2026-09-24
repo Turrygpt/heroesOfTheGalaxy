@@ -1,12 +1,12 @@
 ## Балансовый прогон кампании: до какого уровня реально докачиваются герой
-## игрока и вождь орков, какие флоты у них к этому моменту и чем кончается их
+## игрока и главарь марсианских бандитов, какие флоты у них к этому моменту и чем кончается их
 ## столкновение. Не тест (ничего не проверяет и не падает) — измеритель.
 ##
 ##   ./Godot_v4.7.1-stable_win64.exe --headless --path . --script res://tools/balance_sim.gd
 ##
 ## Как устроено:
 ##
-## * Орками играет настоящий ИИ (`orc_ai.gd`) — тот же код, что в игре.
+## * Марсми играет настоящий ИИ (`bandit_ai.gd`) — тот же код, что в игре.
 ## * За игрока играет «эталонный командир» ниже: он живёт по той же политике,
 ##   что и ИИ (строит по приоритету, нанимает всё, что может, ходит за
 ##   ближайшим месторождением, лезет в бой только при заметном перевесе).
@@ -14,14 +14,14 @@
 ##   у противника, чтобы сравнение сторон было честным, а не сравнением
 ##   двух разных стилей.
 ## * День игрока считается теми же методами карты, что и в `_end_day`, но ход
-##   орков вызывается напрямую: настоящий `_end_day` при встрече сторон
+##   марсианских бандитов вызывается напрямую: настоящий `_end_day` при встрече сторон
 ##   открывает сцену боя, а её в headless-прогоне негде показать.
 ## * Столкновение в конце считается НАСТОЯЩИМ тактическим боем в режиме
 ##   быстрого расчёта, а не сравнением сил.
 
 extends SceneTree
 
-const OrcAI := preload("res://scripts/orc_ai.gd")
+const BanditAI := preload("res://scripts/bandit_ai.gd")
 const REWARDS := preload("res://scripts/battle_rewards.gd")
 const PLANET := preload("res://scripts/human_planet_state.gd")
 const PLANET_SCREEN := "res://scripts/human_planet_screen.gd"
@@ -42,7 +42,7 @@ const MULTI_SEED_RUNS := 10
 ## На каких солах печатать строку таблицы.
 const REPORT_EVERY := 10
 
-## Приоритет стройки игрока — зеркало OrcAI.BUILD_PRIORITY, но в терминах
+## Приоритет стройки игрока — зеркало BanditAI.BUILD_PRIORITY, но в терминах
 ## земных зданий (см. human_planet_screen.gd:BUILDING_DEFS).
 const PLAYER_BUILD_PRIORITY := [
 	{"kind": "fighter_yard", "level": 1},
@@ -66,8 +66,8 @@ const PLAYER_BUILD_PRIORITY := [
 var map: Node2D
 var host: Node
 var player: Hero
-var warlord: Hero
-var orc_ai
+var raider_leader: Hero
+var bandit_ai
 ## Сол, на котором ИИ впервые решил идти в наступление (-1 — так и не решил).
 var first_assault_day := -1
 ## Сол, на котором кампания оборвалась поражением игрока (-1 — не оборвалась).
@@ -93,8 +93,8 @@ func _run() -> void:
 	map = host.get_node("SpaceStrategyMap")
 	map.set_process(false)
 	player = roster.player_hero()
-	warlord = map.orc_hero()
-	orc_ai = map.orc_ai
+	raider_leader = map.bandit_hero()
+	bandit_ai = map.bandit_ai
 
 	_report_xp_ceiling()
 	_report_faction_duel()
@@ -121,7 +121,7 @@ func _report_xp_ceiling() -> void:
 		if not bool(guardian["alive"]):
 			continue
 		guardian_count += 1
-		var power := OrcAI.fleet_power(guardian["fleet"])
+		var power := BanditAI.fleet_power(guardian["fleet"])
 		guardian_xp += power
 		var template := String(guardian["template"])
 		by_template[template] = float(by_template.get(template, 0.0)) + power
@@ -156,16 +156,16 @@ func _report_xp_ceiling() -> void:
 ## цену размена «+10% урона и скорости за -20% корпуса и брони» без экономики,
 ## героев и прокачки.
 const DUEL_PAIRS := [
-	["interceptor", "ork_fighter", "I ранг"],
-	["heavy_interceptor", "ork_elite_fighter", "I ранг элита"],
-	["gunship", "ork_gunship", "II ранг"],
-	["elite_gunship", "ork_elite_gunship", "II ранг элита"],
-	["corvette", "ork_corvette", "III ранг"],
-	["elite_corvette", "ork_elite_corvette", "III ранг элита"],
-	["frigate", "ork_frigate", "IV ранг"],
-	["elite_frigate", "ork_elite_frigate", "IV ранг элита"],
-	["destroyer", "ork_destroyer", "V ранг"],
-	["elite_destroyer", "ork_elite_destroyer", "V ранг элита"],
+	["interceptor", "marauder_fighter", "I ранг"],
+	["heavy_interceptor", "marauder_elite_fighter", "I ранг элита"],
+	["gunship", "marauder_gunship", "II ранг"],
+	["elite_gunship", "marauder_elite_gunship", "II ранг элита"],
+	["corvette", "marauder_corvette", "III ранг"],
+	["elite_corvette", "marauder_elite_corvette", "III ранг элита"],
+	["frigate", "marauder_frigate", "IV ранг"],
+	["elite_frigate", "marauder_elite_frigate", "IV ранг элита"],
+	["destroyer", "marauder_destroyer", "V ранг"],
+	["elite_destroyer", "marauder_elite_destroyer", "V ранг элита"],
 ]
 const DUEL_COUNT := 20
 const DUEL_RUNS := 9
@@ -176,22 +176,22 @@ func _report_faction_duel() -> void:
 		DUEL_COUNT, DUEL_COUNT, DUEL_RUNS])
 	for pair in DUEL_PAIRS:
 		var human_id := String(pair[0])
-		var orc_id := String(pair[1])
+		var bandit_id := String(pair[1])
 		var human_fleet: Array[Dictionary] = [{"unit_id": human_id, "count": DUEL_COUNT}]
-		var orc_fleet: Array[Dictionary] = [{"unit_id": orc_id, "count": DUEL_COUNT}]
+		var bandit_fleet: Array[Dictionary] = [{"unit_id": bandit_id, "count": DUEL_COUNT}]
 		var human_wins := 0
 		var human_left := 0
-		var orc_left := 0
+		var bandit_left := 0
 		for run in range(DUEL_RUNS):
-			var outcome := _run_battle(human_fleet, orc_fleet)
+			var outcome := _run_battle(human_fleet, bandit_fleet)
 			if bool(outcome["player_won"]):
 				human_wins += 1
 			human_left += int(outcome["player_left"])
-			orc_left += int(outcome["orc_left"])
-		print("%-16s | земляне %d/%d побед | осталось: земляне %.1f, орки %.1f | сила по формуле: %d vs %d" % [
+			bandit_left += int(outcome["bandit_left"])
+		print("%-16s | земляне %d/%d побед | осталось: земляне %.1f, марсианские бандиты %.1f | сила по формуле: %d vs %d" % [
 			String(pair[2]), human_wins, DUEL_RUNS,
-			float(human_left) / DUEL_RUNS, float(orc_left) / DUEL_RUNS,
-			int(OrcAI.fleet_power(human_fleet)), int(OrcAI.fleet_power(orc_fleet))])
+			float(human_left) / DUEL_RUNS, float(bandit_left) / DUEL_RUNS,
+			int(BanditAI.fleet_power(human_fleet)), int(BanditAI.fleet_power(bandit_fleet))])
 	print("")
 
 
@@ -209,7 +209,7 @@ func _report_power_curve() -> void:
 	print("состав: истребители землян против пиратских истребителей")
 	var enemy_count := 20
 	var enemy_fleet: Array[Dictionary] = [{"unit_id": "raider", "count": enemy_count}]
-	var enemy_power := OrcAI.fleet_power(enemy_fleet)
+	var enemy_power := BanditAI.fleet_power(enemy_fleet)
 	var unit_power := POWER.ship_strength(UnitDefs.get_unit("interceptor"))
 	for ratio in POWER_RATIOS:
 		var count := maxi(1, int(round(enemy_power * ratio / unit_power)))
@@ -243,7 +243,7 @@ func _report_guardian_threshold() -> void:
 	var templates := GuardianDefs.TEMPLATES.keys()
 	for template in templates:
 		var enemy_fleet: Array = GuardianDefs.fleet_for(String(template))
-		var enemy_power := OrcAI.fleet_power(enemy_fleet)
+		var enemy_power := BanditAI.fleet_power(enemy_fleet)
 		var count := maxi(1, int(round(enemy_power * THRESHOLD_RATIO / unit_power)))
 		var fleet: Array[Dictionary] = [{"unit_id": "interceptor", "count": count}]
 		var wins := 0
@@ -263,21 +263,21 @@ func _report_guardian_threshold() -> void:
 
 func _run_campaign() -> void:
 	print("=== 2. КАМПАНИЯ: %d СОЛОВ ===" % SIM_DAYS)
-	print("%-5s | %-28s | %-28s | %s" % ["сол", "игрок (ур/опыт/сила флота)", "орки (ур/опыт/сила флота)", "месторождения и стройка"])
+	print("%-5s | %-28s | %-28s | %s" % ["сол", "игрок (ур/опыт/сила флота)", "марсианские бандиты (ур/опыт/сила флота)", "месторождения и стройка"])
 	for day in range(1, SIM_DAYS + 1):
 		map.current_day = day
 		_player_day()
-		var result: Dictionary = orc_ai.take_turn(map)
-		if orc_ai.goal_kind == "assault" and first_assault_day < 0:
+		var result: Dictionary = bandit_ai.take_turn(map)
+		if bandit_ai.goal_kind == "assault" and first_assault_day < 0:
 			first_assault_day = day
 		var battle_kind := String(result["battle"])
 		if battle_kind != "":
-			if not _resolve_orc_attack(day, battle_kind):
+			if not _resolve_bandit_attack(day, battle_kind):
 				return
 		if day % REPORT_EVERY == 0 or day == 1:
 			_print_row(day)
 	print("")
-	print("первое наступление орков: %s" % ("сол %d" % first_assault_day if first_assault_day > 0 else "так и не начали"))
+	print("первое наступление марсианских бандитов: %s" % ("сол %d" % first_assault_day if first_assault_day > 0 else "так и не начали"))
 	if battles_fought.is_empty():
 		print("прямых столкновений сторон за прогон не было")
 	else:
@@ -287,17 +287,17 @@ func _run_campaign() -> void:
 	print("")
 
 
-## Орки вышли на игрока. Считаем настоящий бой и применяем итог, как это
-## делает карта (_resolve_orc_battle). Возвращает false, если кампания
+## Марсианские бандиты вышли на игрока. Считаем настоящий бой и применяем итог, как это
+## делает карта (_resolve_bandit_battle). Возвращает false, если кампания
 ## кончилась — дальше моделировать нечего.
-func _resolve_orc_attack(day: int, kind: String) -> bool:
+func _resolve_bandit_attack(day: int, kind: String) -> bool:
 	var state := PLANET.load_state()
 	var defenders := player.army.duplicate()
 	var fort_level := 0
 	if kind == "planet":
 		for unit_id in state["garrison"]:
 			defenders[unit_id] = int(defenders.get(unit_id, 0)) + int(state["garrison"][unit_id])
-		# Укрепления форта — зеркало space_strategy_map.gd:_start_orc_battle:
+		# Укрепления форта — зеркало space_strategy_map.gd:_start_bandit_battle:
 		# пушки (пачка orbital_platform по штуке за уровень форта) и стена
 		# (defense-бонус всем отрядам игрока, см. tactical_battle.gd:
 		# home_defense_bonus). Без этого зеркалирования измеритель судил бы
@@ -306,29 +306,29 @@ func _resolve_orc_attack(day: int, kind: String) -> bool:
 	var defender_fleet := _fleet_entries(defenders)
 	if fort_level > 0:
 		defender_fleet.append({"unit_id": "orbital_platform", "count": fort_level})
-	var attacker_fleet := _fleet_entries(warlord.army)
+	var attacker_fleet := _fleet_entries(raider_leader.army)
 	if defender_fleet.is_empty() or attacker_fleet.is_empty():
 		return true
 	var outcome := _run_battle(defender_fleet, attacker_fleet, fort_level)
-	warlord.set_army_from_dict(outcome["orc_army"])
-	battles_fought.append("сол %d: орки атаковали (%s) — %s" % [
-		day, kind, "игрок отбился" if bool(outcome["player_won"]) else "победа орков"])
+	raider_leader.set_army_from_dict(outcome["bandit_army"])
+	battles_fought.append("сол %d: марсианские бандиты атаковали (%s) — %s" % [
+		day, kind, "игрок отбился" if bool(outcome["player_won"]) else "победа марсианских бандитов"])
 	if bool(outcome["player_won"]):
 		player.set_army_from_dict(outcome["player_army"])
 		if kind == "planet":
 			state["garrison"] = {}
 			state["garrison_slots"] = PLANET.slots_from_army({}, 7)
 			PLANET.save_state(state)
-		orc_ai.kill_hero(map)
+		bandit_ai.kill_hero(map)
 		return true
 	if kind == "planet":
-		print("!!! сол %d: орки взяли планету игрока — кампания проиграна" % day)
+		print("!!! сол %d: марсианские бандиты взяли планету игрока — кампания проиграна" % day)
 		campaign_lost_day = day
 		return false
 	# Поражение в поле: герой откатывается на саму планету с одним
 	# истребителем (см. space_strategy_map.gd:_retreat_player_home) — не на
 	# PLAYER_ONE_START_CELL, та клетка лежит вне футпринта планеты и на пути
-	# орков к ней, из-за чего следующий перехват засчитывался бы как полевая
+	# марсианских бандитов к ней, из-за чего следующий перехват засчитывался бы как полевая
 	# стычка в обход осады.
 	player.set_army_from_dict({"interceptor": 1})
 	map.current_cell = map.HUMAN_PLANET_CENTER
@@ -337,10 +337,10 @@ func _resolve_orc_attack(day: int, kind: String) -> bool:
 
 func _print_row(day: int) -> void:
 	var state := PLANET.load_state()
-	print("%-5d | %-28s | %-28s | игрок %d шахт, орки %d шахт" % [
+	print("%-5d | %-28s | %-28s | игрок %d шахт, марсианские бандиты %d шахт" % [
 		day,
-		"%2d ур / %6d xp / %6d" % [player.level, player.experience, int(OrcAI.army_power(player.army))],
-		"%2d ур / %6d xp / %6d" % [warlord.level, warlord.experience, int(OrcAI.army_power(warlord.army))],
+		"%2d ур / %6d xp / %6d" % [player.level, player.experience, int(BanditAI.army_power(player.army))],
+		"%2d ур / %6d xp / %6d" % [raider_leader.level, raider_leader.experience, int(BanditAI.army_power(raider_leader.army))],
 		_owned_sites(1), _owned_sites(2),
 	])
 
@@ -391,7 +391,7 @@ func _player_build(state: Dictionary) -> void:
 
 
 ## Резерв кредитов на ближайшую постройку, для которой уже есть ресурсы —
-## то же правило, что у ИИ (см. OrcAI._savings_target, включая пропуск
+## то же правило, что у ИИ (см. BanditAI._savings_target, включая пропуск
 ## построек вовсе без ресурсов — совет теперь канонично стоит чистым
 ## золотом и в резерв не просится).
 func _player_build_reserve(state: Dictionary) -> int:
@@ -454,13 +454,13 @@ func _player_reinforce(state: Dictionary) -> void:
 ## Перелёт героя игрока — та же политика, что у ИИ: забрать гарнизон, если
 ## он накопился, иначе идти за ближайшим посильным месторождением.
 func _player_move() -> void:
-	var own_power := OrcAI.army_power(player.army)
+	var own_power := BanditAI.army_power(player.army)
 	if own_power <= 0.0:
 		return
 	var state := PLANET.load_state()
-	var garrison_power := OrcAI.army_power(state["garrison"])
+	var garrison_power := BanditAI.army_power(state["garrison"])
 	var goal: Vector2i
-	if garrison_power >= own_power * OrcAI.REGROUP_GARRISON_RATIO:
+	if garrison_power >= own_power * BanditAI.REGROUP_GARRISON_RATIO:
 		goal = map.HUMAN_PLANET_CENTER
 	else:
 		goal = _best_player_target(own_power)
@@ -488,7 +488,7 @@ func _avoided_cells(own_power: float) -> Dictionary:
 		var guardian: Dictionary = map.guardians[int(map.guardian_at[cell])]
 		if not bool(guardian["alive"]):
 			continue
-		if own_power < OrcAI.fleet_power(guardian["fleet"]) * OrcAI.GUARDIAN_ATTACK_RATIO:
+		if own_power < BanditAI.fleet_power(guardian["fleet"]) * BanditAI.GUARDIAN_ATTACK_RATIO:
 			avoid[cell] = true
 	return avoid
 
@@ -500,13 +500,13 @@ func _best_player_target(own_power: float) -> Vector2i:
 		if int(map.production_owners[index]) == 1:
 			continue
 		var cell: Vector2i = map.production_sites[index]["cell"]
-		var distance: int = OrcAI._distance(map.current_cell, cell)
+		var distance: int = BanditAI._distance(map.current_cell, cell)
 		if distance >= best_distance:
 			continue
 		var guard_index := _living_guard_for_site(index)
 		if guard_index >= 0:
-			var guard_power := OrcAI.fleet_power(map.guardians[guard_index]["fleet"])
-			if own_power < guard_power * OrcAI.GUARDIAN_ATTACK_RATIO:
+			var guard_power := BanditAI.fleet_power(map.guardians[guard_index]["fleet"])
+			if own_power < guard_power * BanditAI.GUARDIAN_ATTACK_RATIO:
 				continue
 		best_cell = cell
 		best_distance = distance
@@ -550,47 +550,47 @@ func _player_arrive(cell: Vector2i) -> bool:
 func _report_clash() -> void:
 	print("=== 3. СТОЛКНОВЕНИЕ ФЛОТОВ (настоящий бой, %d прогонов) ===" % CLASH_RUNS)
 	var player_fleet := _fleet_entries(player.army)
-	var orc_fleet := _fleet_entries(_orc_total_army())
-	print("флот игрока: %s (сила %d)" % [_fleet_text(player_fleet), int(OrcAI.fleet_power(player_fleet))])
-	print("флот орков:  %s (сила %d)" % [_fleet_text(orc_fleet), int(OrcAI.fleet_power(orc_fleet))])
-	print("герои: игрок %d ур (сила систем %d), вождь %d ур (сила систем %d)" % [
-		player.level, player.stat("power"), warlord.level, warlord.stat("power")])
-	if player_fleet.is_empty() or orc_fleet.is_empty():
+	var bandit_fleet := _fleet_entries(_bandit_total_army())
+	print("флот игрока: %s (сила %d)" % [_fleet_text(player_fleet), int(BanditAI.fleet_power(player_fleet))])
+	print("флот марсианских бандитов:  %s (сила %d)" % [_fleet_text(bandit_fleet), int(BanditAI.fleet_power(bandit_fleet))])
+	print("герои: игрок %d ур (сила систем %d), главарь %d ур (сила систем %d)" % [
+		player.level, player.stat("power"), raider_leader.level, raider_leader.stat("power")])
+	if player_fleet.is_empty() or bandit_fleet.is_empty():
 		print("одна из сторон осталась без флота — бой не считается")
 		return
 	var player_wins := 0
 	var unfinished := 0
 	var player_left_total := 0
-	var orc_left_total := 0
+	var bandit_left_total := 0
 	for run in range(CLASH_RUNS):
-		var outcome := _run_battle(player_fleet, orc_fleet)
+		var outcome := _run_battle(player_fleet, bandit_fleet)
 		if not bool(outcome["finished"]):
 			unfinished += 1
 		if bool(outcome["player_won"]):
 			player_wins += 1
 		player_left_total += int(outcome["player_left"])
-		orc_left_total += int(outcome["orc_left"])
+		bandit_left_total += int(outcome["bandit_left"])
 	if unfinished > 0:
 		print("боёв, не доигранных за отведённое время: %d" % unfinished)
 	var player_start := _fleet_ships(player_fleet)
-	var orc_start := _fleet_ships(orc_fleet)
+	var bandit_start := _fleet_ships(bandit_fleet)
 	print("побед игрока: %d из %d" % [player_wins, CLASH_RUNS])
-	print("в среднем осталось кораблей: у игрока %.1f из %d, у орков %.1f из %d" % [
+	print("в среднем осталось кораблей: у игрока %.1f из %d, у марсианских бандитов %.1f из %d" % [
 		float(player_left_total) / CLASH_RUNS, player_start,
-		float(orc_left_total) / CLASH_RUNS, orc_start])
+		float(bandit_left_total) / CLASH_RUNS, bandit_start])
 
 
-## Весь флот орков, который встретит игрока у их базы: орда вождя плюс
+## Весь флот марсианских бандитов, который встретит игрока у их базы: эскадра главаря плюс
 ## гарнизон логов.
-func _orc_total_army() -> Dictionary:
-	var total := warlord.army.duplicate()
-	for unit_id in orc_ai.garrison:
-		total[unit_id] = int(total.get(unit_id, 0)) + int(orc_ai.garrison[unit_id])
+func _bandit_total_army() -> Dictionary:
+	var total := raider_leader.army.duplicate()
+	for unit_id in bandit_ai.garrison:
+		total[unit_id] = int(total.get(unit_id, 0)) + int(bandit_ai.garrison[unit_id])
 	return total
 
 
 func _fleet_entries(army: Dictionary) -> Array[Dictionary]:
-	return OrcAI.army_entries(army)
+	return BanditAI.army_entries(army)
 
 
 func _fleet_ships(fleet: Array[Dictionary]) -> int:
@@ -616,10 +616,10 @@ func _run_battle(player_fleet: Array[Dictionary], enemy_fleet: Array, home_defen
 	return _run_battle_typed(player_fleet, typed_enemy, home_defense_bonus)
 
 
-func _run_battle_typed(player_fleet: Array[Dictionary], orc_fleet: Array[Dictionary], home_defense_bonus: int = 0) -> Dictionary:
+func _run_battle_typed(player_fleet: Array[Dictionary], bandit_fleet: Array[Dictionary], home_defense_bonus: int = 0) -> Dictionary:
 	var battle = load("res://scenes/TacticalBattle.tscn").instantiate()
 	battle.player_units_override = player_fleet
-	battle.enemy_units_override = orc_fleet
+	battle.enemy_units_override = bandit_fleet
 	battle.enemy_has_admiral = true
 	battle.home_defense_bonus = home_defense_bonus
 	# quick_battle только ускоряет тики; ходить за сторону 1 разрешает
@@ -644,9 +644,9 @@ func _run_battle_typed(player_fleet: Array[Dictionary], orc_fleet: Array[Diction
 		"finished": battle.battle_finished,
 		"player_won": battle._side_alive(1) and not battle._side_alive(2),
 		"player_left": _ships_left(battle.units, 1),
-		"orc_left": _ships_left(battle.units, 2),
+		"bandit_left": _ships_left(battle.units, 2),
 		"player_army": _surviving(battle.units, 1),
-		"orc_army": _surviving(battle.units, 2),
+		"bandit_army": _surviving(battle.units, 2),
 	}
 	battle.free()
 	return outcome
@@ -661,7 +661,7 @@ func _surviving(units: Array, side: int) -> Dictionary:
 		var hull := int((unit as Dictionary).get("hull", 1))
 		var hp := int((unit as Dictionary).get("hp", 0))
 		var unit_id := String((unit as Dictionary).get("unit_id", ""))
-		# Орбитальные платформы и сегменты стены (см. _resolve_orc_attack,
+		# Орбитальные платформы и сегменты стены (см. _resolve_bandit_attack,
 		# tactical_battle.gd:_spawn_guardian_wall) синтезируются заново на
 		# каждый штурм — не должны оседать в мобильной армии игрока.
 		if hp <= 0 or hull <= 0 or unit_id == "" or unit_id in ["orbital_platform", "orbital_wall"]:

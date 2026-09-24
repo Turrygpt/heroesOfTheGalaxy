@@ -37,10 +37,23 @@ func _run() -> void:
 		var card: PanelContainer = map.random_hero_cards[id]
 		var portrait := card.get_child(0).get_child(0) as TextureRect
 		var indicator := portrait.get_node("EnergySteps") as Control
+		var movement_steps := portrait.get_node("MovementSteps") as VBoxContainer
 		print("Шкала %s: %s; портрет %s; карточка %s" % [id, indicator.get_global_rect(), portrait.get_global_rect(), card.get_global_rect()])
 		check(indicator.visible and indicator.size.x >= 8 and indicator.size.y >= 40, "Шкала энергии показана у героя " + id)
 		check(portrait.get_global_rect().has_point(indicator.get_global_rect().get_center()), "Шкала не обрезана портретом " + id)
 		check(indicator.get_global_rect().end.y <= root.size.y - 8, "Шкала видна внутри окна " + id)
+		check(movement_steps.visible and movement_steps.get_child_count() == 5, "Шкала ходов показана у героя " + id)
+		check(portrait.get_global_rect().encloses(movement_steps.get_global_rect()), "Шкала ходов помещается в портрет " + id)
+		check(movement_steps.get_global_rect().end.y <= root.size.y - 8, "Шкала ходов видна внутри окна " + id)
+	var admiral_steps := map.random_hero_cards["player_admiral"].get_child(0).get_child(0).get_node("MovementSteps") as VBoxContainer
+	var officer_steps := map.random_hero_cards[officer.id].get_child(0).get_child(0).get_node("MovementSteps") as VBoxContainer
+	check((admiral_steps.get_child(0) as Panel).get_theme_stylebox("panel") == admiral_steps.get_child(0).get_meta("active_style"), "У первого героя видны полные ходы")
+	map.random_hero_states[officer.id]["movement"] = 0
+	map._update_hud()
+	check((officer_steps.get_child(4) as Panel).get_theme_stylebox("panel") == officer_steps.get_child(4).get_meta("inactive_style"), "Пустая шкала относится только ко второму герою")
+	check((admiral_steps.get_child(4) as Panel).get_theme_stylebox("panel") == admiral_steps.get_child(4).get_meta("active_style"), "Ходы первого героя не меняются вместе со вторым")
+	map.random_hero_states[officer.id]["movement"] = 10
+	map._update_hud()
 	var hero_panel := map.get_node("HUD/RightSidebar/Margin/VBox/HeroCardPanel") as Control
 	print("Панель флота: %s" % hero_panel.get_global_rect())
 	check(hero_panel.get_global_rect().end.y <= root.size.y, "Панель флота целиком помещается на экране")

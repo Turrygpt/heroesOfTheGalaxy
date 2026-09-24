@@ -62,9 +62,9 @@ func _run() -> void:
 			continue
 		check(not map.navigation_grid.get_id_path(map.PLAYER_ONE_START_CELL, guardian.cell).is_empty(), "Цель недоступна: " + id)
 		var index: int = map.guardians.find(guardian)
-		check(not map.orc_ai._fight_guardian(map, index), "ИИ забрал сюжетную цель: " + id)
+		check(not map.bandit_ai._fight_guardian(map, index), "ИИ забрал сюжетную цель: " + id)
 		check(guardian.alive, "После хода ИИ исчезла цель: " + id)
-		check(map.orc_ai._avoided_cells(map, 1.0e12).has(guardian.cell), "ИИ строит путь через сюжетную цель: " + id)
+		check(map.bandit_ai._avoided_cells(map, 1.0e12).has(guardian.cell), "ИИ строит путь через сюжетную цель: " + id)
 	# Старое сохранение после мирного ухода или победы ИИ восстанавливается.
 	var cruiser := find_guard(map, "pirate_quest_cruiser")
 	cruiser.alive = false

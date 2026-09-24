@@ -31,7 +31,7 @@ func _run() -> void:
 	check(map.has_node("HUD/ResourceBar") and map.has_node("HUD/RightSidebar"), "Штатный HUD")
 	check(map.production_sites.size() == 24 and map.obstacles.size() > 20, "Карта на четыре старта с биомами и экономикой")
 	check(map.movement_points == 10 and map.player_one_credits == 2000, "Обычные стартовые ресурсы и движение")
-	check(map.orc_ai.hero_alive == false, "Орочий ИИ не ходит за сетевых игроков")
+	check(map.bandit_ai.hero_alive == false, "Марсианский ИИ не ходит за сетевых игроков")
 	await process_frame
 	check(map.side_hero_energy_steps.size.x <= 10.0, "Шкала энергии не растягивается на весь портрет")
 	map.side_hero_energy_steps.call("set_energy", 10, 10)

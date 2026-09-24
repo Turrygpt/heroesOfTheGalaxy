@@ -213,13 +213,13 @@ func _run() -> void:
 
 	# 7. Штурм Марса: карта сперва отдаёт слово Граку, затем открывает бой.
 	hero.set_army_from_dict({"destroyer": 60, "cruiser": 24, "battleship": 8})
-	check(map._check_orc_planet_encounter(map.ORC_PLANET_CENTER), "Прибытие на Марс не начало штурм")
+	check(map._check_bandit_planet_encounter(map.BANDIT_PLANET_CENTER), "Прибытие на Марс не начало штурм")
 	await expect_dialogue(map, "grak_battle", "разговор перед штурмом")
 	check(await answer_battle_preview(), "Штурм базы не открыл окно прогноза боя")
 	await process_frame
 	if map.campaign_outcome != "victory":
 		print("Диагностика штурма: исход=", map.campaign_outcome,
-			", владелец Марса=", map.orc_planet_owner,
+			", владелец Марса=", map.bandit_planet_owner,
 			", флот=", hero.army, ", сообщение=", map.navigation_message)
 	check(map.campaign_outcome == "victory", "Штурм базы бандитов не засчитан победой")
 	await expect_dialogue(map, "ending", "эпилог миссии")

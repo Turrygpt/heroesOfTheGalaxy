@@ -4,7 +4,7 @@ extends Node
 const DEMO := preload("res://scripts/demo_edition.gd")
 const PLANET_PATH := "res://scripts/human_planet_state.gd"
 ## Идентификатор героя не требует загрузки ИИ и всех его текстур.
-const ORC_HERO_ID := "orc_warlord"
+const BANDIT_HERO_ID := "bandit_raider_leader"
 const SAVE_PATH := "user://campaign.save"
 const VERSION := 2
 ## Только данные карты, без узлов и текстур.
@@ -14,8 +14,8 @@ const MAP_FIELDS := [
 	"map_objects", "map_object_at", "obelisks_collected", "bonus_daily_income",
 	"beacon_boost_cells", "obstacles", "blocked_cells", "slow_cells",
 	"obstacle_at", "passage_at", "explored_cells", "player_one_credits",
-	"player_two_credits", "human_planet_owner", "orc_planet_owner",
-	"human_planetary_council_level", "orc_planetary_council_level", "player_one_resources",
+	"player_two_credits", "human_planet_owner", "bandit_planet_owner",
+	"human_planetary_council_level", "bandit_planetary_council_level", "player_one_resources",
 	"campaign_outcome",
 ]
 var pending_map: Dictionary = {}
@@ -34,13 +34,14 @@ func read_save(path: String = SAVE_PATH) -> Dictionary:
 	if file == null:
 		return {}
 	var data: Variant = file.get_var(false)
+	data = preload("res://scripts/faction_save_migration.gd").migrate(data)
 	if not data is Dictionary or data.get("version") != VERSION:
 		return {}
 	if not data.get("map") is Dictionary or not data.get("heroes") is Dictionary or not data.get("planet") is Dictionary:
 		return {}
-	if not data.heroes.has("player_admiral") or not data.heroes.has(ORC_HERO_ID):
+	if not data.heroes.has("player_admiral") or not data.heroes.has(BANDIT_HERO_ID):
 		return {}
-	if not data.map.has("orc_ai"):
+	if not data.map.has("bandit_ai"):
 		return {}
 	for field in MAP_FIELDS:
 		if not data.map.has(field):
@@ -70,8 +71,8 @@ func save_campaign(map: Node, path: String = SAVE_PATH) -> bool:
 	snapshot["pirate_balance_version"] = 5
 	snapshot["camera_position"] = map.camera.position
 	snapshot["camera_zoom"] = map.camera.zoom
-	# Экономика и позиция ИИ орков (флот вождя уезжает вместе с героями).
-	snapshot["orc_ai"] = map.orc_ai.to_dict()
+	# Экономика и позиция ИИ марсианских бандитов (флот главаря уезжает вместе с героями).
+	snapshot["bandit_ai"] = map.bandit_ai.to_dict()
 	if map.has_method("random_session_snapshot"):
 		snapshot.merge(map.random_session_snapshot())
 	var heroes := {}
@@ -101,7 +102,7 @@ func prepare_load(path: String = SAVE_PATH) -> bool:
 		return false
 	HeroRoster.heroes.clear()
 	HeroRoster.active_player_id = "player_admiral"
-	HeroRoster.active_enemy_id = ORC_HERO_ID
+	HeroRoster.active_enemy_id = BANDIT_HERO_ID
 	for id in data.heroes:
 		HeroRoster.register(Hero.from_dict(data.heroes[id]))
 	HeroRoster.save_state()

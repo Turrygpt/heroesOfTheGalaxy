@@ -47,17 +47,17 @@ func _run() -> void:
 	_check(station_visual.modulate != player_light, "Цвет станции не сменился при захвате противником")
 	_check(map.is_cell_explored(station) and not map.is_cell_visible(station), "Вражеский захват должен убрать обзор, сохранив память")
 	_check(map.fog_image.get_pixelv(station).a > 0.4, "Захваченная противником станция должна уйти под лёгкий туман")
-	map.orc_ai.hero_cell = station
-	map.orc_ai.hero_alive = true
-	map._refresh_orc_ship_sprite()
-	_check(not map.orc_ship_sprite.visible, "Вражеский корабль виден в разведанной, но не освещённой области")
+	map.bandit_ai.hero_cell = station
+	map.bandit_ai.hero_alive = true
+	map._refresh_bandit_ship_sprite()
+	_check(not map.bandit_ship_sprite.visible, "Вражеский корабль виден в разведанной, но не освещённой области")
 
 	map.current_cell = station
 	map._refresh_fog_visibility()
-	_check(map.orc_ship_sprite.visible, "Вражеский корабль не появился в текущем обзоре")
+	_check(map.bandit_ship_sprite.visible, "Вражеский корабль не появился в текущем обзоре")
 	map.current_cell = map.home_planet_cell
 	map._refresh_fog_visibility()
-	_check(not map.orc_ship_sprite.visible and map.is_cell_explored(station), "Корабль остался виден после ухода игрока")
+	_check(not map.bandit_ship_sprite.visible and map.is_cell_explored(station), "Корабль остался виден после ухода игрока")
 
 	# Планеты светят и без припаркованного на них героя; потеря владения гасит обзор.
 	map.current_cell = Vector2i(30, 30)
@@ -72,10 +72,10 @@ func _run() -> void:
 	map._refresh_fog_visibility()
 	_check(map.is_cell_visible(home), "Возвращённая планета не восстановила обзор")
 	var enemy_planet: Vector2i = map.opponent_planet_cell
-	map.orc_planet_owner = 1
+	map.bandit_planet_owner = 1
 	map._refresh_fog_visibility()
 	_check(map.is_cell_visible(enemy_planet), "Захваченная вражеская планета не даёт обзор")
-	map.orc_planet_owner = 2
+	map.bandit_planet_owner = 2
 	map._refresh_fog_visibility()
 	_check(not map.is_cell_visible(enemy_planet), "Утраченная вражеская планета оставила обзор")
 

@@ -314,7 +314,7 @@ const CORNER_LAYOUT := ["void_vault", "artifact_cache", "cargo_container", "dere
 const TRADING_POST_CELLS := [Vector2i(22, 42), Vector2i(42, 22)]
 ## Две нейтральные планеты в свободных углах карты 64×64 (см.
 ## _place_neutral_planets в space_strategy_map.gd) — зеркало того, как
-## HUMAN_PLANET_CENTER/ORC_PLANET_CENTER стоят с отступом 6 клеток от "своих"
+## HUMAN_PLANET_CENTER/BANDIT_PLANET_CENTER стоят с отступом 6 клеток от "своих"
 ## углов (0,0) и (63,63): эти планеты стоят с тем же отступом от двух других.
 const TRADE_PLANET_CENTER := Vector2i(57, 6)
 const PIRATE_PLANET_CENTER := Vector2i(6, 57)

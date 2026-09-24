@@ -27,7 +27,7 @@ const PROP_POOLS := {
 	"crystal": ["sectors", "sectors", "ice_medium2", "worlds"],
 	"volcanic": ["rocks", "worlds", "sectors"],
 	"ion": ["ice_rocks", "rocks", "sectors"],
-	"orc": ["wrecks", "rocks", "sectors"],
+	"bandit": ["wrecks", "rocks", "sectors"],
 }
 const CELL := 96.0
 const MIN_PROP_WIDTH := 64.0
@@ -96,7 +96,7 @@ func _sprite(index: int, point: Vector2, width: float, angle: float, color: Colo
 	var rows := int(sheet[2])
 	if sheet_id != "sectors":
 		index = rng.randi_range(0, columns * rows - 1)
-	elif biome in ["dead", "orc", "pirate", "trader", "human"]:
+	elif biome in ["dead", "bandit", "pirate", "trader", "human"]:
 		index = rng.randi_range(12, 22)
 		if index == 17:
 			index = 16

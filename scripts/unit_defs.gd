@@ -6,18 +6,18 @@ extends RefCounted
 ## tactical_battle.gd (label/role/hull/attack/...), чтобы make_blueprint()
 ## собирала полностью совместимый со сценой боя словарь пачки.
 ##
-## Корабли орков лежат отдельно, в scripts/orc_defs.gd, но доступны через
+## Корабли марсианских бандитов лежат отдельно, в scripts/bandit_defs.gd, но доступны через
 ## get_unit()/make_blueprint() наравне с земными - бою, наградам и превью
 ## флотов всё равно, чьей фракции пачка.
 ##
-## Поле "faction" ("pirate" | "trader" | "orc") нужно только интерфейсу боя:
+## Поле "faction" ("pirate" | "trader" | "bandit") нужно только интерфейсу боя:
 ## по нему HUD выбирает подписи и портрет командующего стороны 2
 ## (см. tactical_battle_hud.gd:enemy_faction). У земных кораблей его нет —
 ## они всегда сторона 1.
 
 ## Явный preload вместо class_name: свежий class_name не виден до
 ## пересканирования проекта редактором, а так работает и headless-CLI.
-const ORC_DEFS := preload("res://scripts/orc_defs.gd")
+const BANDIT_DEFS := preload("res://scripts/bandit_defs.gd")
 const FACTION_PROFILES := preload("res://scripts/faction_ship_profiles.gd")
 
 ## Земляне: семь характеристик и способности только элитных версий.
@@ -302,7 +302,7 @@ const UNITS := {
 		"min_engage_range": 2, "far_range_penalty": 0.6,
 	},
 	# Стражи Древних: редкий и опасный нейтральный противник (не фракция
-	# игрока, не орки) — пробуждённые сторожевые конструкты, охраняют
+	# игрока, не марсианские бандиты) — пробуждённые сторожевые конструкты, охраняют
 	# дальний космос и "Схрон Древних" в углах карты (см. GuardianDefs
 	# TEMPLATES ancient_*, data/art_generation_prompts.md §3). Прочнее и
 	# бьют больнее пиратов того же ранга — встреча должна читаться как
@@ -331,16 +331,16 @@ const UNITS := {
 		"region": Rect2(0, 0, 2128, 912), "kind": "guardian", "faction": "ancient",
 		"damage_factor": 1.15,
 	},
-	"ork_raider": {
-		"label": "Оркский торпедный крейсер", "role": "тяжёлый корабль (дальнобойный)", "tier": 3,
+	"marauder_raider": {
+		"label": "Марсианский торпедный крейсер", "role": "тяжёлый корабль (дальнобойный)", "tier": 3,
 		"hull": 50, "attack": 11, "defense": 9, "damage_min": 10, "damage_max": 16,
 		"move": 5, "range": 3, "initiative": 9, "sprite_width": 140.0, "weapon_type": "rocket",
-		"texture": preload("res://assets/ships/random/ork_torpedo_cruiser.png"),
+		"texture": preload("res://assets/ships/random/marauder_torpedo_cruiser.png"),
 		"region": Rect2(170, 10, 1220, 306), "kind": "guardian", "faction": "pirate",
 	},
 	# --- Орбитальная оборона планеты (не нанимается, синтезируется на бой) ---
-	## Появляется в бою типа "planet" (штурм столицы орками) поштучно за
-	## каждый уровень форта — см. space_strategy_map.gd:_start_orc_battle.
+	## Появляется в бою типа "planet" (штурм столицы марсианскими бандитами) поштучно за
+	## каждый уровень форта — см. space_strategy_map.gd:_start_bandit_battle.
 	## move=0: платформа не покидает свою клетку (BFS манёвра ИИ/игрока
 	## сводится к единственной достижимой клетке — самой себе).
 	"orbital_platform": {
@@ -370,7 +370,7 @@ const UNITS := {
 
 
 ## Только эти старые идентификаторы — аналоги нанимаемых кораблей I–V рангов.
-## Другие нейтралы (например, ork_raider) сохраняют собственные параметры.
+## Другие нейтралы (например, marauder_raider) сохраняют собственные параметры.
 const ORDINARY_GUARDIAN_IDS := [
 	"raider", "pirate_gunship", "pirate_corvette", "pirate_frigate", "pirate_destroyer",
 	"trader_fighter", "trader_gunship", "trader_corvette", "trader_frigate", "trader_destroyer",
@@ -382,10 +382,10 @@ static func get_unit(unit_id: String) -> Dictionary:
 	if unit_id.begins_with("bandit_"):
 		var elite := unit_id.ends_with("_elite")
 		var hull := unit_id.trim_prefix("bandit_").trim_suffix("_elite")
-		var source_id := "ork_" + ("elite_" if elite else "") + hull
-		if not ORC_DEFS.UNITS.has(source_id):
+		var source_id := "marauder_" + ("elite_" if elite else "") + hull
+		if not BANDIT_DEFS.UNITS.has(source_id):
 			return {}
-		var unit: Dictionary = ORC_DEFS.UNITS[source_id].duplicate(true)
+		var unit: Dictionary = BANDIT_DEFS.UNITS[source_id].duplicate(true)
 		var tier := int(unit.tier)
 		unit["kind"] = "dwelling"
 		unit["dwelling"] = ["fighter_yard", "gunship_yard", "corvette_yard", "frigate_yard", "destroyer_yard"][tier - 1]
@@ -430,7 +430,7 @@ static func get_unit(unit_id: String) -> Dictionary:
 		if unit_id in ORDINARY_GUARDIAN_IDS:
 			return FACTION_PROFILES.apply(source, faction, false)
 		return source
-	return ORC_DEFS.UNITS.get(unit_id, {})
+	return BANDIT_DEFS.UNITS.get(unit_id, {})
 
 
 static func display_name(unit_id: String) -> String:
@@ -448,9 +448,9 @@ static func display_name_from_unit(unit: Dictionary) -> String:
 	return "%s %s" % [String(unit.get("base_label", unit.get("label", "Корабль"))), rank]
 
 
-## Юниты, доступные к найму в ангарах игрока (kind == "dwelling"). Орочьи
-## корабли помечены "orc_dwelling" и сюда не попадают — их недельный прирост
-## считает ИИ (см. orc_ai.gd), а не HumanPlanetState.
+## Юниты, доступные к найму в ангарах игрока (kind == "dwelling"). Марсианские
+## корабли помечены "bandit_dwelling" и сюда не попадают — их недельный прирост
+## считает ИИ (см. bandit_ai.gd), а не HumanPlanetState.
 static func recruitable_ids(faction: String = "earth") -> Array:
 	var result: Array = []
 	if faction == "mars":
@@ -499,6 +499,11 @@ static func production_source_matches(unit_id: String, dwelling_kind: String, le
 
 
 static func upgrade_target(unit_id: String) -> String:
+	if BANDIT_DEFS.is_bandit_unit(unit_id):
+		var bandit_unit: Dictionary = BANDIT_DEFS.get_unit(unit_id)
+		if int(bandit_unit.get("dwelling_level", 0)) != 1:
+			return ""
+		return BANDIT_DEFS.unit_for_yard(String(bandit_unit.get("dwelling", "")), 2)
 	if unit_id.begins_with("league_") or unit_id.begins_with("syndicate_") or unit_id.begins_with("bandit_"):
 		return "" if unit_id.ends_with("_elite") else unit_id + "_elite"
 	var unit := get_unit(unit_id)

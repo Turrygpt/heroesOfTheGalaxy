@@ -8,7 +8,7 @@
 
 * корабли смотрят ВЛЕВО (как любой корабль, см. tactical_battle._draw_unit:
   "All source ships face left"), region в unit_defs.gd = весь холст;
-* холст растёт с рангом, как у орков (см. tools/make_orc_placeholders.py).
+* холст растёт с рангом, как у марсианских бандитов (см. tools/make_bandit_placeholders.py).
 
 Запуск:  python tools/make_ancient_placeholders.py
 """
@@ -43,7 +43,7 @@ def _shard(draw, points, fill, width=6):
 
 def draw_ship(tier):
 	"""Корабль-конструкт носом влево: гранёный кристаллический корпус вместо
-	панельной обшивки людей/орков, светящиеся разломы вдоль граней."""
+	панельной обшивки людей/марсианских бандитов, светящиеся разломы вдоль граней."""
 	width, height = SHIP_CANVAS[tier]
 	image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
 	draw = ImageDraw.Draw(image)

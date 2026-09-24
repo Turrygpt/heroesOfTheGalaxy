@@ -122,19 +122,19 @@ func _next_day() -> void:
 	map.movement_points = map._movement_limit(player, map.weekly_movement_bonus)
 	player.recharge_energy()
 	_build()
-	var turn: Dictionary = map.orc_ai.take_turn(map)
+	var turn: Dictionary = map.bandit_ai.take_turn(map)
 	if String(turn.battle) != "":
-		var fleet: Array = map.orc_ai.hero_fleet(map)
+		var fleet: Array = map.bandit_ai.hero_fleet(map)
 		if not _fight(fleet, true):
 			_check(false, "ИИ разгромил обычный флот на соле %d" % map.current_day)
 			return
-		map.orc_ai.kill_hero(map)
+		map.bandit_ai.kill_hero(map)
 	_recruit()
 	_clear_windows()
 
 
 func _fight(fleet: Array, commanded: bool = false, fort: int = 0) -> bool:
-	var opponent := {"hero": map.orc_hero().to_dict()} if commanded else {}
+	var opponent := {"hero": map.bandit_hero().to_dict()} if commanded else {}
 	var result := COMBAT.resolve({"hero": player.to_dict()}, opponent, fleet, fort)
 	battles += 1
 	print("Перед боем: ", player.army, " против ", fleet)
@@ -234,13 +234,13 @@ func _run() -> void:
 			_visit("demo_forward_reactor")
 			_travel(map.opponent_planet_cell)
 		if failures == 0:
-			var fleet: Array = map.orc_ai.planet_defence(map)
+			var fleet: Array = map.bandit_ai.planet_defence(map)
 			# Худший случай: Грак успел вернуться на базу, даже если сейчас в походе.
-			if not map.orc_ai.hero_is_home(map):
-				fleet.append_array(map.orc_ai.hero_fleet(map))
+			if not map.bandit_ai.hero_is_home(map):
+				fleet.append_array(map.bandit_ai.hero_fleet(map))
 			_check(not fleet.is_empty(), "Финальный замер не должен проходить против пустого флота")
-			print("Оборона Марса: ", map.orc_ai.built_levels)
-			_check(_fight(fleet, true, int(map.orc_ai.built_levels.get("fort", 0))), "Обычный флот не смог освободить Марс")
+			print("Оборона Марса: ", map.bandit_ai.built_levels)
+			_check(_fight(fleet, true, int(map.bandit_ai.built_levels.get("fort", 0))), "Обычный флот не смог освободить Марс")
 	print("Прохождение обычным флотом: сол %d; построено %d; потрачено минимум %d кр.; боёв %d; ошибок %d" % [
 		map.current_day, build_index, spent, battles, failures])
 	catalog.free()

@@ -18,7 +18,7 @@ const GOLD_COLOR := Color("e5b956")
 const PLAYER_COLOR := Color("3ca5ff")
 const ENEMY_COLOR := Color("ef5350")
 ## Выхлоп двигателей (см. _draw_engine_exhaust) — нейтралы (торговцы/пираты)
-## отдельно от орков, поэтому свой цвет, а не ENEMY_COLOR у обоих.
+## отдельно от марсианских бандитов, поэтому свой цвет, а не ENEMY_COLOR у обоих.
 const NEUTRAL_ENGINE_COLOR := Color("f4d35e")
 ## Сопла находятся ниже оптической оси корпуса: у исходных спрайтов двигатели
 ## посажены в нижней кормовой секции, а не строго по центру силуэта.
@@ -106,7 +106,7 @@ const TARGET_SCORE_ENGAGEABLE := 900.0
 ## но это вес, а не вето. Абсолютный приоритет ранга заставлял ИИ бросать
 ## добиваемую пачку под боком и уходить через всё поле за целой пачкой I ранга.
 const TARGET_SCORE_TIER := 140.0
-## Верхний ранг в справочниках (unit_defs.gd/orc_defs.gd) — нужен, чтобы
+## Верхний ранг в справочниках (unit_defs.gd/bandit_defs.gd) — нужен, чтобы
 ## перевести ранг в надбавку "чем ниже, тем ценнее".
 const TARGET_MAX_TIER := 7
 ## Сбитые корабли и доля снятой прочности — то, ради чего залп и делается.
@@ -233,8 +233,8 @@ var enemy_units_override: Array[Dictionary] = []
 ## При обороне города командует герой, стоящий в центре планеты.
 var player_hero_id_override := ""
 
-## Уровень форта при осаде столицы (orc_battle_kind == "planet", см.
-## space_strategy_map.gd:_start_orc_battle) — "стена": плоский бонус к защите
+## Уровень форта при осаде столицы (bandit_battle_kind == "planet", см.
+## space_strategy_map.gd:_start_bandit_battle) — "стена": плоский бонус к защите
 ## всех отрядов стороны 1 на этот бой, не сохраняется после него. Отдельно от
 ## этого укрепления в бой синтезируется пачка "orbital_platform" — "пушки".
 var home_defense_bonus := 0
@@ -267,11 +267,11 @@ var return_process_mode: int
 var guardian_index := -1
 ## Без адмирала у стороны 2 нет героя, энергии и боевых протоколов.
 var enemy_has_admiral := false
-## Непустая строка — бой с фракцией орков, запущенный картой: "hero"
-## (столкновение флотов), "planet" (орки штурмуют планету игрока),
-## "orc_planet" (игрок штурмует базу орков). Итог разбирает
-## space_strategy_map.gd:_resolve_orc_battle.
-var orc_battle_kind := ""
+## Непустая строка — бой с фракцией марсианских бандитов, запущенный картой: "hero"
+## (столкновение флотов), "planet" (марсианские бандиты штурмуют планету игрока),
+## "bandit_planet" (игрок штурмует базу марсианских бандитов). Итог разбирает
+## space_strategy_map.gd:_resolve_bandit_battle.
+var bandit_battle_kind := ""
 
 var units: Array[Dictionary] = []
 var obstacle_at := {}
@@ -2028,7 +2028,7 @@ func _grant_experience() -> void:
 	var enemy_hero: Hero = roster.enemy_hero() if roster != null else null
 	var player_experience := BATTLE_REWARDS.experience_for_battle(units, 1, auto_battle_used)
 	# Опыт стороне 2 идёт, только если ею действительно командовал герой
-	# (см. _make_hero): в бою со стражами вождь орков ни при чём и расти на
+	# (см. _make_hero): в бою со стражами главарь марсианских бандитов ни при чём и расти на
 	# чужих схватках не должен.
 	var enemy_commanded: bool = heroes.has(2)
 	var enemy_experience := BATTLE_REWARDS.experience_for_battle(units, 2) if enemy_commanded else 0
@@ -2074,12 +2074,12 @@ func _on_battle_results_closed(player_hero: Hero, _player_won: bool) -> void:
 ## иначе подпись противника роняет бой: так было с "patrol" — флот Ковальски
 ## валил _update_hud на каждом тике засады. Обращение всё равно через get()
 ## с запасным значением, чтобы новая фракция ломала текст, а не бой.
-const ENEMY_TITLE_BY_FACTION := {"bandit": "Марсиане", "orc": "Орки", "trader": "Торговцы", "pirate": "Пираты", "ancient": "Стражи Древних", "patrol": "Патруль"}
-const ENEMY_GENITIVE_BY_FACTION := {"bandit": "МАРСИАН", "orc": "ОРКОВ", "trader": "ТОРГОВЦЕВ", "pirate": "ПИРАТОВ", "ancient": "СТРАЖЕЙ ДРЕВНИХ", "patrol": "ПАТРУЛЯ"}
+const ENEMY_TITLE_BY_FACTION := {"bandit": "Марсианские бандиты", "trader": "Торговцы", "pirate": "Пираты", "ancient": "Стражи Древних", "patrol": "Патруль"}
+const ENEMY_GENITIVE_BY_FACTION := {"bandit": "МАРСИАНСКИХ БАНДИТОВ", "trader": "ТОРГОВЦЕВ", "pirate": "ПИРАТОВ", "ancient": "СТРАЖЕЙ ДРЕВНИХ", "patrol": "ПАТРУЛЯ"}
 
 
 func _player_faction_genitive() -> String:
-	return String({"bandit": "МАРСИАН", "trader": "ТОРГОВЦЕВ", "pirate": "ПИРАТОВ", "orc": "ОРКОВ"}.get(BATTLE_HUD.player_faction(units), "ЗЕМНОГО ФЛОТА"))
+	return String({"bandit": "МАРСИАН", "trader": "ТОРГОВЦЕВ", "pirate": "ПИРАТОВ"}.get(BATTLE_HUD.player_faction(units), "ЗЕМНОГО ФЛОТА"))
 
 
 func _enemy_faction_title() -> String:
@@ -3256,11 +3256,11 @@ func _unit_idle_offset(index: int, unit: Dictionary) -> Vector2:
 	return Vector2(0.0, sin(phase) * IDLE_BOB_AMOUNT)
 
 
-## Игрок — синий, орки — красный, нейтралы (торговцы/пираты) — жёлтый.
+## Игрок — синий, марсианские бандиты — красный, нейтралы (торговцы/пираты) — жёлтый.
 func _engine_color(unit: Dictionary) -> Color:
 	if unit["side"] == 1:
 		return PLAYER_COLOR
-	if String(unit.get("faction", "")) == "orc":
+	if String(unit.get("faction", "")) == "bandit":
 		return ENEMY_COLOR
 	if String(unit.get("faction", "")) == "ancient":
 		return ANCIENT_ENGINE_COLOR
@@ -3676,8 +3676,8 @@ func _return_to_map() -> void:
 		var retreated := not battle_finished
 		if guardian_index >= 0 and return_map.has_method("_resolve_guardian_battle"):
 			return_map._resolve_guardian_battle(guardian_index, units, _side_alive(1), retreated)
-		elif orc_battle_kind != "" and return_map.has_method("_resolve_orc_battle"):
-			return_map._resolve_orc_battle(orc_battle_kind, units, _side_alive(1), retreated)
+		elif bandit_battle_kind != "" and return_map.has_method("_resolve_bandit_battle"):
+			return_map._resolve_bandit_battle(bandit_battle_kind, units, _side_alive(1), retreated)
 		return_scene.process_mode = return_process_mode
 		return_map.show()
 		return_map.get_node("HUD").show()

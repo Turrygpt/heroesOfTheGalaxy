@@ -17,7 +17,6 @@ const MUSIC_FADED_VOLUME_DB := -40.0
 const MENU_LAYERS_DIR := "res://assets/ui/main_menu_layers"
 const MENU_BACKGROUNDS_DIR := "res://assets/ui/main_menu_backgrounds"
 const DEMO := preload("res://scripts/demo_edition.gd")
-const GAME_VERSION := "0.2.0"
 const IntroVideoPlayer := preload("res://scripts/intro_video_player.gd")
 
 var status: Label
@@ -113,6 +112,13 @@ func _ready() -> void:
 	column.add_child(status)
 	_build_version_label()
 	call_deferred("_start_music")
+	# Release-шаблон не принимает внешний --script; проверка запускается самим пакетом.
+	if DisplayServer.get_name() == "headless" and "--verify-distribution" in OS.get_cmdline_user_args():
+		call_deferred("_verify_distribution")
+
+
+func _verify_distribution() -> void:
+	get_tree().root.add_child(preload("res://scripts/distribution_check.gd").new())
 
 
 ## Скрывает панель с кнопками и подпись версии, оставляя только фон —
@@ -131,7 +137,7 @@ func set_logo_visible(is_visible: bool) -> void:
 func _build_version_label() -> void:
 	var label := Label.new()
 	version_label = label
-	label.text = ("ДЕМО · %s" if DEMO.enabled() else "Ранняя версия · %s") % GAME_VERSION
+	label.text = ("ДЕМО · %s" if DEMO.enabled() else "Ранняя версия · %s") % str(ProjectSettings.get_setting("application/config/version", "dev"))
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	label.offset_left = -220

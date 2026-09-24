@@ -39,7 +39,7 @@ func _run() -> void:
 	for object in posts:
 		var cell: Vector2i = object["cell"]
 		sides[cell.x < 32] = true
-		for start: Vector2i in [map.PLAYER_ONE_START_CELL, map.ORC_PLANET_CENTER]:
+		for start: Vector2i in [map.PLAYER_ONE_START_CELL, map.BANDIT_PLANET_CENTER]:
 			_check(not map.navigation_grid.get_id_path(start, cell).is_empty(), "Торговый пост недоступен")
 		for point: Vector2i in map._footprint_cells(cell, 2):
 			_check(not map.blocked_cells.has(point) and not map.guardian_at.has(point), "Пост перекрыт препятствием или стражем")

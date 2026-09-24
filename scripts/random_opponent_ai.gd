@@ -1,18 +1,21 @@
-## ИИ случайной партии: отдельная сторона, экономика и герой. Кампания использует OrcAI.
-extends "res://scripts/orc_ai.gd"
+## ИИ случайной партии: отдельная сторона, экономика и герой. Кампания использует BanditAI.
+extends "res://scripts/bandit_ai.gd"
 
 var owner_id := 2
-var hero_id := "orc_warlord"
+var hero_id := "bandit_raider_leader"
 var defeated := false
 var base_owner := 2
 
+func _side_id() -> int:
+	return owner_id
+
 static func restore(data: Dictionary, cell: Vector2i, side: int) -> RefCounted:
 	var ai = load("res://scripts/random_opponent_ai.gd").new()
-	var previous := OrcAI.from_dict(data, cell)
+	var previous := BanditAI.from_dict(data, cell)
 	for key in previous.to_dict():
 		ai.set(key, previous.get(key))
 	ai.owner_id = side
-	ai.hero_id = "orc_warlord" if side == 2 else "random_warlord_%d" % side
+	ai.hero_id = "bandit_raider_leader" if side == 2 else "random_raider_leader_%d" % side
 	ai.defeated = bool(data.get("defeated", false))
 	ai.base_owner = int(data.get("base_owner", side))
 	return ai
@@ -40,15 +43,15 @@ func _collect_income(map: Node2D) -> void:
 		var parts: Array[String] = []
 		for resource_name in gained:
 			parts.append("+%d %s" % [int(gained[resource_name]), resource_name])
-		last_report.append("Орки добыли %s." % ", ".join(parts))
+		last_report.append("Марсианские бандиты добыли %s." % ", ".join(parts))
 
 
 func _choose_goal(map: Node2D) -> void:
-	var warlord := hero(map)
-	if warlord == null:
+	var raider_leader := hero(map)
+	if raider_leader == null:
 		goal_kind = ""
 		return
-	var own_power := army_power(warlord.army)
+	var own_power := army_power(raider_leader.army)
 	var target := _player_target(map)
 	var player_cell: Vector2i = target["cell"]
 	var player_power: float = target["power"]
@@ -65,19 +68,24 @@ func _choose_goal(map: Node2D) -> void:
 		return
 	# Локальная охота: полномасштабного перевеса для похода на столицу ещё нет
 	# (или не настал ASSAULT_EARLIEST_DAY), но флот игрока подвернулся рядом и
-	# заметно слабее — вождь бросает стройку/захват и добивает его на месте.
+	# заметно слабее — главарь бросает стройку/захват и добивает его на месте.
 	if player_power > 0.0 and own_power >= player_power * HUNT_POWER_RATIO \
 			and _distance(hero_cell, player_cell) <= HUNT_RANGE:
 		goal_cell = player_cell
 		goal_kind = "hunt"
 		return
 	# За накопленным в логовах флотом стоит слетать домой, если он заметен на
-	# фоне текущей орды, — иначе корабли лежат в гарнизоне всю партию.
+	# фоне текущей эскадры, — иначе корабли лежат в гарнизоне всю партию.
 	var garrison_power := army_power(garrison)
 	if garrison_power >= own_power * REGROUP_GARRISON_RATIO \
 			or (own_power < player_power * RETREAT_POWER_RATIO and garrison_power > 0.0):
 		goal_cell = home_cell
 		goal_kind = "regroup"
+		return
+	var station_cell := _best_station_target(map, raider_leader)
+	if station_cell.x >= 0:
+		goal_cell = station_cell
+		goal_kind = "station"
 		return
 	var site_cell := _best_capture_target(map, own_power)
 	if site_cell.x >= 0:
@@ -85,8 +93,8 @@ func _choose_goal(map: Node2D) -> void:
 		goal_kind = "capture"
 		return
 	# Все окрестные месторождения уже разобраны или слишком далеко/охраняются
-	# не по зубам — орда не паркуется дома до конца партии, а идёт грабить
-	# стражей по силам ради опыта вождю (экономика тем временем не стоит:
+	# не по зубам — эскадра не паркуется дома до конца партии, а идёт грабить
+	# стражей по силам ради опыта главарю (экономика тем временем не стоит:
 	# казна и найм из уже построенных логов продолжают идти каждый сол).
 	var loot_cell := _best_loot_target(map, own_power)
 	if loot_cell.x >= 0:
@@ -127,7 +135,7 @@ func _capture_site(map: Node2D, cell: Vector2i) -> void:
 		return
 	map.set_production_owner(index, owner_id)
 	var site: Dictionary = map.production_sites[index]
-	last_report.append("Орки захватили «%s»." % String(site["name"]))
+	last_report.append("Марсианские бандиты захватили «%s»." % String(site["name"]))
 
 
 
@@ -136,7 +144,7 @@ func _resolve_arrival(map: Node2D, cell: Vector2i) -> bool:
 	# клетке — это осада столицы (гарнизон и орбитальная оборона участвуют),
 	# а не дуэль в открытом космосе. Раньше проверка "это клетка героя" шла
 	# раньше проверки "это планета", и герой, отступивший домой, встречал
-	# орков открытым флотом без укреплений при каждой попытке защититься —
+	# марсианских бандитов открытым флотом без укреплений при каждой попытке защититься —
 	# кампания превращалась в бесконечную серию проигранных дуэлей у порога
 	# собственной столицы, а осада игроку не засчитывалась ни разу.
 	var defender_id: String = map._random_hero_id_at(cell)
@@ -145,18 +153,18 @@ func _resolve_arrival(map: Node2D, cell: Vector2i) -> bool:
 			map._select_random_hero(defender_id)
 		if map._cell_is_in_planet(cell, map.home_planet_cell) and int(map.human_planet_owner) == 1:
 			pending_battle = "planet"
-			last_report.append("Орда вышла на орбиту вашей планеты!")
+			last_report.append("Эскадра вышла на орбиту вашей планеты!")
 		else:
 			pending_battle = "hero"
-			last_report.append("Вождь орков перехватил ваш флот!")
+			last_report.append("Главарь марсианских бандитов перехватил ваш флот!")
 		return true
-	# В столицу игрока орки заходят только осознанно: транзитом через чужую
+	# В столицу игрока марсианские бандиты заходят только осознанно: транзитом через чужую
 	# планету штурм не начинается, иначе маршрут к дальней шахте случайно
 	# оборачивался бы внезапной осадой.
 	if map._cell_is_in_planet(cell, map.home_planet_cell):
 		if goal_kind == "assault" and int(map.human_planet_owner) == 1:
 			pending_battle = "planet"
-			last_report.append("Орда вышла на орбиту вашей планеты!")
+			last_report.append("Эскадра вышла на орбиту вашей планеты!")
 			return true
 		return true
 	var guard_index: int = map.guardian_at.get(cell, -1)

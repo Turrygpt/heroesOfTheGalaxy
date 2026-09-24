@@ -7,7 +7,7 @@
 * orbital_platform.png — станция смотрит носом ВЛЕВО, как любой корабль
   (см. tactical_battle._draw_unit), region = весь холст;
 * trading.png / pirate.png — квадратные сферы планет, тот же формат, что
-  assets/planets/human.png и orc.png (см. space_strategy_map.gd:human_planet).
+  assets/planets/human.png и bandit.png (см. space_strategy_map.gd:human_planet).
 
 Запуск:  python tools/make_defense_placeholders.py
 """

@@ -1,6 +1,6 @@
 extends SceneTree
 
-const OrcDefs := preload("res://scripts/orc_defs.gd")
+const BanditDefs := preload("res://scripts/bandit_defs.gd")
 
 
 class FakeStrategyMap:
@@ -215,8 +215,8 @@ func _check_ship_resource_cap() -> void:
 		for unit_id in UnitDefs.recruitable_ids(faction):
 			var unit: Dictionary = UnitDefs.get_unit(unit_id)
 			_check_recruit_cost(unit_id, int(unit["tier"]), unit["cost"])
-	for unit_id in OrcDefs.UNITS:
-		var unit: Dictionary = OrcDefs.UNITS[unit_id]
+	for unit_id in BanditDefs.UNITS:
+		var unit: Dictionary = BanditDefs.UNITS[unit_id]
 		_check_recruit_cost(unit_id, int(unit["tier"]), unit["cost"])
 	for unit_id in TradingPost.UNIT_OFFERS:
 		_check_recruit_cost(unit_id, int(UnitDefs.get_unit(unit_id)["tier"]), TradingPost.UNIT_OFFERS[unit_id]["cost"])
@@ -231,13 +231,13 @@ func _check_recruit_cost(unit_id: String, tier: int, cost: Dictionary) -> void:
 
 
 ## Ресурсная цена постройки живёт по шкале HoMM (см. комментарий к
-## BUILDING_DEFS людей и орков): 20 единиц базового ресурса и 10 единиц
+## BUILDING_DEFS людей и марсианских бандитов): 20 единиц базового ресурса и 10 единиц
 ## редкого — потолок на один уровень постройки, всё остальное берут кредиты.
 func _check_building_resource_cap(screen: Node) -> void:
 	var basic_resources := ["Продукты", "Руда"]
 	var all_defs := {}
 	all_defs.merge(screen.BUILDING_DEFS)
-	all_defs.merge(OrcDefs.BUILDING_DEFS)
+	all_defs.merge(BanditDefs.BUILDING_DEFS)
 	for kind in all_defs:
 		for cost in all_defs[kind].get("costs", []):
 			for resource_name in cost:
@@ -251,7 +251,7 @@ func _check_building_resource_cap(screen: Node) -> void:
 
 
 ## Первый форт доступен из стартового запаса, но уже следующий ангар требует
-## новой руды. Орки платят за военную инфраструктуру по той же шкале.
+## новой руды. Марсианские бандиты платят за военную инфраструктуру по той же шкале.
 func _check_building_resource_progression(screen: Node) -> void:
 	var fort_cost: Dictionary = screen.BUILDING_DEFS["fort"]["costs"][0]
 	if fort_cost.get("Продукты") != 10 or fort_cost.get("Руда") != 10:
@@ -262,9 +262,9 @@ func _check_building_resource_progression(screen: Node) -> void:
 		_fail("Первый ангар должен требовать добычи новой руды")
 		return
 	for human_kind in ["fort", "fighter_yard", "gunship_yard", "corvette_yard", "frigate_yard", "destroyer_yard"]:
-		var orc_kind: String = human_kind if human_kind == "fort" else "ork_" + human_kind
-		if screen.BUILDING_DEFS[human_kind]["costs"] != OrcDefs.BUILDING_DEFS[orc_kind]["costs"]:
-			_fail("Цены военных зданий разошлись у людей и орков: %s" % human_kind)
+		var bandit_kind: String = human_kind if human_kind == "fort" else "marauder_" + human_kind
+		if screen.BUILDING_DEFS[human_kind]["costs"] != BanditDefs.BUILDING_DEFS[bandit_kind]["costs"]:
+			_fail("Цены военных зданий разошлись у людей и марсианских бандитов: %s" % human_kind)
 			return
 
 
@@ -282,11 +282,11 @@ func _check_fort_growth() -> void:
 		if actual != expected[level]:
 			_fail("Fort level %d must give %d interceptors a week, got %d" % [level, expected[level], actual])
 			return
-	# Прирост орков считается той же функцией — бонус форта общий для фракций.
-	var orc_levels := {"ork_fighter_yard": 1, "fort": 3}
-	var orc_base := int(UnitDefs.get_unit("ork_fighter")["weekly_growth"])
-	if HumanPlanetState.scaled_weekly_growth("ork_fighter", orc_levels) != orc_base * 2:
-		_fail("Orc yards must get the same fort bonus")
+	# Прирост марсианских бандитов считается той же функцией — бонус форта общий для фракций.
+	var bandit_levels := {"marauder_fighter_yard": 1, "fort": 3}
+	var bandit_base := int(UnitDefs.get_unit("marauder_fighter")["weekly_growth"])
+	if HumanPlanetState.scaled_weekly_growth("marauder_fighter", bandit_levels) != bandit_base * 2:
+		_fail("Bandit yards must get the same fort bonus")
 	_check_one_building_per_day()
 
 

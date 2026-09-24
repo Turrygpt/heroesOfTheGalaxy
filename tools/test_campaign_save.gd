@@ -48,6 +48,7 @@ func _run() -> void:
 	PLANET.save_state(planet)
 	_check(campaign.save_campaign(map, TEST_PATH), "Сохранение записано")
 	_check(campaign.save_campaign(map, TEST_PATH), "Существующее сохранение заменяется")
+	_check_legacy_faction_save(campaign, map, roster)
 	var obstacles: Array = map.obstacles.duplicate(true)
 	host.free()
 	campaign.prepare_new_game()
@@ -101,3 +102,47 @@ func _run() -> void:
 	if failures == 0:
 		print("PASS: сохранение, перезапись, загрузка кампании и новая игра")
 	quit(1 if failures else 0)
+
+
+## Настоящий снимок прежней версии должен загружать флот, героя и экономику.
+func _check_legacy_faction_save(campaign: Node, map: Node, roster: Node) -> void:
+	var snapshot: Dictionary = campaign.read_save(TEST_PATH)
+	var old_ai: Dictionary = snapshot.map.bandit_ai.duplicate(true)
+	old_ai["garrison"] = {"ork_elite_fighter": 9}
+	old_ai["built_levels"] = {"townhall": 2, "ork_fighter_yard": 2}
+	old_ai["available_growth"] = {"ork_fighter_yard": 11}
+	snapshot.map.erase("bandit_ai")
+	snapshot.map["orc_ai"] = old_ai
+	for suffix in ["planet_owner", "planetary_council_level"]:
+		snapshot.map["orc_" + suffix] = snapshot.map["bandit_" + suffix]
+		snapshot.map.erase("bandit_" + suffix)
+	var old_hero: Dictionary = snapshot.heroes["bandit_raider_leader"].duplicate(true)
+	old_hero["id"] = "orc_warlord"
+	old_hero["hero_name"] = "Вождь Гракх Железный Клык"
+	old_hero["class_id"] = "warlord"
+	old_hero["experience"] = 1234
+	old_hero["army"] = {"ork_fighter": 17}
+	old_hero["army_slots"] = [{"unit_id": "ork_fighter", "count": 17}]
+	snapshot.heroes.erase("bandit_raider_leader")
+	snapshot.heroes["orc_warlord"] = old_hero
+	var file := FileAccess.open(TEST_PATH, FileAccess.WRITE)
+	file.store_var(snapshot, false)
+	file.close()
+	var migrated: Dictionary = campaign.read_save(TEST_PATH)
+	_check(not migrated.is_empty(), "Снимок прежней фракции принят")
+	if migrated.is_empty():
+		return
+	var restored: BanditAI = BanditAI.from_dict(migrated.map.bandit_ai, map.opponent_planet_cell)
+	_check(restored.garrison.get("marauder_elite_fighter") == 9, "Старый гарнизон сохранён")
+	_check(restored.built_levels.get("marauder_fighter_yard") == 2, "Верфи сохранены")
+	_check(restored.available_growth.get("marauder_fighter_yard") == 11, "Запас найма сохранён")
+	var hero := Hero.from_dict(old_hero)
+	_check(hero.id == "bandit_raider_leader" and hero.hero_name == "Главарь Грак", "Герой переименован")
+	_check(hero.class_id == "raider_leader" and hero.experience == 1234, "Класс и опыт сохранены")
+	_check(hero.army.get("marauder_fighter") == 17, "Слоты старого флота восстановлены")
+	_check(UnitDefs.get_unit(String(hero.army_slots[0].unit_id)).get("faction") == "bandit", "В бою загружен флот бандитов")
+	_check(campaign.prepare_load(TEST_PATH), "Старая кампания загружается через штатный вход")
+	_check(roster.enemy_hero().hero_name == "Главарь Грак", "Ростер использует нового главаря")
+	# Остальная проверка продолжает работать с актуальным снимком карты.
+	campaign.pending_map.clear()
+	_check(campaign.save_campaign(map, TEST_PATH), "Мигрированная кампания пересохраняется")

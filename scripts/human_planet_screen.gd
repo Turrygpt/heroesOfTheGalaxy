@@ -2734,7 +2734,7 @@ func _commit_strategy_economy_change() -> void:
 		return
 	if strategy_map.has_method("_update_hud"):
 		strategy_map._update_hud()
-	if strategy_map.get("map_random") != null and strategy_map.get("camera") != null and strategy_map.get("orc_ai") != null:
+	if strategy_map.get("map_random") != null and strategy_map.get("camera") != null and strategy_map.get("bandit_ai") != null:
 		CampaignSave.save_campaign(strategy_map)
 
 

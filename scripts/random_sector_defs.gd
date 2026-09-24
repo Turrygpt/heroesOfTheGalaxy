@@ -4,7 +4,7 @@ extends RefCounted
 const THEMES := {
 	"human": {"name": "Лазурная дымка", "color": Color("447f9d"), "accent": Color("8bcac9"), "stretch": 1.3, "props": [2, 2, 3, 18]},
 	"pirate": {"name": "Охристые облака", "color": Color("926b43"), "accent": Color("ca9461"), "stretch": 2.2, "props": [1, 2, 3, 19]},
-	"orc": {"name": "Багровая туманность", "color": Color("9b425c"), "accent": Color("c78167"), "stretch": 1.5, "props": [0, 2, 3, 20]},
+	"bandit": {"name": "Багровая туманность", "color": Color("9b425c"), "accent": Color("c78167"), "stretch": 1.5, "props": [0, 2, 3, 20]},
 	"trader": {"name": "Золотая пыль", "color": Color("9b884a"), "accent": Color("c4b982"), "stretch": 3.0, "props": [2, 3, 3, 21]},
 	"volcanic": {"name": "Пепельный пояс", "color": Color("ad542c"), "accent": Color("d8a452"), "stretch": 2.0, "props": [0, 1, 2, 4]},
 	"crystal": {"name": "Кристаллический сектор", "color": Color("348777"), "accent": Color("9271bc"), "stretch": 1.4, "props": [6, 7, 8, 9]},
@@ -20,7 +20,7 @@ const THEMES := {
 const COMPOSED_SECTORS := ["ice", "toxic", "volcanic"]
 
 ## Только треть секторов имеет протяжённый газ; остальные — открытый космос.
-const CLOUD_SECTORS := ["volcanic", "ion", "orc"]
+const CLOUD_SECTORS := ["volcanic", "ion", "bandit"]
 
 ## Композиция сектора на одном поясе не читается. Если жребий отдал такому
 ## биому пустой участок, тема меняется местами с самым плотным из свободных
@@ -46,7 +46,7 @@ static func assign_regions(features: Array[Dictionary], rng: RandomNumberGenerat
 		order[i] = order[j]
 		order[j] = old
 	order.push_front("human")
-	order.append("orc")
+	order.append("bandit")
 	var regions: Array[Dictionary] = []
 	for i in range(9):
 		regions.append({"id": order[i], "center": Vector2(10 + (i % 3) * 22, 10 + (i / 3) * 22)
@@ -83,7 +83,7 @@ static func assign_regions(features: Array[Dictionary], rng: RandomNumberGenerat
 		features[0]["regions"] = regions
 
 
-## Углы 0 и 8 закреплены за людьми и орками, поэтому тема переезжает только
+## Углы 0 и 8 закреплены за людьми и марсианскими бандитами, поэтому тема переезжает только
 ## между районами 1..7 — и только если там препятствий заметно больше. Чужой
 ## композиционный сектор не трогаем: иначе второй вызов отберёт участок у
 ## первого и пустым останется уже он.

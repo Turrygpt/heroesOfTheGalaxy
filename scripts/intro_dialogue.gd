@@ -35,7 +35,7 @@ const SPEAKERS := {
 	"patrol_captain": {"name": "Капитан патруля · Карантинная служба", "side": "left"},
 	"kowalski": {"name": "Маршал Ковальски · Патруль", "side": "left"},
 	"kowalski_evil": {"name": "Маршал Ковальски · Патруль", "side": "left"},
-	"orc": {"name": "Грак · Марсианский гарнизон", "side": "left"},
+	"bandit": {"name": "Грак · Марсианский гарнизон", "side": "left"},
 }
 ## Цвета реплик помогают сразу отличать участников радиообмена.
 const SPEAKER_COLORS := {
@@ -46,7 +46,7 @@ const SPEAKER_COLORS := {
 	"patrol_captain": Color("9eb3c9"),
 	"kowalski": Color("b9a4ee"),
 	"kowalski_evil": Color("e87979"),
-	"orc": Color("ed8578"),
+	"bandit": Color("ed8578"),
 }
 const PORTRAITS := {
 	"admiral": ADMIRAL_PORTRAIT, "pavlova": PAVLOVA_PORTRAIT,
@@ -55,7 +55,7 @@ const PORTRAITS := {
 	"patrol_captain": preload("res://assets/persons/PatrolCaptain/portrait.png"),
 	"kowalski": preload("res://assets/persons/Marshal/portrait.png"),
 	"kowalski_evil": preload("res://assets/persons/Marshal/evil.png"),
-	"orc": preload("res://assets/persons/Orc/portrait.png"),
+	"bandit": preload("res://assets/persons/Bandit/portrait.png"),
 }
 var left_portrait: TextureRect
 ## Сценарий задаётся до add_child; вступление остаётся значением по умолчанию.

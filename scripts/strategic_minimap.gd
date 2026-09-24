@@ -125,17 +125,17 @@ func _draw() -> void:
 
 	# Раньше вражеский флагман на миникарте не отмечался вовсе — только свой
 	# корабль. Та же видимость, что и на основной карте (жив и клетка освещена,
-	# см. _refresh_orc_ship_sprite), иначе миникарта выдавала бы орка сквозь туман.
+	# см. _refresh_bandit_ship_sprite), иначе миникарта выдавала бы бандита сквозь туман.
 	if strategy_map.has_method("random_session_snapshot"):
 		for ai in strategy_map.opponents:
 			if not ai.defeated and ai.hero_alive and strategy_map.is_cell_visible(ai.hero_cell):
 				var point := _cell_to_minimap(ai.hero_cell)
 				draw_circle(point, 4, Color.WHITE)
 				draw_circle(point, 2.5, strategy_map._production_owner_color(ai.owner_id))
-	elif strategy_map.orc_ship_sprite != null and strategy_map.orc_ship_sprite.visible:
-		var orc_point: Vector2 = strategy_map.orc_ship_sprite.position / world_size * size
-		draw_circle(orc_point, 5.0, Color.WHITE)
-		draw_circle(orc_point, 3.0, PLAYER_TWO_COLOR)
+	elif strategy_map.bandit_ship_sprite != null and strategy_map.bandit_ship_sprite.visible:
+		var bandit_point: Vector2 = strategy_map.bandit_ship_sprite.position / world_size * size
+		draw_circle(bandit_point, 5.0, Color.WHITE)
+		draw_circle(bandit_point, 3.0, PLAYER_TWO_COLOR)
 
 	if strategy_map.beacon_cell != Vector2i(-1, -1):
 		var ping_point := _cell_to_minimap(strategy_map.beacon_cell)

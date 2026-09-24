@@ -611,7 +611,7 @@ func begin_mars_assault() -> bool:
 		return false
 	mark_seen("grak_battle")
 	play("grak_battle", func() -> void:
-		map._start_player_attack_on_orcs("orc_planet")
+		map._start_player_attack_on_bandits("bandit_planet")
 	)
 	return true
 

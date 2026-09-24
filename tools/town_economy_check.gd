@@ -9,7 +9,7 @@ class Economy:
 	var player_one_resources := {"Продукты": 10000, "Руда": 10000, "Научные данные": 10000, "Энергокристаллы": 10000, "Топливо": 10000, "Радиоизотопы": 10000}
 	var map_random = null
 	var camera = null
-	var orc_ai = null
+	var bandit_ai = null
 	func can_afford(cost: Dictionary) -> bool:
 		for key in cost:
 			if int(cost[key]) > (player_one_credits if key == "credits" else int(player_one_resources.get(key, 0))):

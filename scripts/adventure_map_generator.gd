@@ -25,7 +25,7 @@ const BLOCKED_TARGET := 0.19
 ## Вокруг обеих планет остаётся чистая площадка: стартовый экран не должен
 ## упираться в гряду, да и экономике нужно место.
 const HOME_CLEARING := 7
-## Родные планеты — space_strategy_map.HUMAN/ORC_PLANET_CENTER, нейтральные —
+## Родные планеты — space_strategy_map.HUMAN/BANDIT_PLANET_CENTER, нейтральные —
 ## map_object_defs.TRADE/PIRATE_PLANET_CENTER. Держим их здесь константами,
 ## чтобы геометрия считалась до того, как появится сама карта.
 var HOME_CENTERS: Array[Vector2i] = [Vector2i(6, 6), Vector2i(57, 57)]
@@ -147,7 +147,7 @@ func _make_regions() -> void:
 	themes.append_array(pool.slice(0, 7 - themes.size()))
 	_shuffle(themes)
 	themes.push_front("human")
-	themes.append("orc")
+	themes.append("bandit")
 	# Девять областей остаются как топология: экономика и связи опираются на
 	# то, что у дома есть два соседа. А вот стоят они уже не по линейке —
 	# разброс центров вдвое шире шага сетки по каждой оси, поэтому области

@@ -39,7 +39,7 @@
 
 Основные тесты: `test_campaign_map`, `test_campaign_story`,
 `test_campaign_save`, `test_campaign_playthrough`, `test_demo_release`,
-`test_main_menu`, `test_battle_tactics`, `test_auto_battle`, `test_orc_ai`.
+`test_main_menu`, `test_battle_tactics`, `test_auto_battle`, `test_bandit_ai`.
 Новый `tools/run_tests.ps1` запускает весь набор Windows, изолирует каждый
 профиль и считает ошибкой не только код выхода, но и `SCRIPT ERROR`/`ERROR`
 в журнале. Это важно: `push_error()` сам по себе не гарантирует ненулевой выход.

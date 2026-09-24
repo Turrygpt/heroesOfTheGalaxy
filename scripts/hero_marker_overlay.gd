@@ -11,9 +11,9 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	var strategy_map = get_parent()
 	_draw_marker(strategy_map.ship_sprite.position, strategy_map.PLAYER_ONE_COLOR)
-	var orc_ship: Sprite2D = strategy_map.orc_ship_sprite
-	if orc_ship != null and orc_ship.visible:
-		_draw_marker(orc_ship.position, strategy_map.PLAYER_TWO_COLOR)
+	var bandit_ship: Sprite2D = strategy_map.bandit_ship_sprite
+	if bandit_ship != null and bandit_ship.visible:
+		_draw_marker(bandit_ship.position, strategy_map.PLAYER_TWO_COLOR)
 
 
 func _draw_marker(center: Vector2, color: Color) -> void:

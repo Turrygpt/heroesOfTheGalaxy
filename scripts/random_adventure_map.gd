@@ -30,14 +30,14 @@ func _ready() -> void:
 		CampaignSave.random_map_requested = true
 		starting_planets = SETTINGS.starting_cells(map_seed, random_options)
 	else:
-		starting_planets.assign(layout.get("starts", [HUMAN_PLANET_CENTER, ORC_PLANET_CENTER]))
+		starting_planets.assign(layout.get("starts", [HUMAN_PLANET_CENTER, BANDIT_PLANET_CENTER]))
 	home_planet_cell = starting_planets[0]
 	opponent_planet_cell = starting_planets[1]
 	map_generation = preload("res://scripts/random_map_generation.gd").new(self)
 	super._ready()
 	random_initialized = true
 	_refresh_fog_visibility()
-	_refresh_orc_ship_sprite()
+	_refresh_bandit_ship_sprite()
 
 
 func _initial_player_cell() -> Vector2i:
@@ -58,12 +58,12 @@ func _generate_random_adventure() -> void:
 	preload("res://scripts/sized_adventure_generator.gd").new().populate(self)
 
 
-func _setup_orc_ai(snapshot: Dictionary) -> void:
+func _setup_bandit_ai(snapshot: Dictionary) -> void:
 	var saved: Array = snapshot.get("random_opponents", [])
 	if saved.is_empty() and not snapshot.is_empty():
-		var legacy: Dictionary = snapshot.get("orc_ai", {}).duplicate(true)
-		legacy["defeated"] = int(snapshot.get("orc_planet_owner", 2)) == 1
-		legacy["base_owner"] = int(snapshot.get("orc_planet_owner", 2))
+		var legacy: Dictionary = snapshot.get("bandit_ai", {}).duplicate(true)
+		legacy["defeated"] = int(snapshot.get("bandit_planet_owner", 2)) == 1
+		legacy["base_owner"] = int(snapshot.get("bandit_planet_owner", 2))
 		saved.append(legacy)
 	for i in range(starting_planets.size() - 1):
 		var data: Dictionary = saved[i] if i < saved.size() else {}
@@ -71,19 +71,19 @@ func _setup_orc_ai(snapshot: Dictionary) -> void:
 		opponents.append(ai)
 		var commander: Hero = HeroRoster.get_hero(ai.hero_id)
 		if commander == null:
-			commander = Hero.create(ai.hero_id, "Вождь %d" % (i + 1), "warlord")
+			commander = Hero.create(ai.hero_id, "Главарь %d" % (i + 1), "raider_leader")
 			HeroRoster.register(commander)
 		if data.is_empty():
-			commander.set_army_from_dict(OrcAI.START_ARMY.duplicate())
+			commander.set_army_from_dict(BanditAI.START_ARMY.duplicate())
 		var sprite := Sprite2D.new()
-		sprite.texture = ORC_HERO_SHIP_TEXTURE
+		sprite.texture = BANDIT_HERO_SHIP_TEXTURE
 		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-		sprite.scale = Vector2.ONE * ORC_HERO_SHIP_SCALE
+		sprite.scale = Vector2.ONE * BANDIT_HERO_SHIP_SCALE
 		sprite.modulate = Color.WHITE.lerp(SIDE_COLORS[i + 2], 0.25)
 		sprite.z_index = 3
 		add_child(sprite)
 		opponent_sprites.append(sprite)
-		var planet := orc_planet if i == 0 else orc_planet.duplicate() as Sprite2D
+		var planet := bandit_planet if i == 0 else bandit_planet.duplicate() as Sprite2D
 		if i > 0:
 			add_child(planet)
 		planet.position = _cell_center(ai.home_cell)
@@ -100,18 +100,18 @@ func _setup_orc_ai(snapshot: Dictionary) -> void:
 		add_child(label)
 		opponent_labels.append(label)
 	_select_opponent(0)
-	orc_ship_sprite = opponent_sprites[0]
-	orc_planet_nameplate.hide()
+	bandit_ship_sprite = opponent_sprites[0]
+	bandit_planet_nameplate.hide()
 	_save_hero_roster()
 
 
 func _select_opponent(index: int) -> void:
-	orc_ai = opponents[index]
+	bandit_ai = opponents[index]
 	HeroRoster.active_enemy_id = String(opponents[index].hero_id)
 
 
-func orc_hero() -> Hero:
-	return orc_ai.hero(self) if orc_ai != null else null
+func bandit_hero() -> Hero:
+	return bandit_ai.hero(self) if bandit_ai != null else null
 
 
 func random_session_snapshot() -> Dictionary:
@@ -121,7 +121,7 @@ func random_session_snapshot() -> Dictionary:
 	return {"random_opponents": saved}
 
 
-func _refresh_orc_ship_sprite() -> void:
+func _refresh_bandit_ship_sprite() -> void:
 	for i in range(opponents.size()):
 		var ai = opponents[i]
 		opponent_sprites[i].visible = not ai.defeated and ai.hero_alive and is_cell_visible(ai.hero_cell)
@@ -136,7 +136,7 @@ func _process(delta: float) -> void:
 	super._process(delta)
 	if not random_initialized:
 		return
-	_refresh_orc_ship_sprite()
+	_refresh_bandit_ship_sprite()
 	if ai_cursor >= 0 and not ai_waiting_battle and reward_dialog_count == 0:
 		_continue_ai_turns()
 
@@ -151,11 +151,11 @@ func can_use_campaign_menu() -> bool:
 	return ai_cursor < 0 and super.can_use_campaign_menu()
 
 
-func _run_orc_turn() -> void:
+func _run_bandit_turn() -> void:
 	if campaign_outcome != "" or ai_cursor >= 0:
 		return
 	ai_cursor = 0
-	orc_report = ""
+	bandit_report = ""
 	_continue_ai_turns()
 
 
@@ -170,48 +170,48 @@ func _continue_ai_turns() -> void:
 		if opponents[index].defeated:
 			continue
 		_select_opponent(index)
-		var result := orc_ai.take_turn(self)
-		orc_report += " ИИ %d: %s" % [index + 1, String(result.report)]
+		var result := bandit_ai.take_turn(self)
+		bandit_report += " ИИ %d: %s" % [index + 1, String(result.report)]
 		_save_hero_roster()
-		_refresh_orc_ship_sprite()
+		_refresh_bandit_ship_sprite()
 		if String(result.battle) != "":
 			ai_waiting_battle = true
-			_start_orc_battle(String(result.battle))
+			_start_bandit_battle(String(result.battle))
 			return
 	ai_cursor = -1
 	ai_waiting_battle = false
-	super._finish_orc_turn()
+	super._finish_bandit_turn()
 
 
-func _finish_orc_turn() -> void:
+func _finish_bandit_turn() -> void:
 	ai_waiting_battle = false
 	if ai_cursor < 0:
-		super._finish_orc_turn()
+		super._finish_bandit_turn()
 
 
-func _after_orc_battle(_kind: String) -> void:
+func _after_bandit_battle(_kind: String) -> void:
 	_save_hero_roster()
 	ai_waiting_battle = false
-	_refresh_orc_ship_sprite()
+	_refresh_bandit_ship_sprite()
 	_update_hud()
 	queue_redraw()
 
 
-func _check_orc_hero_encounter(cell: Vector2i) -> bool:
+func _check_bandit_hero_encounter(cell: Vector2i) -> bool:
 	for i in range(opponents.size()):
 		var ai = opponents[i]
 		if not ai.defeated and ai.hero_alive and ai.hero_cell == cell:
 			_select_opponent(i)
-			_start_player_attack_on_orcs("hero")
+			_start_player_attack_on_bandits("hero")
 			return true
 	return false
 
 
-func _check_orc_planet_encounter(cell: Vector2i) -> bool:
+func _check_bandit_planet_encounter(cell: Vector2i) -> bool:
 	for i in range(opponents.size()):
 		if not opponents[i].defeated and _cell_is_in_planet(cell, opponents[i].home_cell):
 			_select_opponent(i)
-			_start_player_attack_on_orcs("orc_planet")
+			_start_player_attack_on_bandits("bandit_planet")
 			return true
 	return false
 
@@ -223,23 +223,23 @@ func _resolve_landing_cell(cell: Vector2i) -> Vector2i:
 	return super._resolve_landing_cell(cell)
 
 
-func _resolve_orc_victory(kind: String) -> void:
-	if kind != "orc_planet":
-		super._resolve_orc_victory(kind)
+func _resolve_bandit_victory(kind: String) -> void:
+	if kind != "bandit_planet":
+		super._resolve_bandit_victory(kind)
 		return
-	var ai = orc_ai
+	var ai = bandit_ai
 	ai.defeated = true
 	ai.base_owner = 1
 	ai.hero_alive = false
 	_refresh_fog_visibility()
 	ai.garrison.clear()
-	var commander := orc_hero()
+	var commander := bandit_hero()
 	if commander != null:
 		commander.set_army_from_dict({})
 	for i in range(production_owners.size()):
 		if production_owners[i] == ai.owner_id:
 			set_production_owner(i, 0)
-	orc_planet_owner = int(opponents[0].base_owner)
+	bandit_planet_owner = int(opponents[0].base_owner)
 	var remaining := 0
 	for other in opponents:
 		if not other.defeated:
