@@ -15,9 +15,27 @@ const ICON_DIAMETER := 46.0
 const SHIP_ICON_DIAMETER := 62.0
 const CELL_SIZE_FOR_FOOTPRINT := 96.0
 const FOOTPRINT_ICON_MARGIN := 0.85
-## Контроль 3×3: один сосед в каждом направлении от клетки корабля.
+## Центр круга совпадает с кораблём. Радиус до середины крайней клетки:
+## в игре перехват проверяется по центрам клеток в квадрате 3×3 или 5×5.
+const CONTROL_RADIUS_CELLS := 1
+const CONTROL_WAVE_PERIOD := 2.4
+const CONTROL_WAVE_WIDTH := 2.5
+
+var control_wave_time := 0.0
+
+
+func _process(delta: float) -> void:
+	control_wave_time = fposmod(control_wave_time + delta, CONTROL_WAVE_PERIOD)
+	queue_redraw()
+
+
 func _draw() -> void:
 	var strategy_map = get_parent()
+	# Зоны контроля рисуются под кораблями и только для видимых живых флотов.
+	for guardian in strategy_map.guardians:
+		if bool(guardian.get("alive", false)) and _has_control_zone(guardian) \
+				and strategy_map.is_cell_visible(guardian["cell"]):
+			_draw_control_zone(strategy_map, guardian)
 	for guardian in strategy_map.guardians:
 		if not guardian["alive"]:
 			if int(guardian.get("captured_by", 0)) > 0 and String(guardian.get("object_kind", "")) != "":
@@ -27,6 +45,26 @@ func _draw() -> void:
 			continue
 		if String(guardian.get("object_kind", "")) != "" or strategy_map.is_cell_visible(guardian["cell"]):
 			_draw_guardian(strategy_map, guardian)
+
+
+func _draw_control_zone(strategy_map: Node2D, guardian: Dictionary) -> void:
+	var center: Vector2 = strategy_map._object_footprint_center(guardian["cell"], int(guardian.get("size", 1)))
+	var color := PATROL_COLOR if String(guardian.get("kind", "")) == "patrol" else PIRATE_COLOR
+	var radius_cells := int(guardian.get("aggro_radius", CONTROL_RADIUS_CELLS))
+	var pixel_radius := (float(radius_cells) + 0.5) * CELL_SIZE_FOR_FOOTPRINT
+	var phase_offset := float((int(guardian["cell"].x) * 17 + int(guardian["cell"].y) * 31) % 24) / 24.0
+	var progress := fposmod(control_wave_time / CONTROL_WAVE_PERIOD + phase_offset, 1.0)
+	var wave_radius := lerpf(SHIP_ICON_DIAMETER * 0.42, pixel_radius, progress)
+	var wave_alpha := pow(1.0 - progress, 1.5) * 0.7
+	draw_circle(center, pixel_radius, Color(color, 0.055))
+	draw_arc(center, pixel_radius, 0.0, TAU, 64, Color(color, 0.48), 2.0, true)
+	draw_arc(center, wave_radius, 0.0, TAU, 48, Color(color.lightened(0.25), wave_alpha), CONTROL_WAVE_WIDTH, true)
+
+
+func _has_control_zone(guardian: Dictionary) -> bool:
+	if guardian.has("object_kind"):
+		return false
+	return String(guardian.get("kind", "")) in ["pirate", "patrol"]
 
 
 func _draw_guardian(strategy_map: Node2D, guardian: Dictionary) -> void:
