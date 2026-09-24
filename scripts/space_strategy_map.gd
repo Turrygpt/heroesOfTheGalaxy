@@ -81,8 +81,6 @@ const HERO_SHIP_SCALE := 0.16
 const BANDIT_HERO_SHIP_SCALE := HERO_SHIP_SCALE * 512.0 / 1301.0
 const HUMAN_PLANET_SCREEN := preload("res://scenes/HumanPlanetScreen.tscn")
 const HUMAN_PLANET_TOWN := preload("res://scenes/HumanPlanetTown.tscn")
-## Временная визуальная подмена: человеческая планета открывает марсианскую панораму.
-const BANDIT_PLANET_SCREEN := preload("res://scenes/BanditPlanetScreen.tscn")
 const BANDIT_PLANET_TEXTURE := preload("res://assets/planets/bandit.png")
 ## Фоновая музыка карты. На время тактического боя ставится на паузу
 ## (см. _swap_to_battle) и возобновляется при возврате (tactical_battle.gd:_return_to_map).

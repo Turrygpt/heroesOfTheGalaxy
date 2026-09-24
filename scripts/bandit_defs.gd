@@ -6,8 +6,8 @@ extends RefCounted
 ##
 ## Корабли названы по имени, а не по классу («Коготь», «Пиранья», «Акула»,
 ## «Катран», «Дракон») - класс и ранг живут в поле role. Спрайты кораблей
-## настоящие (assets/ships/bandit), носом ВЛЕВО, region = весь холст; здания и
-## портрет главаря пока плейсхолдеры (tools/make_bandit_placeholders.py).
+## настоящие (assets/ships/bandit), носом ВЛЕВО, region = весь холст.
+## Панорама Марса находится в assets/planet_surface/mars/town.
 ##
 ## Форма записи корабля — та же, что у UnitDefs.UNITS, поэтому
 ## UnitDefs.get_unit() отдаёт марсианские корабли наравне с земными, а
@@ -202,29 +202,6 @@ const BUILDING_DEFS := {
 	},
 }
 
-## Спрайты построек (плейсхолдеры, см. tools/make_bandit_placeholders.py).
-## Ключ — "<kind><level>", как имена файлов в assets/planet_surface/bandit.
-const BUILDING_TEXTURES := {
-	"townhall1": preload("res://assets/planet_surface/bandit/townhall1.png"),
-	"townhall2": preload("res://assets/planet_surface/bandit/townhall2.png"),
-	"townhall3": preload("res://assets/planet_surface/bandit/townhall3.png"),
-	"townhall4": preload("res://assets/planet_surface/bandit/townhall4.png"),
-	"fort1": preload("res://assets/planet_surface/bandit/fort1.png"),
-	"fort2": preload("res://assets/planet_surface/bandit/fort2.png"),
-	"fort3": preload("res://assets/planet_surface/bandit/fort3.png"),
-	"marauder_fighter_yard1": preload("res://assets/planet_surface/bandit/fighter_yard1.png"),
-	"marauder_fighter_yard2": preload("res://assets/planet_surface/bandit/fighter_yard2.png"),
-	"marauder_gunship_yard1": preload("res://assets/planet_surface/bandit/gunship_yard1.png"),
-	"marauder_gunship_yard2": preload("res://assets/planet_surface/bandit/gunship_yard2.png"),
-	"marauder_corvette_yard1": preload("res://assets/planet_surface/bandit/corvette_yard1.png"),
-	"marauder_corvette_yard2": preload("res://assets/planet_surface/bandit/corvette_yard2.png"),
-	"marauder_frigate_yard1": preload("res://assets/planet_surface/bandit/frigate_yard1.png"),
-	"marauder_frigate_yard2": preload("res://assets/planet_surface/bandit/frigate_yard2.png"),
-	"marauder_destroyer_yard1": preload("res://assets/planet_surface/bandit/destroyer_yard1.png"),
-	"marauder_destroyer_yard2": preload("res://assets/planet_surface/bandit/destroyer_yard2.png"),
-}
-
-## Ангары в порядке рангов — нужен и приоритету стройки ИИ, и подписям.
 const SHIP_YARD_KINDS := [
 	"marauder_fighter_yard", "marauder_gunship_yard", "marauder_corvette_yard",
 	"marauder_frigate_yard", "marauder_destroyer_yard",
@@ -274,7 +251,3 @@ static func building_cost(kind: String, level: int) -> Dictionary:
 
 static func building_max_level(kind: String) -> int:
 	return int((BUILDING_DEFS.get(kind, {}) as Dictionary).get("max_level", 0))
-
-
-static func building_texture(kind: String, level: int) -> Texture2D:
-	return BUILDING_TEXTURES.get("%s%d" % [kind, level], null)

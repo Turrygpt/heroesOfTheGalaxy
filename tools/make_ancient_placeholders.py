@@ -8,7 +8,7 @@
 
 * корабли смотрят ВЛЕВО (как любой корабль, см. tactical_battle._draw_unit:
   "All source ships face left"), region в unit_defs.gd = весь холст;
-* холст растёт с рангом, как у марсианских бандитов (см. tools/make_bandit_placeholders.py).
+* холст растёт с рангом, как у марсианских бандитов.
 
 Запуск:  python tools/make_ancient_placeholders.py
 """

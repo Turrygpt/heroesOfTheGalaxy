@@ -64,6 +64,8 @@ $resultPath = Join-Path $workPath 'result'
 $payloadPath = Join-Path $resultPath 'game'
 $logsPath = Join-Path $resultPath 'logs'
 New-Item -ItemType Directory -Force -Path $stagePath, $payloadPath, $logsPath | Out-Null
+# Редактор исходного проекта не должен импортировать временные копии и снимки.
+New-Item -ItemType File -Force -Path (Join-Path $projectPath 'build/.gdignore') | Out-Null
 
 function Invoke-CheckedProcess([string]$File, [string[]]$Arguments, [string]$LogName, [string]$WorkingDirectory = $stagePath, [int]$TimeoutSeconds = 1200) {
     $logPath = Join-Path $logsPath "$LogName.log"
