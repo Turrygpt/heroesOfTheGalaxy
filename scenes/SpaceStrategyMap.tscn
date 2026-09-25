@@ -296,6 +296,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="HUD/ResourceBar/Margin/HBox/ProductsSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.949, 0.549, 0.243, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1
@@ -315,6 +316,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="HUD/ResourceBar/Margin/HBox/OreSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.647, 0.557, 0.678, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1
@@ -334,6 +336,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="HUD/ResourceBar/Margin/HBox/ScienceSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.322, 0.773, 0.965, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1
@@ -353,6 +356,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="HUD/ResourceBar/Margin/HBox/CrystalsSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.965, 0.808, 0.345, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1
@@ -372,6 +376,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="HUD/ResourceBar/Margin/HBox/FuelSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.941, 0.38, 0.361, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1
@@ -391,6 +396,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="HUD/ResourceBar/Margin/HBox/IsotopesSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.412, 0.847, 0.471, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1

@@ -69,6 +69,58 @@ func _test_orbital_wall_blocks_and_breaks() -> void:
 	battle.free()
 
 
+## Штурмующий флот вскрывает стену только ради прохода к кораблям. После
+## появления бреши соседние целые сегменты больше не должны отвлекать ИИ.
+func _test_ai_breaches_wall_then_hunts_fleet() -> void:
+	var battle = _empty_field()
+	var defender := _place(battle, "interceptor", 8, Vector2i(1, 4), 1)
+	var attacker := _place(battle, "raider", 8, Vector2i(6, 4), 2)
+	battle._spawn_wall_line(1, battle.WALL_COLUMN_SIDE1)
+	battle.active_unit_index = attacker
+	var breach_cell := Vector2i(battle.WALL_COLUMN_SIDE1, 4)
+	var wall_index: int = int(battle.wall_at[breach_cell])
+	_check(battle._best_target_for(attacker) == wall_index,
+		"Перед целой стеной ИИ должен выбрать ближайший сегмент для пролома")
+	var wall_hp: int = battle.units[wall_index]["hp"]
+	battle.units[attacker]["moved"] = true
+	battle._run_enemy_turn()
+	_check(bool(battle.units[attacker]["shot"]),
+		"Штурмующий корабль рядом со стеной должен стрелять по ней")
+	battle.units[wall_index]["hp"] = 0
+	battle.units[attacker]["moved"] = false
+	battle.units[attacker]["shot"] = false
+	_check(battle._best_target_for(attacker) == defender,
+		"После пролома ИИ должен выбрать корабль вместо остальных сегментов стены")
+	var next_cell: Vector2i = battle._best_enemy_move_cell(defender)
+	_check(next_cell.x < battle.units[attacker]["cell"].x,
+		"После пролома ИИ должен двигаться к защищённому флоту через брешь")
+	# Даже если пролом на другом краю стены, путь к залпу должен вести через него.
+	battle.units[attacker]["cell"] = Vector2i(7, 4)
+	battle.units[attacker]["range"] = 1
+	battle.units[wall_index]["hp"] = wall_hp
+	var distant_breach: int = int(battle.wall_at[Vector2i(battle.WALL_COLUMN_SIDE1, 1)])
+	battle.units[distant_breach]["hp"] = 0
+	var reached_fleet := false
+	for step in range(12):
+		_check(battle._best_target_for(attacker) == defender,
+			"При открытом дальнем проломе ИИ не должен отвлекаться на целую стену")
+		if battle._can_shoot_unit(defender):
+			reached_fleet = true
+			break
+		var destination: Vector2i = battle._best_enemy_move_cell(defender)
+		if destination == battle.units[attacker]["cell"]:
+			break
+		battle.units[attacker]["cell"] = destination
+		battle.path_distance_cache.clear()
+	_check(reached_fleet,
+		"ИИ должен найти путь к кораблю через уже открытый дальний пролом")
+	battle.units[defender]["hp"] = 0
+	var station := _place(battle, "orbital_platform", 1, Vector2i(1, 3), 1)
+	_check(battle._best_target_for(attacker) == station,
+		"После уничтожения кораблей ИИ должен атаковать станцию, а не остатки стены")
+	battle.free()
+
+
 ## Ответный залп срабатывает синхронно внутри _attack_unit и может убить
 ## самого стрелка раньше, чем он успел походить (moved остаётся false) —
 ## раньше в этом случае ход зависал, потому что _maybe_finish_active_turn
@@ -331,6 +383,7 @@ func _run() -> void:
 	_test_ai_repositions_before_shot()
 	_test_defensive_ignores_mid_round_approach()
 	_test_orbital_wall_blocks_and_breaks()
+	_test_ai_breaches_wall_then_hunts_fleet()
 	_test_finishing_blow_beats_low_tier()
 	_test_low_tier_still_preferred()
 	_test_target_does_not_flip_flop()
@@ -342,7 +395,7 @@ func _run() -> void:
 		(player as AudioStreamPlayer).stream = null
 	await create_timer(2.0).timeout
 	if failures == 0:
-		print("PASS: гибель активного отряда от ответки не вешает ход, выход из окружения, защитный автобой держит строй до начала-раунда угрозы, орбитальная стена блокирует огонь и разрушается, выбор цели добивает подранка и держит ранг весом, не мечется между целями, видит корму IV+ ранга, не дёргается без выгоды и не считает целью недостижимое")
+		print("PASS: гибель активного отряда от ответки не вешает ход, выход из окружения, защитный автобой держит строй до начала-раунда угрозы, ИИ пробивает орбитальную стену и идёт через брешь к кораблям и станции, выбор цели добивает подранка и держит ранг весом, не мечется между целями, видит корму IV+ ранга, не дёргается без выгоды и не считает целью недостижимое")
 	quit(1 if failures else 0)
 
 

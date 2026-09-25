@@ -9,8 +9,8 @@ extends RefCounted
 
 const CONFIG_DIR := "res://data/building_configs"
 
-## z_index по умолчанию повторяет исходный порядок наложения (астероид внизу,
-## бур сверху) - без сохранённой правки ничего визуально не меняется.
+## Астероид лежит снизу, бур уходит за корпус буровой; значения совпадают с
+## сохранённой конфигурацией, чтобы оба способа загрузки давали один силуэт.
 const BUILDINGS := {
 	"ore_mine": {
 		"label": "Астероидная шахта",
@@ -23,12 +23,12 @@ const BUILDINGS := {
 			{
 				"id": "rig", "label": "Буровая",
 				"texture": preload("res://assets/buildings/production/ore_layers/rig.png"),
-				"x": 0.0, "y": 0.0, "scale": 1.0, "rotation_deg": 0.0, "z_index": 1,
+				"x": 0.0, "y": -215.0, "scale": 0.72, "rotation_deg": 0.0, "z_index": 5,
 			},
 			{
 				"id": "drill", "label": "Бур",
 				"texture": preload("res://assets/buildings/production/ore_layers/drill.png"),
-				"x": 0.0, "y": 0.0, "scale": 0.55, "rotation_deg": 0.0, "z_index": 2,
+				"x": 0.0, "y": -10.0, "scale": 0.32, "rotation_deg": 0.0, "z_index": 2,
 			},
 		],
 	},

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09111d">
+  <meta name="description" content="Анонимная анкета плейтеста Heroes of the Galaxy: расскажите о карте, боях, сюжете и ошибках.">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <title>Heroes of the Galaxy — анкета плейтеста</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../app.js" defer></script>
+</head>
+<body class="survey-page">
+  <main class="page-shell">
+    <header class="masthead">
+      <a class="brand" href="/playtest/" aria-label="Вернуться к странице демо">
+        <span class="brand-mark" aria-hidden="true">H</span>
+        <span>HEROES <i>OF THE</i> GALAXY</span>
+      </a>
+      <nav class="main-nav" aria-label="Навигация по странице">
+        <a href="/playtest/#about">Об игре</a>
+        <a href="/playtest/#download">Скачать</a>
+        <a href="#feedback">Анкета</a>
+      </nav>
+      <span class="version-tag">ДЕМО 0.12.0</span>
+    </header>
+
+    <section class="intro panel survey-intro" id="feedback" aria-labelledby="feedback-title">
+      <div class="eyebrow">ПЛЕЙТЕСТ · ОБРАТНАЯ СВЯЗЬ</div>
+      <h1 id="feedback-title">Помогите сделать<br><em>следующий ход</em></h1>
+      <p class="intro-copy">Расскажите, что уже работает, а где вы споткнулись. Нам нужны не только оценки, но и причины: на каком экране возникла проблема, что вы ожидали и что произошло.</p>
+      <div class="intro-meta">
+        <span><b aria-hidden="true">◷</b> 5–10 минут</span>
+        <span><b aria-hidden="true">◈</b> Можно пропускать вопросы</span>
+        <span><b aria-hidden="true">⌁</b> Без регистрации</span>
+      </div>
+      <div class="privacy-note">
+        <span class="privacy-icon" aria-hidden="true">✳</span>
+        <p><strong>Анкета анонимная.</strong> Случайный cookie действует 30 дней и позволяет принять один ответ из этой сессии. В закрытой базе хранятся ответы и хеш сессии, без имени, IP и времени отправки. Сторонней аналитики нет. Пожалуйста, не указывайте в свободном тексте личные данные.</p>
+      </div>
+    </section>
+
+    <div class="progress-wrap" aria-live="polite">
+      <div class="progress-caption"><span id="progress-label">Ваш игровой опыт</span><span id="progress-count">Этап 1 из 5</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+
+    <form id="survey-form" novalidate>
+      <input class="trap" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+      <section class="survey-section panel" data-step="1" aria-labelledby="step-one-title">
+        <div class="section-heading">
+          <span class="step-number">01</span>
+          <div><div class="eyebrow">КОНТЕКСТ</div><h2 id="step-one-title">Ваш игровой заход</h2></div>
+        </div>
+
+        <fieldset class="question" data-required="true">
+          <legend>Сколько времени вы провели в игре? <span class="required">*</span></legend>
+          <div class="choice-grid choice-grid-3">
+            <label class="choice-card"><input type="radio" name="play_time" value="До 30 минут" required><span>До 30 минут</span></label>
+            <label class="choice-card"><input type="radio" name="play_time" value="30–60 минут"><span>30–60 минут</span></label>
+            <label class="choice-card"><input type="radio" name="play_time" value="1–3 часа"><span>1–3 часа</span></label>
+            <label class="choice-card"><input type="radio" name="play_time" value="4–8 часов"><span>4–8 часов</span></label>
+            <label class="choice-card"><input type="radio" name="play_time" value="Больше 8 часов"><span>Больше 8 часов</span></label>
+          </div>
+          <p class="field-error" hidden>Выберите примерное время.</p>
+        </fieldset>
+
+        <fieldset class="question">
+          <legend>До какого момента вы дошли?</legend>
+          <div class="choice-grid choice-grid-2">
+            <label class="choice-card"><input type="radio" name="progress" value="Только начал"><span>Только начал</span></label>
+            <label class="choice-card"><input type="radio" name="progress" value="Первые задания"><span>Первые задания</span></label>
+            <label class="choice-card"><input type="radio" name="progress" value="Середина миссии"><span>Середина миссии</span></label>
+            <label class="choice-card"><input type="radio" name="progress" value="Финал миссии"><span>Финал миссии</span></label>
+            <label class="choice-card"><input type="radio" name="progress" value="Завершил миссию"><span>Завершил миссию</span></label>
+            <label class="choice-card"><input type="radio" name="progress" value="Пробовал несколько заходов"><span>Несколько заходов</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="question">
+          <legend>Сколько отдельных игровых сессий у вас было?</legend>
+          <div class="choice-grid choice-grid-3">
+            <label class="choice-card"><input type="radio" name="sessions" value="1"><span>Одна</span></label>
+            <label class="choice-card"><input type="radio" name="sessions" value="2–3"><span>2–3</span></label>
+            <label class="choice-card"><input type="radio" name="sessions" value="4 и больше"><span>4 и больше</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="question">
+          <legend>Если вы остановились до финала, что повлияло на это?</legend>
+          <div class="choice-grid choice-grid-2">
+            <label class="choice-card"><input type="checkbox" name="stop_reason" value="Планировал продолжить позже"><span>Планировал продолжить позже</span></label>
+            <label class="choice-card"><input type="checkbox" name="stop_reason" value="Не понял следующую цель"><span>Не понял следующую цель</span></label>
+            <label class="choice-card"><input type="checkbox" name="stop_reason" value="Стало слишком трудно"><span>Стало слишком трудно</span></label>
+            <label class="choice-card"><input type="checkbox" name="stop_reason" value="Стало однообразно или скучно"><span>Стало однообразно или скучно</span></label>
+            <label class="choice-card"><input type="checkbox" name="stop_reason" value="Техническая проблема"><span>Техническая проблема</span></label>
+            <label class="choice-card"><input type="checkbox" name="stop_reason" value="Не хватило времени"><span>Не хватило времени</span></label>
+            <label class="choice-card"><input type="checkbox" name="stop_reason" value="Другое"><span>Другое</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="question">
+          <legend>Насколько вам знакомы пошаговые стратегии?</legend>
+          <div class="choice-grid choice-grid-3">
+            <label class="choice-card"><input type="radio" name="strategy_experience" value="Почти не играл"><span>Почти не играл</span></label>
+            <label class="choice-card"><input type="radio" name="strategy_experience" value="Иногда играю"><span>Иногда играю</span></label>
+            <label class="choice-card"><input type="radio" name="strategy_experience" value="Играю часто"><span>Играю часто</span></label>
+          </div>
+        </fieldset>
+      </section>
+
+      <section class="survey-section panel" data-step="2" aria-labelledby="step-two-title">
+        <div class="section-heading">
+          <span class="step-number">02</span>
+          <div><div class="eyebrow">ПЕРВЫЕ ВПЕЧАТЛЕНИЯ</div><h2 id="step-two-title">Насколько легко разобраться?</h2></div>
+        </div>
+        <p class="section-hint">Оцените, насколько легко было разобраться. Если не успели попробовать — выберите «Не дошёл».</p>
+
+        <fieldset class="question rating-question">
+          <legend>Глобальная карта: куда двигаться и что можно посетить</legend>
+          <div class="rating-row" role="radiogroup" aria-label="Понятность глобальной карты">
+            <label><input type="radio" name="clarity_map" value="1"><span>1</span></label><label><input type="radio" name="clarity_map" value="2"><span>2</span></label><label><input type="radio" name="clarity_map" value="3"><span>3</span></label><label><input type="radio" name="clarity_map" value="4"><span>4</span></label><label><input type="radio" name="clarity_map" value="5"><span>5</span></label><label class="rating-na"><input type="radio" name="clarity_map" value="Не дошёл"><span>Не дошёл</span></label>
+          </div><div class="scale-hint"><span>Запутанно</span><span>Понятно</span></div>
+        </fieldset>
+        <fieldset class="question rating-question">
+          <legend>Ресурсы, постройки и найм флота</legend>
+          <div class="rating-row" role="radiogroup" aria-label="Понятность развития и ресурсов">
+            <label><input type="radio" name="clarity_economy" value="1"><span>1</span></label><label><input type="radio" name="clarity_economy" value="2"><span>2</span></label><label><input type="radio" name="clarity_economy" value="3"><span>3</span></label><label><input type="radio" name="clarity_economy" value="4"><span>4</span></label><label><input type="radio" name="clarity_economy" value="5"><span>5</span></label><label class="rating-na"><input type="radio" name="clarity_economy" value="Не дошёл"><span>Не дошёл</span></label>
+          </div><div class="scale-hint"><span>Запутанно</span><span>Понятно</span></div>
+        </fieldset>
+        <fieldset class="question rating-question">
+          <legend>Тактические бои: правила, ходы и управление</legend>
+          <div class="rating-row" role="radiogroup" aria-label="Понятность тактических боёв">
+            <label><input type="radio" name="clarity_battle" value="1"><span>1</span></label><label><input type="radio" name="clarity_battle" value="2"><span>2</span></label><label><input type="radio" name="clarity_battle" value="3"><span>3</span></label><label><input type="radio" name="clarity_battle" value="4"><span>4</span></label><label><input type="radio" name="clarity_battle" value="5"><span>5</span></label><label class="rating-na"><input type="radio" name="clarity_battle" value="Не дошёл"><span>Не дошёл</span></label>
+          </div><div class="scale-hint"><span>Запутанно</span><span>Понятно</span></div>
+        </fieldset>
+        <fieldset class="question rating-question">
+          <legend>Цели миссии, журнал заданий и радиопереговоры</legend>
+          <div class="rating-row" role="radiogroup" aria-label="Понятность целей и сюжета">
+            <label><input type="radio" name="clarity_mission" value="1"><span>1</span></label><label><input type="radio" name="clarity_mission" value="2"><span>2</span></label><label><input type="radio" name="clarity_mission" value="3"><span>3</span></label><label><input type="radio" name="clarity_mission" value="4"><span>4</span></label><label><input type="radio" name="clarity_mission" value="5"><span>5</span></label><label class="rating-na"><input type="radio" name="clarity_mission" value="Не дошёл"><span>Не дошёл</span></label>
+          </div><div class="scale-hint"><span>Запутанно</span><span>Понятно</span></div>
+        </fieldset>
+
+        <fieldset class="question">
+          <legend>Как вам общая сложность миссии?</legend>
+          <div class="choice-grid choice-grid-2">
+            <label class="choice-card"><input type="radio" name="difficulty" value="Слишком легко"><span>Слишком легко</span></label>
+            <label class="choice-card"><input type="radio" name="difficulty" value="В самый раз"><span>В самый раз</span></label>
+            <label class="choice-card"><input type="radio" name="difficulty" value="Сложно, но честно"><span>Сложно, но честно</span></label>
+            <label class="choice-card"><input type="radio" name="difficulty" value="Слишком сложно"><span>Слишком сложно</span></label>
+            <label class="choice-card"><input type="radio" name="difficulty" value="Сложность скачет"><span>Сложность скачет</span></label>
+            <label class="choice-card"><input type="radio" name="difficulty" value="Не успел оценить"><span>Не успел оценить</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="question">
+          <legend>Где вы чаще всего теряли время или не понимали, что делать дальше?</legend>
+          <div class="choice-grid choice-grid-2">
+            <label class="choice-card"><input type="checkbox" name="friction" value="Поиск следующей цели"><span>Поиск следующей цели</span></label>
+            <label class="choice-card"><input type="checkbox" name="friction" value="Передвижение по карте"><span>Передвижение по карте</span></label>
+            <label class="choice-card"><input type="checkbox" name="friction" value="Ресурсы и экономика"><span>Ресурсы и экономика</span></label>
+            <label class="choice-card"><input type="checkbox" name="friction" value="Бои и их правила"><span>Бои и их правила</span></label>
+            <label class="choice-card"><input type="checkbox" name="friction" value="Интерфейс и управление"><span>Интерфейс и управление</span></label>
+            <label class="choice-card"><input type="checkbox" name="friction" value="Технические проблемы"><span>Технические проблемы</span></label>
+            <label class="choice-card"><input type="checkbox" name="friction" value="Нигде"><span>Нигде, всё было ясно</span></label>
+          </div>
+        </fieldset>
+      </section>
+
+      <section class="survey-section panel" data-step="5" aria-labelledby="step-three-title">
+        <div class="section-heading">
+          <span class="step-number">05</span>
+        <div><div class="eyebrow">СЮЖЕТ, КАЧЕСТВО И ПРИОРИТЕТЫ</div><h2 id="step-three-title">Что нам важно исправить?</h2></div>
+        </div>
+
+        <p class="section-hint">В этих вопросах важны конкретные впечатления: что удерживало внимание, что мешало и на что потратить время разработки.</p>
+
+        <fieldset class="question rating-question">
+          <legend>Насколько вам были понятны мотивы сторон и происходящее в сюжете?</legend>
+          <div class="rating-row" role="radiogroup" aria-label="Понятность сюжета">
+            <label><input type="radio" name="story_clarity" value="1"><span>1</span></label><label><input type="radio" name="story_clarity" value="2"><span>2</span></label><label><input type="radio" name="story_clarity" value="3"><span>3</span></label><label><input type="radio" name="story_clarity" value="4"><span>4</span></label><label><input type="radio" name="story_clarity" value="5"><span>5</span></label><label class="rating-na"><input type="radio" name="story_clarity" value="Не дошёл"><span>Не дошёл</span></label>
+          </div><div class="scale-hint"><span>Неясно</span><span>Понятно</span></div>
+        </fieldset>
+        <fieldset class="question rating-question">
+          <legend>Насколько полезными были журнал миссии и история радиопереговоров?</legend>
+          <div class="rating-row" role="radiogroup" aria-label="Полезность журнала миссии">
+            <label><input type="radio" name="mission_journal" value="1"><span>1</span></label><label><input type="radio" name="mission_journal" value="2"><span>2</span></label><label><input type="radio" name="mission_journal" value="3"><span>3</span></label><label><input type="radio" name="mission_journal" value="4"><span>4</span></label><label><input type="radio" name="mission_journal" value="5"><span>5</span></label><label class="rating-na"><input type="radio" name="mission_journal" value="Не открывал"><span>Не открывал</span></label>
+          </div><div class="scale-hint"><span>Не помогал</span><span>Очень помогал</span></div>
+        </fieldset>
+        <fieldset class="question rating-question">
+          <legend>Насколько хотелось разбираться в необязательных контрактах и встречах?</legend>
+          <div class="rating-row" role="radiogroup" aria-label="Интерес к необязательным заданиям">
+            <label><input type="radio" name="optional_interest" value="1"><span>1</span></label><label><input type="radio" name="optional_interest" value="2"><span>2</span></label><label><input type="radio" name="optional_interest" value="3"><span>3</span></label><label><input type="radio" name="optional_interest" value="4"><span>4</span></label><label><input type="radio" name="optional_interest" value="5"><span>5</span></label><label class="rating-na"><input type="radio" name="optional_interest" value="Не видел"><span>Не видел</span></label>
+          </div><div class="scale-hint"><span>Неинтересно</span><span>Интересно</span></div>
+        </fieldset>
+        <fieldset class="question rating-question">
+          <legend>Насколько комфортно читались тексты интерфейса и диалогов?</legend>
+          <div class="rating-row" role="radiogroup" aria-label="Читаемость текста">
+            <label><input type="radio" name="text_readability" value="1"><span>1</span></label><label><input type="radio" name="text_readability" value="2"><span>2</span></label><label><input type="radio" name="text_readability" value="3"><span>3</span></label><label><input type="radio" name="text_readability" value="4"><span>4</span></label><label><input type="radio" name="text_readability" value="5"><span>5</span></label><label class="rating-na"><input type="radio" name="text_readability" value="Не помню"><span>Не помню</span></label>
+          </div><div class="scale-hint"><span>Трудно читать</span><span>Комфортно</span></div>
+        </fieldset>
+        <fieldset class="question">
+          <legend>Как игра работала на вашем компьютере?</legend>
+          <div class="choice-grid choice-grid-2">
+            <label class="choice-card"><input type="radio" name="technical_issues" value="Работала стабильно"><span>Работала стабильно</span></label>
+            <label class="choice-card"><input type="radio" name="technical_issues" value="Были мелкие помехи"><span>Были мелкие помехи</span></label>
+            <label class="choice-card"><input type="radio" name="technical_issues" value="Проблемы мешали играть"><span>Проблемы мешали играть</span></label>
+            <label class="choice-card"><input type="radio" name="technical_issues" value="Не смог нормально запустить"><span>Не смог нормально запустить</span></label>
+          </div>
+        </fieldset>
+        <fieldset class="question">
+          <legend>На какой системе запускали игру? Это поможет воспроизвести технические проблемы.</legend>
+          <div class="choice-grid choice-grid-3">
+            <label class="choice-card"><input type="radio" name="platform" value="Windows 10"><span>Windows 10</span></label>
+            <label class="choice-card"><input type="radio" name="platform" value="Windows 11"><span>Windows 11</span></label>
+            <label class="choice-card"><input type="radio" name="platform" value="Linux / совместимый слой"><span>Linux / совместимый слой</span></label>
+            <label class="choice-card"><input type="radio" name="platform" value="Другая система"><span>Другая система</span></label>
+            <label class="choice-card"><input type="radio" name="platform" value="Не знаю"><span>Не знаю</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="question" data-required="true">
+          <legend>Насколько вам в целом понравилась игра? <span class="required">*</span></legend>
+          <div class="rating-row rating-large" role="radiogroup" aria-label="Общая оценка игры">
+            <label><input type="radio" name="overall_fun" value="1" required><span>1</span></label><label><input type="radio" name="overall_fun" value="2"><span>2</span></label><label><input type="radio" name="overall_fun" value="3"><span>3</span></label><label><input type="radio" name="overall_fun" value="4"><span>4</span></label><label><input type="radio" name="overall_fun" value="5"><span>5</span></label>
+          </div><div class="scale-hint"><span>Совсем не понравилась</span><span>Очень понравилась</span></div>
+          <p class="field-error" hidden>Поставьте общую оценку.</p>
+        </fieldset>
+
+        <fieldset class="question">
+          <legend>Какова вероятность, что вы посоветуете попробовать игру другу?</legend>
+          <div class="recommend-labels"><span>Совсем маловероятно</span><span>Очень вероятно</span></div>
+          <div class="recommend-row" role="radiogroup" aria-label="Вероятность рекомендации">
+            <label><input type="radio" name="recommend" value="0"><span>0</span></label><label><input type="radio" name="recommend" value="1"><span>1</span></label><label><input type="radio" name="recommend" value="2"><span>2</span></label><label><input type="radio" name="recommend" value="3"><span>3</span></label><label><input type="radio" name="recommend" value="4"><span>4</span></label><label><input type="radio" name="recommend" value="5"><span>5</span></label><label><input type="radio" name="recommend" value="6"><span>6</span></label><label><input type="radio" name="recommend" value="7"><span>7</span></label><label><input type="radio" name="recommend" value="8"><span>8</span></label><label><input type="radio" name="recommend" value="9"><span>9</span></label><label><input type="radio" name="recommend" value="10"><span>10</span></label>
+          </div>
+        </fieldset>
+
+        <div class="question">
+          <label class="field-label" for="favorite">Какой момент, корабль или система запомнились больше всего?</label>
+          <textarea id="favorite" name="favorite" maxlength="1200" rows="3" placeholder="Что хотелось бы увидеть снова?"></textarea>
+        </div>
+        <div class="question">
+          <label class="field-label" for="confusing">Где было непонятно, скучно или слишком трудно?</label>
+          <textarea id="confusing" name="confusing" maxlength="1600" rows="3" placeholder="Если помните, укажите задание, экран или примерный момент."></textarea>
+        </div>
+        <div class="question">
+          <label class="field-label" for="bug">Встретили ошибку или техническую проблему?</label>
+          <textarea id="bug" name="bug" maxlength="1800" rows="3" placeholder="Если помните, укажите экран или задание, последовательность действий, чего ожидали и что произошло."></textarea>
+        </div>
+        <div class="question">
+          <label class="field-label" for="add_change">Чего не хватило? Что добавить, убрать или переделать?</label>
+          <textarea id="add_change" name="add_change" maxlength="1800" rows="3" placeholder="Можно написать про правила, задания, корабли, карту, интерфейс, звук или другое."></textarea>
+        </div>
+        <div class="question">
+          <label class="field-label" for="top_priority">Если исправить только одну вещь — что важнее всего?</label>
+          <textarea id="top_priority" name="top_priority" maxlength="1000" rows="2" placeholder="Самое важное улучшение"></textarea>
+        </div>
+        <div class="question">
+          <label class="field-label" for="preserve">Что в игре точно стоит сохранить и не потерять при изменениях?</label>
+          <textarea id="preserve" name="preserve" maxlength="1000" rows="2" placeholder="Момент, механика или настроение, которые уже работают"></textarea>
+        </div>
+        <div class="question">
+          <label class="field-label" for="continue_reason">Что должно появиться или измениться, чтобы вам захотелось сыграть ещё раз?</label>
+          <textarea id="continue_reason" name="continue_reason" maxlength="1200" rows="2" placeholder="Новая миссия, улучшение системы, продолжение истории — или другая причина"></textarea>
+        </div>
+        <p class="privacy-reminder">Не добавляйте в ответы имена, адреса, ники или другие сведения, по которым вас можно узнать.</p>
+      </section>
+
+      <div class="form-actions">
+        <button class="submit-button" id="submit-button" type="submit"><span>Отправить ответы</span><b aria-hidden="true">↗</b></button>
+        <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+      </div>
+    </form>
+
+    <section id="success-panel" class="success-panel panel" hidden aria-live="polite">
+      <div class="success-mark" aria-hidden="true">✓</div>
+      <div class="eyebrow">СООБЩЕНИЕ ПРИНЯТО</div>
+      <h2>Спасибо за честный отзыв.</h2>
+      <p>Ваши ответы помогут выбрать, что улучшить перед следующим тестом.</p>
+      <a class="back-link" href="/playtest/">Вернуться к игре <span aria-hidden="true">↗</span></a>
+    </section>
+
+    <footer class="site-footer"><span>HEROES OF THE GALAXY</span><span>Каждый ход меняет карту.</span></footer>
+  </main>
+</body>
+</html>

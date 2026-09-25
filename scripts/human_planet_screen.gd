@@ -223,6 +223,7 @@ const CONSTRUCTION_CARD_SIZE := Vector2(392, 190)
 ## Биржа (marketplace) - те же иконки ресурсов и порядок, что в
 ## HUD/ResourceBar на стратегической карте (см. SpaceStrategyMap.tscn).
 const RESOURCE_ATLAS := preload("res://assets/resources/basic.png")
+const CREDITS_ICON := preload("res://assets/resources/credits.png")
 const RESOURCE_REGIONS := {
 	"Продукты": Rect2(0, 0, 512, 512),
 	"Руда": Rect2(512, 0, 512, 512),
@@ -230,6 +231,18 @@ const RESOURCE_REGIONS := {
 	"Энергокристаллы": Rect2(0, 512, 512, 512),
 	"Топливо": Rect2(512, 512, 512, 512),
 	"Радиоизотопы": Rect2(1024, 512, 512, 512),
+}
+const CONSTRUCTION_COST_ORDER := [
+	"credits", "Продукты", "Руда", "Научные данные", "Энергокристаллы", "Топливо", "Радиоизотопы",
+]
+const CONSTRUCTION_COST_SHORT_NAMES := {
+	"credits": "кр.",
+	"Продукты": "прод.",
+	"Руда": "руды",
+	"Научные данные": "науки",
+	"Энергокристаллы": "крист.",
+	"Топливо": "топл.",
+	"Радиоизотопы": "изот.",
 }
 ## Биржевые цены: покупка базовых ресурсов дешевле редких, продажа в 5 раз дешевле.
 ## Торговый пост на карте даёт вдвое более выгодные цены.
@@ -298,6 +311,7 @@ var trading_recruit_controls: Dictionary = {}
 @onready var garrison_close: Button = $Root/GarrisonScreen/Margin/VBox/CloseButton
 @onready var resource_bar: Control = $Root/ResourceBar
 @onready var resource_bar_credits: Label = $Root/ResourceBar/Margin/HBox/CreditsLabel
+@onready var resource_bar_income: Label = $Root/ResourceBar/Margin/HBox/IncomeLabel
 @onready var resource_bar_products: Label = $Root/ResourceBar/Margin/HBox/ProductsSlot/Value
 @onready var resource_bar_ore: Label = $Root/ResourceBar/Margin/HBox/OreSlot/Value
 @onready var resource_bar_science: Label = $Root/ResourceBar/Margin/HBox/ScienceSlot/Value
@@ -2529,6 +2543,8 @@ func _build_construction_card(kind: String) -> Control:
 	action_button.text = String(action["label"]).to_upper()
 	action_button.disabled = bool(action["disabled"])
 	action_button.add_theme_font_size_override("font_size", 12)
+	if not action_button.disabled:
+		_style_construction_button(action_button)
 	image_column.add_child(action_button)
 	var info := VBoxContainer.new()
 	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2566,14 +2582,16 @@ func _build_construction_card(kind: String) -> Control:
 	var separator := HSeparator.new()
 	separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info.add_child(separator)
-	var cost := Label.new()
-	cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cost.custom_minimum_size.y = 32
-	cost.add_theme_font_size_override("font_size", 12)
-	cost.add_theme_color_override("font_color", Color("cfdae1"))
-	cost.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	cost.text = "ПОСТРОЕНО" if level >= max_level else "ЦЕНА  %s" % _format_construction_cost((def["costs"] as Array)[level])
-	info.add_child(cost)
+	if level >= max_level:
+		var built_label := Label.new()
+		built_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		built_label.custom_minimum_size.y = 32
+		built_label.text = "ПОСТРОЕНО"
+		built_label.add_theme_font_size_override("font_size", 12)
+		built_label.add_theme_color_override("font_color", Color("cfdae1"))
+		info.add_child(built_label)
+	else:
+		info.add_child(_make_construction_price_row((def["costs"] as Array)[level]))
 	if not bool(action["disabled"]):
 		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		card.gui_input.connect(func(event: InputEvent) -> void:
@@ -2582,6 +2600,56 @@ func _build_construction_card(kind: String) -> Control:
 		)
 
 	return card
+
+
+func _make_construction_price_row(cost: Dictionary) -> Control:
+	var price := VBoxContainer.new()
+	price.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	price.custom_minimum_size.y = 32
+	price.add_theme_constant_override("separation", 2)
+	var title := Label.new()
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title.text = "ЦЕНА"
+	title.add_theme_font_size_override("font_size", 10)
+	title.add_theme_color_override("font_color", Color("aab8c0"))
+	price.add_child(title)
+	var resources := HFlowContainer.new()
+	resources.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	resources.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	resources.add_theme_constant_override("h_separation", 8)
+	resources.add_theme_constant_override("v_separation", 2)
+	for resource in CONSTRUCTION_COST_ORDER:
+		if not cost.has(resource) or int(cost[resource]) <= 0:
+			continue
+		var item := HBoxContainer.new()
+		item.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		item.add_theme_constant_override("separation", 3)
+		var icon := TextureRect.new()
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.texture = _construction_cost_icon(String(resource))
+		icon.custom_minimum_size = Vector2(18, 18)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		item.add_child(icon)
+		var amount := Label.new()
+		amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		amount.text = "%d %s" % [int(cost[resource]), String(CONSTRUCTION_COST_SHORT_NAMES.get(resource, resource))]
+		amount.add_theme_font_size_override("font_size", 11)
+		amount.add_theme_color_override("font_color", Color("cfdae1"))
+		item.add_child(amount)
+		resources.add_child(item)
+	price.add_child(resources)
+	return price
+
+
+func _construction_cost_icon(resource: String) -> Texture2D:
+	if resource == "credits":
+		return CREDITS_ICON
+	var icon := AtlasTexture.new()
+	icon.atlas = RESOURCE_ATLAS
+	icon.region = RESOURCE_REGIONS.get(resource, Rect2(0, 0, 512, 512))
+	return icon
 
 
 func _construction_action_state(kind: String) -> Dictionary:
@@ -2614,7 +2682,7 @@ func _construction_action_state(kind: String) -> Dictionary:
 		state["tooltip"] = String(state["missing_text"])
 		state["color"] = Color("b9a46e")
 	elif not missing_requirements.is_empty():
-		state["label"] = "ЗАКРЫТО"
+		state["label"] = "НЕДОСТУПНО"
 		state["missing_text"] = "Не хватает:\n%s" % _format_building_requirements(missing_requirements)
 		if strategy_map != null and not strategy_map.can_afford(cost):
 			state["missing_text"] += "\n%s" % _missing_cost_text(cost)
@@ -2642,6 +2710,28 @@ func _construction_card_style(status_color: Color, disabled: bool) -> StyleBoxFl
 	style.content_margin_right = 0
 	style.content_margin_bottom = 0
 	return style
+
+
+func _style_construction_button(button: Button) -> void:
+	var ui_style := preload("res://scripts/ui_style.gd")
+	for state in ["normal", "hover", "pressed"]:
+		var style: StyleBoxFlat = ui_style.button_style(state)
+		match state:
+			"normal":
+				style.bg_color = Color("245f42")
+				style.border_color = Color("4eaa73")
+			"hover":
+				style.bg_color = Color("2d7952")
+				style.border_color = Color("69ca8b")
+			"pressed":
+				style.bg_color = Color("194a34")
+				style.border_color = Color("3f9d65")
+		button.add_theme_stylebox_override(state, style)
+	var focus_style: StyleBoxFlat = ui_style.button_style("focus")
+	focus_style.draw_center = true
+	focus_style.bg_color = Color("245f42")
+	focus_style.border_color = Color("69ca8b")
+	button.add_theme_stylebox_override("focus", focus_style)
 
 
 func _build_construction_row(kind: String) -> Control:
@@ -2918,6 +3008,7 @@ func _update_resource_bar() -> void:
 	if strategy_map == null:
 		return
 	resource_bar_credits.text = "Кредиты: %d" % strategy_map.player_one_credits
+	resource_bar_income.text = "Доход: +%d/сол" % strategy_map.daily_credit_income()
 	var resources: Dictionary = strategy_map.player_one_resources
 	resource_bar_products.text = str(resources.get("Продукты", 0))
 	resource_bar_ore.text = str(resources.get("Руда", 0))

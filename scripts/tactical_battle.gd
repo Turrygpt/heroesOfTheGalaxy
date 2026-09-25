@@ -1541,19 +1541,44 @@ func _best_target_for(attacker_index: int) -> int:
 	var enemy_side: int = 2 if attacker["side"] == 1 else 1
 	var reachable_cells := _reachable_cells(attacker_index)
 	var previous_target := int(attacker.get("ai_target", -1))
-	var best_index := -1
-	var best_score := -INF
+	var wall_column: int = WALL_COLUMN_SIDE1 if enemy_side == 1 else WALL_COLUMN_SIDE2
+	var intact_wall := true
+	for row in range(GRID_ROWS):
+		var wall_cell := Vector2i(wall_column, row)
+		if not wall_at.has(wall_cell) or int(units[int(wall_at[wall_cell])]["hp"]) <= 0:
+			intact_wall = false
+			break
+	var best_ship := -1
+	var best_ship_score := -INF
+	var best_wall := -1
+	var best_wall_score := -INF
 	for index in range(units.size()):
 		var target: Dictionary = units[index]
 		if target["side"] != enemy_side or target["hp"] <= 0:
 			continue
+		if not bool(target.get("is_wall", false)) and intact_wall:
+			# Если корабль находится за целой стеной, ИИ сначала открывает проход.
+			# Вышедший за стену корабль или доступный прямому залпу остаётся целью.
+			var separated := (int(attacker["cell"].x) - wall_column) \
+				* (int(target["cell"].x) - wall_column) < 0
+			if separated and _best_firing_distance(attacker, attacker_index, target, reachable_cells) < 0:
+				continue
 		var score := _target_score(attacker, attacker_index, target, reachable_cells)
 		# Гистерезис: прежняя цель держится, пока новая не станет ощутимо выгоднее.
 		if index == previous_target:
 			score += TARGET_SCORE_KEEP
-		if score > best_score:
-			best_score = score
-			best_index = index
+		if bool(target.get("is_wall", false)):
+			# Вскрываем ближайший сегмент на пути к флоту, а не случайный край.
+			score -= 100.0 * float(absi(int(target["cell"].y) - int(attacker["cell"].y)))
+			if score > best_wall_score:
+				best_wall_score = score
+				best_wall = index
+		elif score > best_ship_score:
+			best_ship_score = score
+			best_ship = index
+	# Стена нужна лишь для пролома. Как только проход есть, весь флот идёт к
+	# оставшимся кораблям и станциям, не добивая остальные сегменты стены.
+	var best_index: int = best_ship if best_ship >= 0 else best_wall
 	if best_index < 0:
 		best_index = _nearest_living_unit(enemy_side)
 	attacker["ai_target"] = best_index

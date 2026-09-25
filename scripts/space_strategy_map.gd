@@ -121,19 +121,18 @@ const RESOURCE_BUILDING_TEXTURES := {
 ## Шахта — три слоя одного кадра (астероид/буровая/бур), а не покадровая
 ## анимация: прошлая попытка на 4 кадрах видео визуально "раздувала" здание,
 ## потому что дым и обломки на разных кадрах меняли силуэт целиком. Три
-## картинки сгенерированы на одном холсте и по умолчанию накладываются без
-## сдвига; позицию/масштаб/поворот каждого слоя (и значения из F4-редактора,
+## картинки сгенерированы на одном холсте, а масштаб и сдвиг собирают их в
+## единую шахту; позицию/масштаб/поворот каждого слоя (и значения из F4-редактора,
 ## если он что-то сохранил) отдаёт BuildingVisualDefs.layers_for() - бур
 ## ходит вглубь/наружу процедурно поверх статичной картинки (см.
 ## _make_ore_mine_visual).
 const BuildingVisualDefs := preload("res://scripts/building_visual_defs.gd")
 const HeroEnergyIndicator := preload("res://scripts/hero_energy_indicator.gd")
 const OfficerCatalog := preload("res://scripts/officer_catalog.gd")
-## Смещение кончика бура и жерла шахты от центра холста (700×700) - считано
-## по самому нижнему непрозрачному пикселю drill.png при масштабе слоя 1.0.
-const ORE_DRILL_TIP_OFFSET := Vector2(0.0, 321.0)
-const ORE_SMOKE_OFFSET := Vector2(0.0, 181.0)
-const ORE_DRILL_BOB_RANGE := 24.0
+## Смещения для обновлённых слоёв шахты на холсте 1254×1254.
+const ORE_DRILL_TIP_OFFSET := Vector2(0.0, 583.0)
+const ORE_SMOKE_OFFSET := Vector2(0.0, -220.0)
+const ORE_DRILL_BOB_RANGE := 43.0
 ## Меньше общего множителя 0.85 у остальных построек - у готового трёхслойного
 ## кадра почти нет прозрачных полей по краям холста (в отличие от отдельных
 ## иконок), поэтому та же формула на глаз давала заметно более крупную шахту.
@@ -183,14 +182,14 @@ const RESOURCE_ICON_REGIONS := {
 	"Радиоизотопы": Rect2(1024, 512, 512, 512),
 }
 const PRODUCTION_BLUEPRINTS := [
-	{"name": "Орбитальная агроферма", "symbol": "П", "resource": "Продукты", "daily_income": 2, "color": "62d26f"},
-	{"name": "Орбитальная агроферма", "symbol": "П", "resource": "Продукты", "daily_income": 2, "color": "62d26f"},
-	{"name": "Астероидная шахта", "symbol": "Р", "resource": "Руда", "daily_income": 2, "color": "b9bdc7"},
-	{"name": "Астероидная шахта", "symbol": "Р", "resource": "Руда", "daily_income": 2, "color": "b9bdc7"},
-	{"name": "Научный комплекс", "symbol": "Н", "resource": "Научные данные", "daily_income": 1, "color": "55a8ff"},
-	{"name": "Кристаллический реактор", "symbol": "Э", "resource": "Энергокристаллы", "daily_income": 1, "color": "bd6cff"},
-	{"name": "Газодобывающая платформа", "symbol": "Т", "resource": "Топливо", "daily_income": 1, "color": "efaa45"},
-	{"name": "Радиоизотопный комбинат", "symbol": "И", "resource": "Радиоизотопы", "daily_income": 1, "color": "e8e654"},
+	{"name": "Орбитальная агроферма", "symbol": "П", "resource": "Продукты", "daily_income": 2, "color": "f28c3e"},
+	{"name": "Орбитальная агроферма", "symbol": "П", "resource": "Продукты", "daily_income": 2, "color": "f28c3e"},
+	{"name": "Астероидная шахта", "symbol": "Р", "resource": "Руда", "daily_income": 2, "color": "a58ead"},
+	{"name": "Астероидная шахта", "symbol": "Р", "resource": "Руда", "daily_income": 2, "color": "a58ead"},
+	{"name": "Научный комплекс", "symbol": "Н", "resource": "Научные данные", "daily_income": 1, "color": "52c5f6"},
+	{"name": "Кристаллический реактор", "symbol": "Э", "resource": "Энергокристаллы", "daily_income": 1, "color": "f6ce58"},
+	{"name": "Газодобывающая платформа", "symbol": "Т", "resource": "Топливо", "daily_income": 1, "color": "f0615c"},
+	{"name": "Радиоизотопный комбинат", "symbol": "И", "resource": "Радиоизотопы", "daily_income": 1, "color": "69d878"},
 ]
 
 @onready var camera: Camera2D = $Camera2D
@@ -437,10 +436,12 @@ func _ready() -> void:
 	_setup_hero_portrait_backgrounds()
 	next_cell = current_cell
 	_reveal_around(current_cell, FOG_REVEAL_RADIUS)
-	if snapshot.is_empty() and campaign_map_id == CampaignMissionMap.ID:
+	# Шахта стартового сектора известна с начала миссии, в том числе после
+	# загрузки сохранения. Разведка открывает и весь её футпринт 2×2.
+	if campaign_map_id == CampaignMissionMap.ID:
 		for site in production_sites:
-			if String(site.get("resource", "")) == "Руда" and Vector2i(site["cell"]).distance_to(home_planet_cell) < 16.0:
-				_reveal_around(Vector2i(site["cell"]), 1)
+			if String(site.get("mission_id", "")) == "production_1_1":
+				_reveal_around(Vector2i(site["cell"]) + Vector2i.ONE, 2)
 				break
 	ship_position = _cell_center(current_cell)
 	human_planet.position = _cell_center(home_planet_cell)
@@ -1090,11 +1091,6 @@ func _draw() -> void:
 		_draw_secret_passage_marker(Vector2i(22, 40), "Секретный фарватер")
 	if campaign_story != null and campaign_story.has_seen("trader_complete"):
 		_draw_secret_passage_marker(Vector2i(29, 18), "Транзитный допуск Лиги")
-	if campaign_map_id == CampaignMissionMap.ID:
-		for index in range(mini(production_sites.size(), production_owners.size())):
-			if String(production_sites[index].get("resource", "")) == "Руда" and production_owners[index] != 1 and Vector2i(production_sites[index]["cell"]).distance_to(home_planet_cell) < 16.0:
-				_draw_secret_passage_marker(Vector2i(production_sites[index]["cell"]), "Руда · шахта")
-				break
 	if beacon_cell != Vector2i(-1, -1):
 		var beacon_rect := Rect2(Vector2(beacon_cell) * CELL_SIZE, Vector2.ONE * CELL_SIZE)
 		draw_rect(beacon_rect, Color("ffd166"), false, 5.0)
@@ -1599,12 +1595,7 @@ func _update_hud() -> void:
 	var movement_max := _movement_limit(_player_hero(), weekly_movement_bonus)
 	movement_label.text = "Ходы: %d / %d" % [maxi(movement_points, 0), movement_max]
 	credits_label.text = "Кредиты: %d" % player_one_credits
-	var council_income := 0
-	if human_planet_owner == 1:
-		council_income += HumanPlanetState.council_income(human_planetary_council_level)
-	if bandit_planet_owner == 1:
-		council_income += HumanPlanetState.council_income(bandit_planetary_council_level)
-	income_label.text = "Доход: +%d/сол" % [council_income + bonus_daily_income + _hero_daily_income_bonus()]
+	income_label.text = "Доход: +%d/сол" % daily_credit_income()
 	products_value.text = str(player_one_resources["Продукты"])
 	ore_value.text = str(player_one_resources["Руда"])
 	science_value.text = str(player_one_resources["Научные данные"])
@@ -1618,6 +1609,19 @@ func _update_hud() -> void:
 	_update_side_hero_movement_steps()
 	_update_navigation_hud()
 	_update_hero_card()
+
+
+## Ежедневный приход кредитов, общий для карты и экрана планеты.
+func daily_credit_income() -> int:
+	var planet_state := HumanPlanetState.load_state()
+	var built_levels: Dictionary = planet_state.get("built_levels", {})
+	var current_council_level := maxi(1, int(built_levels.get("townhall", human_planetary_council_level)))
+	var council_income := 0
+	if human_planet_owner == 1:
+		council_income += HumanPlanetState.council_income(current_council_level)
+	if bandit_planet_owner == 1:
+		council_income += HumanPlanetState.council_income(bandit_planetary_council_level)
+	return council_income + int(planet_state.get("bonus_daily_income", bonus_daily_income)) + _hero_daily_income_bonus()
 
 
 func _open_protocol_book() -> void:
@@ -4503,9 +4507,13 @@ func _refresh_production_nameplate(index: int) -> void:
 	if not is_instance_valid(plate):
 		return
 	var owner := production_owners[index] if index < production_owners.size() else 0
-	var color := Color("c5d0d8")
+	var color := Color(String(production_sites[index].get("color", "c5d0d8")))
+	var border_color := Color(color, 0.7)
 	if owner > 0:
-		color = _production_owner_color(owner)
+		border_color = _production_owner_color(owner)
+	var style := plate.get_meta("plate_style") as StyleBoxFlat
+	if style != null:
+		style.border_color = border_color
 	if plate.get_child_count() > 0:
 		var label := plate.get_child(0) as Label
 		if label != null:
@@ -4572,11 +4580,11 @@ func _make_farm_visual(footprint_pixels: float, cell: Vector2i) -> Node2D:
 	return farm
 
 
-## Астероид и буровая — неподвижные слои, бур поверх них крутится вокруг своей
-## оси и мерно ходит вглубь/наружу твином (не кадрами - см. комментарий у
+## Астероид и буровая — неподвижные слои, бур частично скрыт корпусом и
+## мерно ходит вглубь/наружу твином (не кадрами - см. комментарий у
 ## BuildingVisualDefs). Позиция/масштаб/поворот/z_index каждого слоя приходят
-## из BuildingVisualDefs.layers_for("ore_mine") - по умолчанию все три
-## совмещены без сдвига (картинки сгенерированы на одном холсте), но
+## из BuildingVisualDefs.layers_for("ore_mine") - значения по умолчанию
+## совмещают элементы на одном холсте, но
 ## F4-редактор может это переопределить.
 func _make_ore_mine_visual(footprint_pixels: float) -> Node2D:
 	var mine := Node2D.new()
@@ -4632,12 +4640,12 @@ func _make_ore_spark_particles() -> CPUParticles2D:
 	sparks.gravity = Vector2(0.0, 260.0)
 	sparks.initial_velocity_min = 40.0
 	sparks.initial_velocity_max = 110.0
-	sparks.scale_amount_min = 2.0
-	sparks.scale_amount_max = 4.0
-	sparks.color = Color(1.0, 0.75, 0.25, 1.0)
+	sparks.scale_amount_min = 3.5
+	sparks.scale_amount_max = 7.0
+	sparks.color = Color("c894ee")
 	var spark_ramp := Gradient.new()
-	spark_ramp.set_color(0, Color(1.0, 0.9, 0.5, 1.0))
-	spark_ramp.set_color(1, Color(0.9, 0.25, 0.05, 0.0))
+	spark_ramp.set_color(0, Color("e6c5ff"))
+	spark_ramp.set_color(1, Color(0.46, 0.25, 0.63, 0.0))
 	sparks.color_ramp = spark_ramp
 	return sparks
 
@@ -4656,8 +4664,8 @@ func _make_ore_smoke_particles() -> CPUParticles2D:
 	smoke.gravity = Vector2(0.0, -22.0)
 	smoke.initial_velocity_min = 8.0
 	smoke.initial_velocity_max = 18.0
-	smoke.scale_amount_min = 6.0
-	smoke.scale_amount_max = 11.0
+	smoke.scale_amount_min = 10.0
+	smoke.scale_amount_max = 20.0
 	var smoke_ramp := Gradient.new()
 	smoke_ramp.set_color(0, Color(0.55, 0.55, 0.58, 0.55))
 	smoke_ramp.set_color(1, Color(0.4, 0.4, 0.45, 0.0))

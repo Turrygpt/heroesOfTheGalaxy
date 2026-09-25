@@ -23,6 +23,14 @@ const RESOURCE_CONTAINERS := {
 	"Топливо": preload("res://assets/map_objects/resource_containers/fuel.png"),
 	"Радиоизотопы": preload("res://assets/map_objects/resource_containers/isotopes.png"),
 }
+const RESOURCE_COLORS := {
+	"Продукты": Color("f28c3e"),
+	"Руда": Color("a58ead"),
+	"Научные данные": Color("52c5f6"),
+	"Энергокристаллы": Color("f6ce58"),
+	"Топливо": Color("f0615c"),
+	"Радиоизотопы": Color("69d878"),
+}
 
 
 func _draw() -> void:
@@ -59,7 +67,8 @@ func _draw_object(strategy_map: Node2D, object: Dictionary) -> void:
 		else:
 			draw_object_texture(center, strategy_map._resource_icon(resource_name), 48.0)
 		if not object.get("cluster_satellite", false):
-			_draw_object_name(center, "%s ×%d" % [resource_name, int(object.get("amount", 1))], size, true, 0.9)
+			_draw_object_name(center, "%s ×%d" % [resource_name, int(object.get("amount", 1))],
+				size, true, 0.9, RESOURCE_COLORS.get(resource_name, Color("e7f0f5")))
 		return
 	if def.has("texture"):
 		var visual_scale := float(def.get("visual_scale", 1.0))

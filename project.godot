@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Heroes of the Galaxy"
-config/version="0.1.1"
+config/version="0.12.0"
 config/name.demo="Heroes of the Galaxy — Demo"
 config/use_custom_user_dir.demo=true
 config/custom_user_dir_name.demo="HeroesOfTheGalaxyDemo"

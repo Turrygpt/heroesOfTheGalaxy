@@ -79,13 +79,16 @@ func _draw() -> void:
 		var point := _cell_to_minimap(site["cell"])
 		var owner := int(strategy_map.production_owners[index]) if index < strategy_map.production_owners.size() else 0
 		var site_color := Color(site["color"])
+		var owner_color := site_color
 		if (strategy_map.network_game or strategy_map.has_method("random_session_snapshot")) and owner > 0:
-			site_color = strategy_map._production_owner_color(owner)
+			owner_color = strategy_map._production_owner_color(owner)
 		elif owner == 1:
-			site_color = PLAYER_ONE_COLOR
+			owner_color = PLAYER_ONE_COLOR
 		elif owner == 2:
-			site_color = PLAYER_TWO_COLOR
-		draw_circle(point, 3.5, site_color)
+			owner_color = PLAYER_TWO_COLOR
+		if owner > 0:
+			draw_circle(point, 4.5, owner_color)
+		draw_circle(point, 2.6, site_color)
 
 	# Та же трёхступенчатая маска, что и на основной карте: неизвестное,
 	# разведанное под туманом и текущий обзор.

@@ -5,6 +5,8 @@ var missing_text := ""
 
 
 func _make_custom_tooltip(for_text: String) -> Control:
+	if for_text.is_empty() and missing_text.is_empty():
+		return null
 	var panel := PanelContainer.new()
 	var width := minf(460.0, maxf(240.0, get_viewport_rect().size.x - 48.0))
 	panel.custom_minimum_size.x = width

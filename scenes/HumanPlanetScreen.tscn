@@ -321,6 +321,13 @@ theme_override_font_sizes/font_size = 18
 text = "Кредиты: 0"
 vertical_alignment = 1
 
+[node name="IncomeLabel" type="Label" parent="Root/ResourceBar/Margin/HBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.44, 0.85, 0.63, 1)
+theme_override_font_sizes/font_size = 16
+text = "Доход: +0/сол"
+vertical_alignment = 1
+
 [node name="ProductsSlot" type="HBoxContainer" parent="Root/ResourceBar/Margin/HBox"]
 layout_mode = 2
 tooltip_text = "Продукты"
@@ -336,6 +343,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/ProductsSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.949, 0.549, 0.243, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1
@@ -355,6 +363,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/OreSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.647, 0.557, 0.678, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1
@@ -374,6 +383,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/ScienceSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.322, 0.773, 0.965, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1
@@ -393,6 +403,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/CrystalsSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.965, 0.808, 0.345, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1
@@ -412,6 +423,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/FuelSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.941, 0.38, 0.361, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1
@@ -431,6 +443,7 @@ stretch_mode = 5
 
 [node name="Value" type="Label" parent="Root/ResourceBar/Margin/HBox/IsotopesSlot"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.412, 0.847, 0.471, 1)
 theme_override_font_sizes/font_size = 18
 text = "0"
 vertical_alignment = 1
@@ -1046,7 +1059,7 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.67, 0.76, 0.8, 1)
 theme_override_font_sizes/font_size = 13
-text = "Одно здание за сол. Наведите на закрытое здание, чтобы узнать, чего не хватает."
+text = "Одно здание за сол. Наведите на недоступное здание, чтобы узнать, чего не хватает."
 horizontal_alignment = 1
 
 [node name="Separator" type="HSeparator" parent="Root/ConstructionMenu/Margin/VBox"]

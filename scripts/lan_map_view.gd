@@ -18,7 +18,7 @@ var object_textures := {
 }
 var mine_textures := {
 	"ore": preload("res://assets/buildings/production/ore.png"),
-	"food": preload("res://assets/buildings/production/products.png"),
+	"food": preload("res://assets/buildings/production/orbital_agrofarm.png"),
 	"fuel": preload("res://assets/buildings/production/fuel.png"),
 	"isotopes": preload("res://assets/buildings/production/isotopes.png"),
 	"crystals": preload("res://assets/buildings/production/crystals.png"),
