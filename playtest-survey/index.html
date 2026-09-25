@@ -8,6 +8,7 @@
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <title>Heroes of the Galaxy — скачать демо</title>
   <link rel="stylesheet" href="./style.css">
+  <script src="./reviews.js" defer></script>
 </head>
 <body>
   <main class="page-shell">
@@ -21,6 +22,7 @@
         <a href="#gameplay">Как играть</a>
         <a href="#download">Скачать</a>
         <a href="/playtest/feedback/">Анкета</a>
+        <a href="#reviews">Отзывы</a>
       </nav>
       <span class="version-tag">ДЕМО 0.12.0</span>
     </header>
@@ -33,7 +35,7 @@
         <h1 id="hero-title">Соберите флот.<br><em>Освободите Марс.</em></h1>
         <p>Пошаговая космическая стратегия о войне, выборе маршрута и цене победы. Пройдите первую кампанию и помогите нам подготовить следующую версию.</p>
         <div class="hero-actions">
-          <a class="download-button" href="/playtest/downloads/HeroesOfTheGalaxyDemo-0.12.0-windows-x64-setup.exe" download>
+          <a class="download-button" href="/playtest/api/download" download="HeroesOfTheGalaxyDemo-0.12.0-windows-x64-setup.exe">
             <span class="download-symbol" aria-hidden="true">↓</span><span><strong>Скачать демо</strong><small>Установщик · Windows x64</small></span>
           </a>
           <a class="feedback-link" href="#about">Сначала узнать об игре <span aria-hidden="true">↓</span></a>
@@ -104,7 +106,7 @@
         <div class="eyebrow">ПЛЕЙТЕСТ · ВЕРСИЯ 0.12.0</div>
         <h2 id="download-title">Начните кампанию.</h2>
         <p>Установите демо, сыграйте столько, сколько захотите, а затем расскажите, что стоит улучшить. Сохранение можно продолжить позже.</p>
-        <a class="download-button download-button-large" href="/playtest/downloads/HeroesOfTheGalaxyDemo-0.12.0-windows-x64-setup.exe" download>
+        <a class="download-button download-button-large" href="/playtest/api/download" download="HeroesOfTheGalaxyDemo-0.12.0-windows-x64-setup.exe">
             <span class="download-symbol" aria-hidden="true">↓</span><span><strong>Скачать установщик</strong><small>Windows x64 · 181 МБ</small></span>
         </a>
         <a class="checksum-link" href="/playtest/downloads/SHA256SUMS.txt">SHA-256 файла установки</a>
@@ -122,6 +124,39 @@
       <div class="after-play-mark" aria-hidden="true">✳</div>
       <div><div class="eyebrow">ПОСЛЕ ИГРЫ</div><h2>Ваш опыт повлияет на следующую сборку.</h2><p>Поделитесь, что было непонятно, где возникла сложность и какое изменение важнее всего.</p></div>
       <a class="outline-button" href="/playtest/feedback/">Перейти к анкете <span aria-hidden="true">↘</span></a>
+    </section>
+
+    <section class="review-section panel" id="reviews" aria-labelledby="reviews-title">
+      <div class="review-heading">
+        <div class="eyebrow">ОПЫТ ИГРОКОВ</div>
+        <h2 id="reviews-title">Расскажите об игре</h2>
+        <p>Что понравилось и что стоит изменить? Ваш отзыв сначала увидит команда игры. На странице он появится после проверки.</p>
+      </div>
+      <div class="review-layout">
+        <form id="review-form" class="review-form">
+          <label for="review-author">Имя или псевдоним <span>необязательно</span></label>
+          <input id="review-author" name="author" type="text" maxlength="40" autocomplete="nickname" placeholder="Игрок">
+          <label for="review-rating">Оценка <span>необязательно</span></label>
+          <select id="review-rating" name="rating">
+            <option value="">Без оценки</option>
+            <option value="5">5 — отлично</option>
+            <option value="4">4 — понравилось</option>
+            <option value="3">3 — есть вопросы</option>
+            <option value="2">2 — многое мешало</option>
+            <option value="1">1 — не понравилось</option>
+          </select>
+          <label for="review-body">Отзыв</label>
+          <textarea id="review-body" name="body" required minlength="5" maxlength="2000" rows="6" placeholder="Расскажите, как прошла ваша игра..."></textarea>
+          <div class="trap" aria-hidden="true"><label for="review-website">Сайт</label><input id="review-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+          <button id="review-submit" class="submit-button" type="submit">Отправить отзыв <b aria-hidden="true">↗</b></button>
+          <p id="review-status" class="form-status" role="status" aria-live="polite"></p>
+          <p class="review-note">Один отзыв из браузера. Не указывайте личные данные.</p>
+        </form>
+        <div class="published-reviews">
+          <h3>Отзывы игроков</h3>
+          <div id="published-reviews" aria-live="polite"><p class="review-empty">Загружаем отзывы...</p></div>
+        </div>
+      </div>
     </section>
 
     <footer class="site-footer"><span>HEROES OF THE GALAXY</span><span>Каждый ход меняет карту.</span></footer>

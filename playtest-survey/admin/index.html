@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09111d">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <title>Heroes of the Galaxy — отзывы</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../admin.js" defer></script>
+</head>
+<body class="admin-page">
+  <main class="page-shell">
+    <header class="masthead">
+      <a class="brand" href="/playtest/" aria-label="Вернуться на сайт игры">
+        <span class="brand-mark" aria-hidden="true">H</span>
+        <span>HEROES <i>OF THE</i> GALAXY</span>
+      </a>
+      <span class="version-tag">УПРАВЛЕНИЕ ОТЗЫВАМИ</span>
+    </header>
+
+    <section class="admin-auth panel" id="admin-auth" aria-labelledby="admin-title">
+      <div class="eyebrow">ДОСТУП ДЛЯ АДМИНИСТРАТОРА</div>
+      <h1 id="admin-title">Отзывы игроков</h1>
+      <p>Войдите, чтобы прочитать новые отзывы и решить, какие показывать на сайте.</p>
+      <form id="admin-login-form" class="review-form">
+        <label for="admin-username">Логин</label>
+        <input id="admin-username" name="username" type="text" value="admin" autocomplete="username" required>
+        <label for="admin-password">Пароль</label>
+        <input id="admin-password" name="password" type="password" autocomplete="current-password" required>
+        <button id="admin-login-button" class="submit-button" type="submit">Войти <b aria-hidden="true">→</b></button>
+        <p id="admin-login-status" class="form-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section class="admin-dashboard panel" id="admin-dashboard" aria-labelledby="dashboard-title" hidden>
+      <div class="admin-toolbar">
+        <div><div class="eyebrow">МОДЕРАЦИЯ</div><h1 id="dashboard-title">Отзывы игроков</h1></div>
+        <div class="admin-toolbar-actions">
+          <button id="admin-refresh" class="outline-button" type="button">Обновить</button>
+          <button id="admin-logout" class="outline-button" type="button">Выйти</button>
+        </div>
+      </div>
+      <div class="admin-stats" aria-label="Статистика скачиваний">
+        <div class="admin-stat-card"><span>Запуски скачивания</span><strong id="admin-download-total">—</strong><small>С момента включения счётчика</small></div>
+        <div class="admin-stat-card"><span>По версиям</span><div id="admin-download-versions">Загрузка...</div></div>
+      </div>
+      <div class="admin-filter">
+        <label for="admin-status-filter">Показать</label>
+        <select id="admin-status-filter">
+          <option value="pending">Ожидают проверки</option>
+          <option value="published">Опубликованы</option>
+          <option value="rejected">Отклонены</option>
+          <option value="all">Все отзывы</option>
+        </select>
+        <span id="admin-review-count"></span>
+      </div>
+      <p id="admin-action-status" class="form-status" role="status" aria-live="polite"></p>
+      <div id="admin-review-list" class="admin-review-list"></div>
+    </section>
+
+    <footer class="site-footer"><span>HEROES OF THE GALAXY</span><span>Отзывы до публикации видны только здесь.</span></footer>
+  </main>
+</body>
+</html>

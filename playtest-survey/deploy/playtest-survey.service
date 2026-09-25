@@ -7,6 +7,7 @@ Type=simple
 User=playtest-survey
 Group=playtest-survey
 WorkingDirectory=/opt/playtest-survey
+EnvironmentFile=-/etc/hotg-playtest/admin.env
 ExecStart=/usr/bin/node /opt/playtest-survey/server.js
 Restart=on-failure
 RestartSec=3

@@ -5,11 +5,23 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 
-const HOST = "127.0.0.1";
-const PORT = 8127;
+const HOST = process.env.HOTG_PLAYTEST_HOST || "127.0.0.1";
+const PORT = Number(process.env.HOTG_PLAYTEST_PORT || 8127);
+const PYTHON = process.env.HOTG_PLAYTEST_PYTHON || "python3";
 const MAX_BODY_BYTES = 24_000;
 const COOKIE_NAME = "hotg_playtest_sid";
 const COOKIE_AGE = 60 * 60 * 24 * 30;
+const ADMIN_COOKIE_NAME = "hotg_playtest_admin";
+const ADMIN_COOKIE_AGE = 60 * 60 * 12;
+const ADMIN_PASSWORD_HASH = process.env.HOTG_ADMIN_PASSWORD_HASH || "";
+const DEMO_VERSION = process.env.HOTG_DEMO_VERSION || "0.12.0";
+const DEMO_INSTALLER = `HeroesOfTheGalaxyDemo-${DEMO_VERSION}-windows-x64-setup.exe`;
+const ALLOWED_ORIGINS = new Set(
+  (process.env.HOTG_PLAYTEST_ORIGINS || "https://turrium.ru,https://www.turrium.ru").split(",")
+);
+const adminSessions = new Map();
+const failedLogins = new Map();
+let recentFailedLogins = [];
 
 const allowed = {
   play_time: ["До 30 минут", "30–60 минут", "1–3 часа", "4–8 часов", "Больше 8 часов"],
@@ -79,11 +91,15 @@ function reply(response, statusCode, message, headers = {}) {
   response.end(JSON.stringify(message));
 }
 
-function sessionToken(request) {
+function cookieToken(request, name) {
   const cookies = String(request.headers.cookie || "").split(";");
-  const cookie = cookies.map((item) => item.trim()).find((item) => item.startsWith(`${COOKIE_NAME}=`));
-  const token = cookie?.slice(COOKIE_NAME.length + 1);
+  const cookie = cookies.map((item) => item.trim()).find((item) => item.startsWith(`${name}=`));
+  const token = cookie?.slice(name.length + 1);
   return token && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
+}
+
+function sessionToken(request) {
+  return cookieToken(request, COOKIE_NAME);
 }
 
 function sessionHash(token) {
@@ -92,7 +108,7 @@ function sessionHash(token) {
 
 function storage(action, data) {
   return new Promise((resolve, reject) => {
-    const child = spawn("python3", ["-I", path.join(__dirname, "storage.py"), action], {
+    const child = spawn(PYTHON, ["-I", path.join(__dirname, "storage.py"), action], {
       stdio: ["pipe", "pipe", "pipe"],
     });
     let output = "";
@@ -134,7 +150,201 @@ function cleanAnswers(raw) {
   return { answers: result };
 }
 
+function sameOrigin(request) {
+  return ALLOWED_ORIGINS.has(String(request.headers.origin || ""));
+}
+
+async function readJson(request, response) {
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    reply(response, 415, { message: "unsupported_media_type" });
+    return null;
+  }
+  if (Number(request.headers["content-length"] || 0) > MAX_BODY_BYTES) {
+    reply(response, 413, { message: "payload_too_large" });
+    return null;
+  }
+  const chunks = [];
+  let size = 0;
+  try {
+    for await (const chunk of request) {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        reply(response, 413, { message: "payload_too_large" });
+        return null;
+      }
+      chunks.push(chunk);
+    }
+    return { value: JSON.parse(Buffer.concat(chunks).toString("utf8")) };
+  } catch {
+    reply(response, 400, { message: "invalid_request" });
+    return null;
+  }
+}
+
+function cleanReview(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  if (typeof raw.website === "string" && raw.website.trim()) return { spam: true };
+  if (typeof raw.body !== "string") return null;
+  const body = raw.body.trim();
+  const author = typeof raw.author === "string" ? raw.author.trim() : "";
+  const rating = raw.rating === "" || raw.rating == null ? null : Number(raw.rating);
+  if (body.length < 5 || body.length > 2000 || author.length > 40) return null;
+  if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) return null;
+  return { author: author || "Игрок", body, rating };
+}
+
+function verifyAdminPassword(password) {
+  const parts = ADMIN_PASSWORD_HASH.split(":");
+  if (parts.length !== 2 || !/^[0-9a-f]{32}$/.test(parts[0]) || !/^[0-9a-f]{128}$/.test(parts[1])) return false;
+  const expected = Buffer.from(parts[1], "hex");
+  const actual = crypto.scryptSync(password, Buffer.from(parts[0], "hex"), expected.length);
+  return crypto.timingSafeEqual(actual, expected);
+}
+
+function loginAddress(request) {
+  return String(request.headers["x-real-ip"] || request.socket.remoteAddress || "unknown");
+}
+
+function loginLocked(request) {
+  const cutoff = Date.now() - 15 * 60 * 1000;
+  const address = loginAddress(request);
+  const local = (failedLogins.get(address) || []).filter((time) => time > cutoff);
+  failedLogins.set(address, local);
+  recentFailedLogins = recentFailedLogins.filter((time) => time > cutoff);
+  return local.length >= 5 || recentFailedLogins.length >= 20;
+}
+
+function recordFailedLogin(request) {
+  const address = loginAddress(request);
+  failedLogins.set(address, [...(failedLogins.get(address) || []), Date.now()]);
+  recentFailedLogins.push(Date.now());
+}
+
+function adminSession(request) {
+  const token = cookieToken(request, ADMIN_COOKIE_NAME);
+  if (!token) return null;
+  const key = sessionHash(token);
+  const expires = adminSessions.get(key);
+  if (!expires) return null;
+  if (expires <= Date.now()) {
+    adminSessions.delete(key);
+    return null;
+  }
+  return key;
+}
+
+async function handleReviewRoute(request, response) {
+  const url = request.url || "";
+  if (url === "/download" && ["GET", "HEAD"].includes(request.method)) {
+    if (request.method === "GET") {
+      try {
+        await storage("download_hit", { version: DEMO_VERSION });
+      } catch {
+        console.error("Не удалось увеличить счётчик скачиваний");
+      }
+    }
+    response.writeHead(302, {
+      Location: `/playtest/downloads/${DEMO_INSTALLER}`,
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    response.end();
+    return true;
+  }
+  if (url === "/reviews" && request.method === "GET") {
+    reply(response, 200, await storage("review_public", {}));
+    return true;
+  }
+  if (url === "/reviews" && request.method === "POST") {
+    if (!sameOrigin(request)) { reply(response, 403, { message: "forbidden" }); return true; }
+    const token = sessionToken(request);
+    if (!token) { reply(response, 401, { message: "session_required" }); return true; }
+    const parsed = await readJson(request, response);
+    if (!parsed) return true;
+    const review = cleanReview(parsed.value);
+    if (!review) { reply(response, 400, { message: "invalid_review" }); return true; }
+    if (review.spam) { reply(response, 201, { message: "pending" }); return true; }
+    const result = await storage("review_submit", { session_hash: sessionHash(token), ...review });
+    if (result.status === "already_used") reply(response, 409, { message: "already_submitted" });
+    else if (result.status === "session_required") reply(response, 401, { message: "session_required" });
+    else if (result.status === "pending") reply(response, 201, { message: "pending" });
+    else reply(response, 500, { message: "save_failed" });
+    return true;
+  }
+  if (url === "/admin/session" && request.method === "GET") {
+    reply(response, 200, { authenticated: Boolean(adminSession(request)) });
+    return true;
+  }
+  if (url === "/admin/login" && request.method === "POST") {
+    if (!sameOrigin(request)) { reply(response, 403, { message: "forbidden" }); return true; }
+    if (!ADMIN_PASSWORD_HASH) { reply(response, 503, { message: "admin_unavailable" }); return true; }
+    if (loginLocked(request)) { reply(response, 429, { message: "too_many_attempts" }); return true; }
+    const parsed = await readJson(request, response);
+    if (!parsed) return true;
+    const username = parsed.value?.username;
+    const password = parsed.value?.password;
+    if (typeof username !== "string" || typeof password !== "string" || password.length > 128) {
+      reply(response, 400, { message: "invalid_request" });
+      return true;
+    }
+    const validPassword = verifyAdminPassword(password);
+    if (username !== "admin" || !validPassword) {
+      recordFailedLogin(request);
+      reply(response, 401, { message: "invalid_credentials" });
+      return true;
+    }
+    failedLogins.delete(loginAddress(request));
+    const token = crypto.randomBytes(32).toString("base64url");
+    adminSessions.set(sessionHash(token), Date.now() + ADMIN_COOKIE_AGE * 1000);
+    reply(response, 200, { authenticated: true }, {
+      "Set-Cookie": `${ADMIN_COOKIE_NAME}=${token}; Max-Age=${ADMIN_COOKIE_AGE}; Path=/playtest/api/admin; Secure; HttpOnly; SameSite=Strict`,
+    });
+    return true;
+  }
+  if (url === "/admin/logout" && request.method === "POST") {
+    if (!sameOrigin(request)) { reply(response, 403, { message: "forbidden" }); return true; }
+    const key = adminSession(request);
+    if (key) adminSessions.delete(key);
+    reply(response, 200, { authenticated: false }, {
+      "Set-Cookie": `${ADMIN_COOKIE_NAME}=; Max-Age=0; Path=/playtest/api/admin; Secure; HttpOnly; SameSite=Strict`,
+    });
+    return true;
+  }
+  if (url === "/admin/reviews" && request.method === "GET") {
+    if (!adminSession(request)) { reply(response, 401, { message: "login_required" }); return true; }
+    reply(response, 200, await storage("review_list", {}));
+    return true;
+  }
+  if (url === "/admin/stats" && request.method === "GET") {
+    if (!adminSession(request)) { reply(response, 401, { message: "login_required" }); return true; }
+    reply(response, 200, await storage("download_stats", {}));
+    return true;
+  }
+  const statusMatch = /^\/admin\/reviews\/([1-9][0-9]*)\/status$/.exec(url);
+  if (statusMatch && request.method === "POST") {
+    if (!sameOrigin(request)) { reply(response, 403, { message: "forbidden" }); return true; }
+    if (!adminSession(request)) { reply(response, 401, { message: "login_required" }); return true; }
+    const parsed = await readJson(request, response);
+    if (!parsed) return true;
+    const status = parsed.value?.status;
+    if (!["pending", "published", "rejected"].includes(status)) {
+      reply(response, 400, { message: "invalid_status" });
+      return true;
+    }
+    const result = await storage("review_status", { id: Number(statusMatch[1]), status });
+    reply(response, result.status === "updated" ? 200 : 404, { message: result.status });
+    return true;
+  }
+  return false;
+}
+
 const server = http.createServer(async (request, response) => {
+  try {
+    if (await handleReviewRoute(request, response)) return;
+  } catch {
+    reply(response, 500, { message: "service_failed" });
+    return;
+  }
   if (request.method === "GET" && request.url === "/session") {
     const token = sessionToken(request) || crypto.randomBytes(32).toString("base64url");
     try {
