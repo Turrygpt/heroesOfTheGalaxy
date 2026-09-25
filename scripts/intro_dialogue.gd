@@ -230,6 +230,7 @@ func _input(event: InputEvent) -> void:
 		return
 	var advance: bool = (event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_SPACE, KEY_ENTER]) \
 		or (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT) \
+		or (event is InputEventScreenTouch and event.pressed) \
 		or event.is_action_pressed("ui_accept")
 	if not advance:
 		return

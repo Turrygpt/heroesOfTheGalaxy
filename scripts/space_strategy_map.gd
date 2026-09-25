@@ -18,6 +18,9 @@ const SHIP_SPEED := 520.0
 ## Прокрутка карты клавишами WASD (в мировых пикселях в секунду, без учёта
 ## зума — при увеличении зумом камера всё равно едет медленнее по экрану).
 const CAMERA_PAN_SPEED := 900.0
+## Палец может слегка сдвинуться при касании; такой сдвиг ещё не панорамирует карту.
+const TOUCH_DRAG_THRESHOLD := 18.0
+const TOUCH_INSPECT_HOLD_MSEC := 550
 ## Нос спрайта корабля героя смотрит вверх (12 часов, вид сверху).
 const SHIP_SOURCE_ANGLE := -PI / 2.0
 const GRID_COLOR := Color("171c26")
@@ -274,6 +277,12 @@ var hovered_cell := Vector2i(-1, -1)
 var beacon_cell := Vector2i(-1, -1)
 var hovered_obstacle := -1
 var dragging_map := false
+var touch_points: Dictionary = {}
+var touch_start_position := Vector2.ZERO
+var touch_start_msec := 0
+var touch_gesture_moved := false
+var touch_pinching := false
+var touch_pinch_distance := 0.0
 var navigation_message := ""
 var end_day_hint_active := false
 var end_day_hint_time := 0.0
@@ -699,6 +708,14 @@ func _process_camera_pan(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		_handle_map_touch(event)
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventScreenDrag:
+		_handle_map_touch_drag(event)
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey:
 		if event.pressed and not event.echo:
 			if event.keycode == KEY_SPACE:
@@ -748,6 +765,62 @@ func _unhandled_input(event: InputEvent) -> void:
 		camera.position -= event.relative / camera.zoom
 		camera.position = _clamp_camera_position(camera.position)
 		get_viewport().set_input_as_handled()
+
+
+## Один палец: первое касание прокладывает путь, повторное по той же клетке
+## подтверждает перелёт. Удержание на флоте открывает его состав.
+func _handle_map_touch(event: InputEventScreenTouch) -> void:
+	if event.pressed:
+		if touch_points.is_empty():
+			touch_start_position = event.position
+			touch_start_msec = Time.get_ticks_msec()
+			touch_gesture_moved = false
+			touch_pinching = false
+		touch_points[event.index] = event.position
+		if touch_points.size() >= 2:
+			touch_pinching = true
+			touch_gesture_moved = true
+			touch_pinch_distance = _touch_distance()
+		return
+	if not touch_points.has(event.index):
+		return
+	var was_single := touch_points.size() == 1
+	touch_points.erase(event.index)
+	if not was_single or touch_pinching or touch_gesture_moved or event.canceled:
+		if touch_points.is_empty():
+			touch_pinching = false
+		return
+	var cell := _clamp_to_grid(_position_to_cell(
+		get_global_transform_with_canvas().affine_inverse() * event.position))
+	if Time.get_ticks_msec() - touch_start_msec >= TOUCH_INSPECT_HOLD_MSEC \
+			and _try_open_fleet_inspection(cell):
+		return
+	_handle_right_click(cell)
+
+
+func _handle_map_touch_drag(event: InputEventScreenDrag) -> void:
+	if not touch_points.has(event.index):
+		return
+	touch_points[event.index] = event.position
+	if touch_points.size() >= 2:
+		var distance := _touch_distance()
+		if touch_pinch_distance > 0.0 and distance > 0.0:
+			camera.zoom = Vector2.ONE * clampf(
+				camera.zoom.x * distance / touch_pinch_distance, 0.35, 1.4)
+			_update_camera_limits()
+		touch_pinch_distance = distance
+		return
+	if event.position.distance_to(touch_start_position) <= TOUCH_DRAG_THRESHOLD:
+		return
+	touch_gesture_moved = true
+	if not is_moving:
+		camera.position -= event.relative / camera.zoom
+		camera.position = _clamp_camera_position(camera.position)
+
+
+func _touch_distance() -> float:
+	var positions := touch_points.values()
+	return Vector2(positions[0]).distance_to(Vector2(positions[1]))
 
 
 ## Продолжает выбранный маршрут с текущей клетки. Это та же команда, что
@@ -921,8 +994,10 @@ func _update_hero_portrait_backgrounds() -> void:
 
 
 func _on_human_planet_input(_viewport: Node, event: InputEvent, _shape_index: int) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+			or (event is InputEventScreenTouch and event.pressed):
 		_open_human_planet()
+		get_viewport().set_input_as_handled()
 
 
 func _open_hero_fleet_window() -> void:
@@ -1150,12 +1225,11 @@ func _style_ping_button() -> void:
 
 
 func _on_ping_button_input(event: InputEvent) -> void:
-	if not event is InputEventMouseButton or not event.pressed:
-		return
-	if event.button_index == MOUSE_BUTTON_RIGHT:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
 		clear_beacon()
 		ping_button.accept_event()
-	elif event.button_index == MOUSE_BUTTON_LEFT:
+	elif (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT) \
+			or (event is InputEventScreenTouch and event.pressed):
 		$HUD/RightSidebar/Margin/VBox/MinimapFrame/Margin/Minimap.open_ping_dialog()
 		ping_button.accept_event()
 
@@ -2075,7 +2149,8 @@ func _make_random_hero_card(id: String) -> PanelContainer:
 
 
 func _on_random_hero_card_input(event: InputEvent, id: String) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+			or (event is InputEventScreenTouch and event.pressed):
 		if id == random_active_hero_id:
 			_open_hero_fleet_window()
 		else:
@@ -2154,13 +2229,15 @@ func _on_side_planet_selected(_index: int) -> void:
 
 
 func _on_hero_portrait_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+			or (event is InputEventScreenTouch and event.pressed):
 		_open_hero_fleet_window()
 		get_viewport().set_input_as_handled()
 
 
 func _on_planet_portrait_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+			or (event is InputEventScreenTouch and event.pressed):
 		_open_human_planet()
 		get_viewport().set_input_as_handled()
 

@@ -122,6 +122,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if (event is InputEventKey and event.pressed and not event.echo) \
 		or (event is InputEventMouseButton and event.pressed) \
+		or (event is InputEventScreenTouch and event.pressed) \
 		or (event is InputEventJoypadButton and event.pressed):
 		get_viewport().set_input_as_handled()
 		_finish()

@@ -439,8 +439,10 @@ func _open_colony(colony: int) -> void:
 	player_faction = faction
 
 func _on_human_planet_input(_viewport: Node, event: InputEvent, _shape_index: int) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+			or (event is InputEventScreenTouch and event.pressed):
 		_open_colony(local_slot)
+		get_viewport().set_input_as_handled()
 
 func player_fleet_at_home_planet() -> bool:
 	if active_colony >= 0:
@@ -774,7 +776,8 @@ func _make_hero_portrait_card(id: String) -> PanelContainer:
 	return card
 
 func _on_hero_gallery_input(event: InputEvent, id: String) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+			or (event is InputEventScreenTouch and event.pressed):
 		if id == active_hero:
 			_open_hero_fleet_window()
 		else:

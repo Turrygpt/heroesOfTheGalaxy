@@ -53,6 +53,21 @@ func _ready() -> void:
 	_root.hide()
 
 
+## Android присылает системный «Назад» уведомлением, а не действием ui_cancel.
+## Превращаем его в общее действие: вложенные окна закрываются первыми.
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
+		return
+	var back := InputEventAction.new()
+	back.action = &"ui_cancel"
+	back.pressed = true
+	Input.parse_input_event(back)
+	var release := InputEventAction.new()
+	release.action = &"ui_cancel"
+	release.pressed = false
+	Input.parse_input_event(release)
+
+
 ## Вешает плеер на шину музыки и оставляет его звучать на паузе дерева,
 ## иначе AudioStreamPlayer вместе с картой/боем замолкал бы в меню настроек.
 func attach_music(player: AudioStreamPlayer) -> void:

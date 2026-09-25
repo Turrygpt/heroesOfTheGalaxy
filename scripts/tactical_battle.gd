@@ -328,6 +328,10 @@ var hover_target_index := -1
 var hover_timer := 0.0
 var hover_tooltip_visible := false
 var last_mouse_position := Vector2.ZERO
+## На сенсорном экране первое касание показывает цель, второе подтверждает ход.
+var touch_confirm_cell := INVALID_CELL
+var touch_start_positions: Dictionary = {}
+var touch_multitouch := false
 
 ## --- Параллакс фона -------------------------------------------------------
 ## Камера в бою неподвижна (см. _ready: ANCHOR_MODE_FIXED_TOP_LEFT), поэтому
@@ -368,6 +372,7 @@ func _ready() -> void:
 	battle_camera.position = Vector2.ZERO
 	add_child(battle_camera)
 	battle_camera.make_current()
+	_fit_battle_camera()
 	hud = BATTLE_HUD.new()
 	add_child(hud)
 	hud.setup(units, turn_order)
@@ -458,8 +463,22 @@ func _precompute_hex_centers() -> void:
 			)
 
 func _on_viewport_size_changed() -> void:
+	_fit_battle_camera()
 	_precompute_hex_centers()
 	queue_redraw()
+
+
+## Поле фиксировано в мировых координатах. На узком экране камера уменьшает
+## его целиком, оставляя место для сенсорной панели и сохраняя форму гексов.
+func _fit_battle_camera() -> void:
+	if not OS.has_feature("mobile"):
+		return
+	var viewport_size := get_viewport_rect().size
+	var available_height := viewport_size.y - GRID_TOP_MARGIN - GRID_BOTTOM_RESERVED_MOBILE
+	var scale_factor := minf(1.0, minf(
+		(viewport_size.x - GRID_SIDE_MARGIN * 2.0) / _grid_size().x,
+		available_height / _grid_size().y))
+	battle_camera.zoom = Vector2.ONE * maxf(0.1, scale_factor)
 
 
 ## Без override — прежний фиксированный состав UNIT_BLUEPRINTS (отладочный
@@ -1024,14 +1043,16 @@ func _update_parallax_target(mouse_position: Vector2) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE and selected_protocol != "":
-			_cancel_targeting()
-			get_viewport().set_input_as_handled()
+	if event.is_action_pressed("ui_cancel") and selected_protocol != "":
+		_cancel_targeting()
+		get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion:
+	if event is InputEventScreenTouch:
+		_handle_battle_touch(event)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion:
 		last_mouse_position = event.position
 		_update_parallax_target(event.position)
 		if mouse_move_throttle <= 0.0:
@@ -1058,6 +1079,38 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_Q:
 			_toggle_book()
 			get_viewport().set_input_as_handled()
+
+
+func _handle_battle_touch(event: InputEventScreenTouch) -> void:
+	if event.pressed:
+		touch_start_positions[event.index] = event.position
+		if touch_start_positions.size() > 1:
+			touch_multitouch = true
+		return
+	if not touch_start_positions.has(event.index):
+		return
+	var start_position: Vector2 = touch_start_positions[event.index]
+	touch_start_positions.erase(event.index)
+	if touch_multitouch or event.canceled or start_position.distance_to(event.position) > 18.0:
+		if touch_start_positions.is_empty():
+			touch_multitouch = false
+		return
+	var cell := _cell_at_position(event.position)
+	if cell == INVALID_CELL:
+		touch_confirm_cell = INVALID_CELL
+		return
+	last_mouse_position = event.position
+	hovered_cell = cell
+	last_hovered_cell = cell
+	hover_timer = 0.0
+	hover_tooltip_visible = false
+	_update_hud()
+	queue_redraw()
+	if cell == touch_confirm_cell:
+		touch_confirm_cell = INVALID_CELL
+		_handle_cell_click(cell)
+	else:
+		touch_confirm_cell = cell
 
 
 func _handle_cell_click(cell: Vector2i) -> void:
@@ -1261,6 +1314,7 @@ func _precise_available(unit: Dictionary) -> bool:
 func _toggle_precise_salvo() -> void:
 	if battle_finished or _actions_locked() or int(_active_unit().side) != 1:
 		return
+	touch_confirm_cell = INVALID_CELL
 	_arm_precise_salvo()
 
 
@@ -1302,6 +1356,7 @@ func _rebuild_turn_order() -> void:
 
 
 func _begin_active_turn() -> void:
+	touch_confirm_cell = INVALID_CELL
 	if battle_finished:
 		return
 	var unit := _active_unit()
@@ -2441,6 +2496,7 @@ func _toggle_book() -> void:
 func _on_protocol_chosen(id: String) -> void:
 	if not _can_cast(1, id):
 		return
+	touch_confirm_cell = INVALID_CELL
 	var protocol: Dictionary = PROTOCOLS.get_protocol(id)
 	var target_mode: String = protocol["target"]
 	if target_mode == "ally_all" or target_mode == "enemy_all":
@@ -2456,6 +2512,7 @@ func _on_protocol_chosen(id: String) -> void:
 func _cancel_targeting() -> void:
 	if selected_protocol == "":
 		return
+	touch_confirm_cell = INVALID_CELL
 	selected_protocol = ""
 	teleport_unit = -1
 	last_event = "Наведение отменено"
@@ -3468,15 +3525,20 @@ const GRID_TOP_MARGIN := 20.0
 ## tactical_battle_hud.gd — 98 + 16*2 = 130) — полоса выросла на строку иконок
 ## очереди хода, иначе сетка налезает на кнопки.
 const GRID_BOTTOM_RESERVED := 130.0
+const GRID_BOTTOM_RESERVED_MOBILE := 158.0
 
 
 func _grid_origin() -> Vector2:
-	var viewport_size := get_viewport_rect().size
+	var zoom_factor := battle_camera.zoom.x if is_instance_valid(battle_camera) else 1.0
+	var viewport_size := get_viewport_rect().size / zoom_factor
+	var top_margin := GRID_TOP_MARGIN / zoom_factor
+	var side_margin := GRID_SIDE_MARGIN / zoom_factor
+	var bottom_reserved := (GRID_BOTTOM_RESERVED_MOBILE if OS.has_feature("mobile") else GRID_BOTTOM_RESERVED) / zoom_factor
 	var available := Vector2(
-		viewport_size.x - GRID_SIDE_MARGIN * 2.0,
-		viewport_size.y - GRID_TOP_MARGIN - GRID_BOTTOM_RESERVED
+		viewport_size.x - side_margin * 2.0,
+		viewport_size.y - top_margin - bottom_reserved
 	)
-	return Vector2(GRID_SIDE_MARGIN, GRID_TOP_MARGIN) + (available - _grid_size()) * 0.5
+	return Vector2(side_margin, top_margin) + (available - _grid_size()) * 0.5
 
 
 func _hex_center(cell: Vector2i, origin: Vector2) -> Vector2:
@@ -3505,6 +3567,7 @@ func _hex_points(center: Vector2, inset: float = 3.0) -> PackedVector2Array:
 
 
 func _cell_at_position(position: Vector2) -> Vector2i:
+	position = get_global_transform_with_canvas().affine_inverse() * position
 	var closest_cell: Vector2i = INVALID_CELL
 	var closest_distance: float = INF
 	for column in range(GRID_COLUMNS):

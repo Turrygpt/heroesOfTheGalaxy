@@ -19,7 +19,8 @@ func _process(_delta: float) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+			or (event is InputEventScreenTouch and event.pressed):
 		var strategy_map := _strategy_map()
 		if strategy_map != null and not strategy_map.is_moving:
 			# Через _camera_position_for, а не напрямую: выбранная точка должна

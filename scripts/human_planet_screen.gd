@@ -545,8 +545,9 @@ func _input(event: InputEvent) -> void:
 	if not editor_panel.visible:
 		if building_modal.visible or garrison_screen.visible or is_instance_valid(exchange_screen):
 			return
-		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			var mouse_position := get_viewport().get_mouse_position()
+		if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+				or (event is InputEventScreenTouch and event.pressed):
+			var mouse_position: Vector2 = event.position
 			if not _pointer_is_over_interface(mouse_position):
 				var building := _get_building_at(mouse_position)
 				if is_instance_valid(building):
@@ -1050,7 +1051,8 @@ func _close_building_modal() -> void:
 
 
 func _on_modal_background_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+			or (event is InputEventScreenTouch and event.pressed):
 		_close_building_modal()
 
 
@@ -2595,7 +2597,8 @@ func _build_construction_card(kind: String) -> Control:
 	if not bool(action["disabled"]):
 		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		card.gui_input.connect(func(event: InputEvent) -> void:
-			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+					or (event is InputEventScreenTouch and event.pressed):
 				_construct_kind(kind)
 		)
 

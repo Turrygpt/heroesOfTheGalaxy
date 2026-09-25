@@ -31,6 +31,7 @@ const INK := preload("res://scripts/ui_style.gd").INK
 ## постоянно: число кораблей подписано прямо на карте под каждым отрядом
 ## (см. tactical_battle.gd:_draw_stack_badge).
 const BAR_HEIGHT := 98.0
+const BAR_HEIGHT_MOBILE := 126.0
 const BAR_MARGIN := 16.0
 ## Полоса очереди хода: маленькие иконки пачек в порядке инициативы этого
 ## раунда, начиная с активной. Единственная добавка к "минимальному" HUD
@@ -105,7 +106,7 @@ func _build_bottom_bar() -> void:
 	bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	bar.offset_left = BAR_MARGIN
 	bar.offset_right = -BAR_MARGIN
-	bar.offset_top = -BAR_MARGIN - BAR_HEIGHT
+	bar.offset_top = -BAR_MARGIN - (BAR_HEIGHT_MOBILE if OS.has_feature("mobile") else BAR_HEIGHT)
 	bar.offset_bottom = -BAR_MARGIN
 
 	var column := VBoxContainer.new()
@@ -114,14 +115,18 @@ func _build_bottom_bar() -> void:
 
 	turn_order_row = HBoxContainer.new()
 	turn_order_row.add_theme_constant_override("separation", 6)
-	turn_order_row.custom_minimum_size.y = TURN_ORDER_ICON_SIZE
+	turn_order_row.custom_minimum_size.y = 44.0 if OS.has_feature("mobile") else TURN_ORDER_ICON_SIZE
 	column.add_child(turn_order_row)
-	ability_button = _button("ТОЧНЫЙ ЗАЛП · E", GOLD)
+	ability_button = _button("ТОЧНЫЙ ЗАЛП" if OS.has_feature("mobile") else "ТОЧНЫЙ ЗАЛП · E", GOLD)
 	ability_button.add_theme_font_size_override("font_size", 13)
+	if OS.has_feature("mobile"):
+		ability_button.custom_minimum_size.y = 44.0
 	ability_button.pressed.connect(func(): ability_requested.emit())
 	turn_order_row.add_child(ability_button)
-	protocols_button = _button("ПРОТОКОЛЫ · Q", GOLD)
+	protocols_button = _button("ПРОТОКОЛЫ" if OS.has_feature("mobile") else "ПРОТОКОЛЫ · Q", GOLD)
 	protocols_button.add_theme_font_size_override("font_size", 13)
+	if OS.has_feature("mobile"):
+		protocols_button.custom_minimum_size.y = 44.0
 	protocols_button.tooltip_text = "Книга изученных протоколов. Доступные сейчас протоколы подсвечиваются."
 	protocols_button.pressed.connect(func(): protocols_requested.emit())
 	turn_order_row.add_child(protocols_button)
@@ -218,7 +223,10 @@ func update_ability(unit: Dictionary, available: bool, round_number: int) -> voi
 	ability_button.visible = preload("res://scripts/ship_combat_rules.gd").has_ability(unit, "precise_salvo")
 	ability_button.disabled = not available or end_button.disabled
 	var remaining := maxi(0, int(unit.get("precise_ready_round", 1)) - round_number)
-	ability_button.text = "ЗАЛП: %d РАУНД." % remaining if remaining > 0 else "ОТМЕНИТЬ ЗАЛП · E" if unit.get("precise_armed", false) else "ТОЧНЫЙ ЗАЛП · E"
+	ability_button.text = "ЗАЛП: %d РАУНД." % remaining if remaining > 0 else \
+		"ОТМЕНИТЬ ЗАЛП" if unit.get("precise_armed", false) and OS.has_feature("mobile") else \
+		"ОТМЕНИТЬ ЗАЛП · E" if unit.get("precise_armed", false) else \
+		"ТОЧНЫЙ ЗАЛП" if OS.has_feature("mobile") else "ТОЧНЫЙ ЗАЛП · E"
 	ability_button.tooltip_text = "Выберите способность, затем цель. +50% урона; точность обычная. Повтор через 3 общих раунда."
 
 

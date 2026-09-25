@@ -11,12 +11,14 @@ config_version=5
 [application]
 
 config/name="Heroes of the Galaxy"
+config/icon="res://assets/hero_ships/earth.png"
 config/version="0.12.0"
 config/name.demo="Heroes of the Galaxy — Demo"
 config/use_custom_user_dir.demo=true
 config/custom_user_dir_name.demo="HeroesOfTheGalaxyDemo"
 run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
+config/quit_on_go_back=false
 
 [autoload]
 
@@ -32,9 +34,16 @@ LanSession="*res://scripts/lan_session.gd"
 
 window/size/viewport_width=1920
 window/size/viewport_height=1080
+window/size/viewport_width.mobile=1600
+window/size/viewport_height.mobile=900
 window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation=0
+
+[input_devices]
+
+pointing/emulate_mouse_from_touch=false
 
 [gui]
 
@@ -44,4 +53,5 @@ theme/custom="res://assets/ui/game_theme.tres"
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)

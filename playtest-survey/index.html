@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#09111d">
-  <meta name="description" content="Скачайте демо Heroes of the Galaxy — пошаговой космической стратегии. После игры заполните анонимную анкету плейтеста.">
+  <meta name="description" content="Скачайте Heroes of the Galaxy для Windows или тестовый APK для Android. После игры заполните анонимную анкету плейтеста.">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <title>Heroes of the Galaxy — скачать демо</title>
   <link rel="stylesheet" href="./style.css">
@@ -36,7 +36,10 @@
         <p>Пошаговая космическая стратегия о войне, выборе маршрута и цене победы. Пройдите первую кампанию и помогите нам подготовить следующую версию.</p>
         <div class="hero-actions">
           <a class="download-button" href="/playtest/api/download" download="HeroesOfTheGalaxyDemo-0.12.0-windows-x64-setup.exe">
-            <span class="download-symbol" aria-hidden="true">↓</span><span><strong>Скачать демо</strong><small>Установщик · Windows x64</small></span>
+            <span class="download-symbol" aria-hidden="true">↓</span><span><strong>Скачать для Windows</strong><small>Установщик · x64</small></span>
+          </a>
+          <a class="download-button download-button-android" href="/playtest/downloads/HeroesOfTheGalaxy-0.12.0-android-arm64-debug.apk" download="HeroesOfTheGalaxy-0.12.0-android-arm64-debug.apk">
+            <span class="download-symbol" aria-hidden="true">↓</span><span><strong>Скачать для Android</strong><small>Тестовый APK · arm64</small></span>
           </a>
           <a class="feedback-link" href="#about">Сначала узнать об игре <span aria-hidden="true">↓</span></a>
         </div>
@@ -94,7 +97,7 @@
     <section class="how-to panel" aria-labelledby="how-to-title">
       <div class="how-to-lead"><div class="eyebrow">ПЕРВЫЕ МИНУТЫ</div><h2 id="how-to-title">Как начать</h2><p>Цель демо — освободить Марс. Порядок действий можно менять: исследуйте побочные сектора, берите контракты или двигайтесь прямо к главной задаче.</p></div>
       <ol class="how-to-steps">
-        <li><span>01</span><div><strong>Установите демо</strong><p>Скачайте установщик для Windows x64 и запустите игру.</p></div></li>
+        <li><span>01</span><div><strong>Установите игру</strong><p>Скачайте установщик Windows x64 или тестовый APK для Android arm64. На телефоне разрешите установку скачанного файла.</p></div></li>
         <li><span>02</span><div><strong>Нажмите «Новая игра»</strong><p>Откроется миссия «Марсианский узел». Текущие цели и переговоры доступны в журнале миссии.</p></div></li>
         <li><span>03</span><div><strong>Подготовьте Землю</strong><p>Откройте планету, постройте доступные здания и пополните армию командующего.</p></div></li>
         <li><span>04</span><div><strong>Исследуйте и сражайтесь</strong><p>Прокладывайте маршрут, собирайте ресурсы, вступайте в бои и завершайте день, когда действия закончились.</p></div></li>
@@ -104,19 +107,30 @@
     <section class="download-panel panel" id="download" aria-labelledby="download-title">
       <div class="download-copy">
         <div class="eyebrow">ПЛЕЙТЕСТ · ВЕРСИЯ 0.12.0</div>
-        <h2 id="download-title">Начните кампанию.</h2>
-        <p>Установите демо, сыграйте столько, сколько захотите, а затем расскажите, что стоит улучшить. Сохранение можно продолжить позже.</p>
-        <a class="download-button download-button-large" href="/playtest/api/download" download="HeroesOfTheGalaxyDemo-0.12.0-windows-x64-setup.exe">
-            <span class="download-symbol" aria-hidden="true">↓</span><span><strong>Скачать установщик</strong><small>Windows x64 · 181 МБ</small></span>
-        </a>
-        <a class="checksum-link" href="/playtest/downloads/SHA256SUMS.txt">SHA-256 файла установки</a>
+        <h2 id="download-title">Выберите платформу.</h2>
+        <p>Сыграйте в первую кампанию, а затем расскажите, что стоит улучшить. Сохранение можно продолжить позже.</p>
+        <div class="download-options">
+          <div class="download-choice">
+            <span class="download-choice-label">WINDOWS X64</span>
+            <a class="download-button" href="/playtest/api/download" download="HeroesOfTheGalaxyDemo-0.12.0-windows-x64-setup.exe">
+              <span class="download-symbol" aria-hidden="true">↓</span><span><strong>Скачать установщик</strong><small>Версия 0.12.0 · 174 МиБ</small></span>
+            </a>
+          </div>
+          <div class="download-choice">
+            <span class="download-choice-label">ANDROID ARM64</span>
+            <a class="download-button download-button-android" href="/playtest/downloads/HeroesOfTheGalaxy-0.12.0-android-arm64-debug.apk" download="HeroesOfTheGalaxy-0.12.0-android-arm64-debug.apk">
+              <span class="download-symbol" aria-hidden="true">↓</span><span><strong>Скачать APK</strong><small>Тестовая сборка · 346 МиБ</small></span>
+            </a>
+          </div>
+        </div>
+        <a class="checksum-link" href="/playtest/downloads/SHA256SUMS.txt">Контрольные суммы SHA-256</a>
       </div>
       <div class="download-specs">
-        <div><span>ПЛАТФОРМА</span><strong>Windows x64</strong></div>
+        <div><span>ПЛАТФОРМЫ</span><strong>Windows x64 · Android arm64</strong></div>
         <div><span>ЯЗЫК</span><strong>Русский</strong></div>
         <div><span>РЕЖИМЫ</span><strong>Одиночная кампания</strong></div>
-        <div><span>РАЗМЕР</span><strong>Около 181 МБ</strong></div>
-        <p>Установщик не требует прав администратора. После установки интернет для игры не нужен. Windows может показать предупреждение: установщик пока без цифровой подписи.</p>
+        <div><span>ОРИЕНТАЦИЯ ANDROID</span><strong>Альбомная</strong></div>
+        <p>Android APK подписан отладочным ключом и пока не проверен на физическом устройстве. Windows-установщик не требует прав администратора и пока не имеет цифровой подписи. После установки интернет для одиночной кампании не нужен.</p>
       </div>
     </section>
 
