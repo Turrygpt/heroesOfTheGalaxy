@@ -83,7 +83,7 @@ func fight(index: int) -> bool:
 	if failures or not map.guardians[index].alive:
 		return failures == 0
 	var guard: Dictionary = map.guardians[index]
-	if int(guard.get("stage", 0)) == 4:
+	if String(guard.get("station_id", "")) == "clan_4_station":
 		check(map.final_assault_ready(), "Штурм без подготовки")
 	print("Бой, сол ", map.current_day, ": ", player.army, " против ", guard.fleet)
 	var result := COMBAT.resolve({"hero": player.to_dict()}, {}, guard.fleet, 0)
@@ -130,8 +130,9 @@ func travel(target: Vector2i, attack_index: int = -1) -> bool:
 			var guard: Dictionary = map.guardians[i]
 			if not guard.alive or i == attack_index:
 				continue
-			for dy in range(-1, 2):
-				for dx in range(-1, 2):
+			var radius := int(guard.get("aggro_radius", 1))
+			for dy in range(-radius, radius + 1):
+				for dx in range(-radius, radius + 1):
 					avoid[Vector2i(guard.cell) + Vector2i(dx, dy)] = true
 		avoid.erase(map.current_cell)
 		var marked: Array[Vector2i] = []
@@ -142,6 +143,10 @@ func travel(target: Vector2i, attack_index: int = -1) -> bool:
 		var path: Array[Vector2i] = map.navigation_grid.get_id_path(map.current_cell, target)
 		for point in marked:
 			map.navigation_grid.set_point_solid(point, false)
+		# Как штатный маршрут: если патруль перекрыл единственный проход,
+		# путь остаётся доступен, но перехват приводит к настоящему бою.
+		if path.size() < 2:
+			path = map.navigation_grid.get_id_path(map.current_cell, target)
 		if path.size() < 2:
 			return false
 		var cell: Vector2i = path[1]
@@ -239,6 +244,10 @@ func _run() -> void:
 		clear_windows()
 		check(map.campaign_outcome == "victory", "Нет победы после раскрытия архива")
 	print("Сатурн обычным флотом: сол %d, боёв %d, построек %d, потрачено %d, уровень %d; ошибок %d" % [map.current_day, battles, build_index, spent, player.level, failures])
+	report()
 	catalog.free()
 	host.free()
 	quit(1 if failures else 0)
+
+func report() -> void:
+	pass

@@ -150,3 +150,7 @@
 `data/campaign/saturn_mission_v1.json`. Основная логика — `saturn_mission_map.gd`,
 ИИ — `saturn_pirate_ai.gd`, реплики — `saturn_story.gd`, обозначения —
 `saturn_map_visuals.gd` и `saturn_clans.gd`.
+
+Серия из десяти независимых автопрохождений (пять маршрутов по два раза):
+`python3 tools/run_saturn_playtests.py --godot /путь/к/godot`. Результаты и ограничения
+проверки: [отчёт от 3 октября 2026](../../docs/saturn_playtest_2026-10-03.md).

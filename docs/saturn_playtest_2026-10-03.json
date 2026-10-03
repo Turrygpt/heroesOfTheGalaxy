@@ -1,0 +1,610 @@
+[
+  {
+    "army": {
+      "corvette": 18,
+      "destroyer": 9,
+      "earth_cruiser": 3,
+      "frigate": 14,
+      "gunship": 30,
+      "interceptor": 55
+    },
+    "artifacts": 0,
+    "battles": 5,
+    "caches": 9,
+    "days": 69,
+    "failures": 0,
+    "fights": [
+      {
+        "day": 1,
+        "lost": 14,
+        "target": "clan_1_fleet",
+        "won": true
+      },
+      {
+        "day": 20,
+        "lost": 20,
+        "target": "clan_2_fleet",
+        "won": true
+      },
+      {
+        "day": 26,
+        "lost": 6,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 39,
+        "lost": 7,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 66,
+        "lost": 0,
+        "target": "clan_4_fleet",
+        "won": true
+      }
+    ],
+    "idle_days": 22,
+    "level": 10,
+    "losses": 47,
+    "max_idle": 14,
+    "optional_battles": 0,
+    "profile": 0,
+    "route": "Короткий",
+    "seed": 101,
+    "spent": 87250,
+    "won": true,
+    "run": 1,
+    "exit_code": 0
+  },
+  {
+    "army": {
+      "corvette": 18,
+      "destroyer": 9,
+      "earth_cruiser": 3,
+      "frigate": 14,
+      "gunship": 30,
+      "interceptor": 40
+    },
+    "artifacts": 0,
+    "battles": 5,
+    "caches": 9,
+    "days": 68,
+    "failures": 0,
+    "fights": [
+      {
+        "day": 1,
+        "lost": 21,
+        "target": "clan_1_fleet",
+        "won": true
+      },
+      {
+        "day": 20,
+        "lost": 9,
+        "target": "clan_2_fleet",
+        "won": true
+      },
+      {
+        "day": 28,
+        "lost": 3,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 40,
+        "lost": 7,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 65,
+        "lost": 15,
+        "target": "clan_4_fleet",
+        "won": true
+      }
+    ],
+    "idle_days": 21,
+    "level": 10,
+    "losses": 55,
+    "max_idle": 13,
+    "optional_battles": 0,
+    "profile": 0,
+    "route": "Короткий",
+    "seed": 138,
+    "spent": 86950,
+    "won": true,
+    "run": 2,
+    "exit_code": 0
+  },
+  {
+    "army": {
+      "corvette": 18,
+      "destroyer": 9,
+      "earth_cruiser": 3,
+      "frigate": 14,
+      "gunship": 30,
+      "interceptor": 31
+    },
+    "artifacts": 0,
+    "battles": 4,
+    "caches": 36,
+    "days": 63,
+    "failures": 0,
+    "fights": [
+      {
+        "day": 1,
+        "lost": 8,
+        "target": "clan_1_fleet",
+        "won": true
+      },
+      {
+        "day": 29,
+        "lost": 10,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 41,
+        "lost": 11,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 60,
+        "lost": 24,
+        "target": "clan_4_fleet",
+        "won": true
+      }
+    ],
+    "idle_days": 0,
+    "level": 10,
+    "losses": 53,
+    "max_idle": 0,
+    "optional_battles": 0,
+    "profile": 1,
+    "route": "Разведка",
+    "seed": 175,
+    "spent": 85450,
+    "won": true,
+    "run": 3,
+    "exit_code": 0
+  },
+  {
+    "army": {
+      "corvette": 18,
+      "destroyer": 9,
+      "earth_cruiser": 3,
+      "frigate": 14,
+      "gunship": 30,
+      "interceptor": 46
+    },
+    "artifacts": 0,
+    "battles": 4,
+    "caches": 36,
+    "days": 63,
+    "failures": 0,
+    "fights": [
+      {
+        "day": 1,
+        "lost": 16,
+        "target": "clan_1_fleet",
+        "won": true
+      },
+      {
+        "day": 29,
+        "lost": 24,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 41,
+        "lost": 10,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 60,
+        "lost": 9,
+        "target": "clan_4_fleet",
+        "won": true
+      }
+    ],
+    "idle_days": 0,
+    "level": 10,
+    "losses": 59,
+    "max_idle": 0,
+    "optional_battles": 0,
+    "profile": 1,
+    "route": "Разведка",
+    "seed": 212,
+    "spent": 87550,
+    "won": true,
+    "run": 4,
+    "exit_code": 0
+  },
+  {
+    "army": {
+      "corvette": 18,
+      "destroyer": 10,
+      "earth_cruiser": 3,
+      "frigate": 14,
+      "gunship": 30,
+      "interceptor": 45
+    },
+    "artifacts": 0,
+    "battles": 9,
+    "caches": 18,
+    "days": 82,
+    "failures": 0,
+    "fights": [
+      {
+        "day": 1,
+        "lost": 27,
+        "target": "clan_1_fleet",
+        "won": true
+      },
+      {
+        "day": 20,
+        "lost": 15,
+        "target": "clan_2_fleet",
+        "won": true
+      },
+      {
+        "day": 31,
+        "lost": 3,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 45,
+        "lost": 3,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 57,
+        "lost": 0,
+        "target": "optional_pirates_01",
+        "won": true
+      },
+      {
+        "day": 58,
+        "lost": 2,
+        "target": "optional_pirates_02",
+        "won": true
+      },
+      {
+        "day": 59,
+        "lost": 4,
+        "target": "optional_pirates_03",
+        "won": true
+      },
+      {
+        "day": 60,
+        "lost": 3,
+        "target": "optional_pirates_04",
+        "won": true
+      },
+      {
+        "day": 78,
+        "lost": 10,
+        "target": "clan_4_fleet",
+        "won": true
+      }
+    ],
+    "idle_days": 21,
+    "level": 10,
+    "losses": 67,
+    "max_idle": 15,
+    "optional_battles": 4,
+    "profile": 2,
+    "route": "Пираты",
+    "seed": 249,
+    "spent": 89450,
+    "won": true,
+    "run": 5,
+    "exit_code": 0
+  },
+  {
+    "army": {
+      "corvette": 18,
+      "destroyer": 4,
+      "earth_cruiser": 3,
+      "frigate": 14,
+      "gunship": 30,
+      "interceptor": 50
+    },
+    "artifacts": 0,
+    "battles": 8,
+    "caches": 18,
+    "days": 74,
+    "failures": 0,
+    "fights": [
+      {
+        "day": 1,
+        "lost": 1,
+        "target": "clan_1_fleet",
+        "won": true
+      },
+      {
+        "day": 20,
+        "lost": 18,
+        "target": "clan_2_fleet",
+        "won": true
+      },
+      {
+        "day": 43,
+        "lost": 1,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 61,
+        "lost": 1,
+        "target": "optional_pirates_03",
+        "won": true
+      },
+      {
+        "day": 61,
+        "lost": 0,
+        "target": "optional_pirates_04",
+        "won": true
+      },
+      {
+        "day": 64,
+        "lost": 2,
+        "target": "optional_pirates_05",
+        "won": true
+      },
+      {
+        "day": 65,
+        "lost": 9,
+        "target": "optional_pirates_06",
+        "won": true
+      },
+      {
+        "day": 70,
+        "lost": 5,
+        "target": "clan_4_fleet",
+        "won": true
+      }
+    ],
+    "idle_days": 6,
+    "level": 10,
+    "losses": 37,
+    "max_idle": 6,
+    "optional_battles": 4,
+    "profile": 2,
+    "route": "Пираты",
+    "seed": 286,
+    "spent": 81000,
+    "won": true,
+    "run": 6,
+    "exit_code": 0
+  },
+  {
+    "army": {
+      "corvette": 18,
+      "destroyer": 10,
+      "earth_cruiser": 6,
+      "frigate": 14,
+      "gunship": 30,
+      "interceptor": 46
+    },
+    "artifacts": 4,
+    "battles": 4,
+    "caches": 24,
+    "days": 81,
+    "failures": 0,
+    "fights": [
+      {
+        "day": 1,
+        "lost": 18,
+        "target": "clan_1_fleet",
+        "won": true
+      },
+      {
+        "day": 20,
+        "lost": 0,
+        "target": "clan_2_fleet",
+        "won": true
+      },
+      {
+        "day": 45,
+        "lost": 0,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 77,
+        "lost": 9,
+        "target": "clan_4_fleet",
+        "won": true
+      }
+    ],
+    "idle_days": 6,
+    "level": 9,
+    "losses": 27,
+    "max_idle": 5,
+    "optional_battles": 0,
+    "profile": 3,
+    "route": "Артефакты",
+    "seed": 323,
+    "spent": 94950,
+    "won": true,
+    "run": 7,
+    "exit_code": 0
+  },
+  {
+    "army": {
+      "corvette": 18,
+      "destroyer": 10,
+      "earth_cruiser": 6,
+      "frigate": 14,
+      "gunship": 30,
+      "interceptor": 32
+    },
+    "artifacts": 4,
+    "battles": 4,
+    "caches": 24,
+    "days": 83,
+    "failures": 0,
+    "fights": [
+      {
+        "day": 1,
+        "lost": 22,
+        "target": "clan_1_fleet",
+        "won": true
+      },
+      {
+        "day": 20,
+        "lost": 15,
+        "target": "clan_2_fleet",
+        "won": true
+      },
+      {
+        "day": 46,
+        "lost": 1,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 78,
+        "lost": 23,
+        "target": "clan_4_fleet",
+        "won": true
+      }
+    ],
+    "idle_days": 5,
+    "level": 9,
+    "losses": 61,
+    "max_idle": 5,
+    "optional_battles": 0,
+    "profile": 3,
+    "route": "Артефакты",
+    "seed": 360,
+    "spent": 97050,
+    "won": true,
+    "run": 8,
+    "exit_code": 0
+  },
+  {
+    "army": {
+      "corvette": 18,
+      "destroyer": 8,
+      "earth_cruiser": 5,
+      "frigate": 14,
+      "gunship": 30,
+      "interceptor": 42
+    },
+    "artifacts": 1,
+    "battles": 5,
+    "caches": 24,
+    "days": 77,
+    "failures": 0,
+    "fights": [
+      {
+        "day": 1,
+        "lost": 44,
+        "target": "clan_1_fleet",
+        "won": true
+      },
+      {
+        "day": 20,
+        "lost": 33,
+        "target": "clan_2_fleet",
+        "won": true
+      },
+      {
+        "day": 46,
+        "lost": 2,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 69,
+        "lost": 4,
+        "target": "secret_trader_caravan",
+        "won": true
+      },
+      {
+        "day": 73,
+        "lost": 13,
+        "target": "clan_4_fleet",
+        "won": true
+      }
+    ],
+    "idle_days": 5,
+    "level": 10,
+    "losses": 96,
+    "max_idle": 5,
+    "optional_battles": 1,
+    "profile": 4,
+    "route": "Маяк и караван",
+    "seed": 397,
+    "spent": 96650,
+    "won": true,
+    "run": 9,
+    "exit_code": 0
+  },
+  {
+    "army": {
+      "corvette": 18,
+      "destroyer": 8,
+      "earth_cruiser": 5,
+      "frigate": 14,
+      "gunship": 26,
+      "interceptor": 51
+    },
+    "artifacts": 1,
+    "battles": 5,
+    "caches": 24,
+    "days": 77,
+    "failures": 0,
+    "fights": [
+      {
+        "day": 1,
+        "lost": 20,
+        "target": "clan_1_fleet",
+        "won": true
+      },
+      {
+        "day": 20,
+        "lost": 31,
+        "target": "clan_2_fleet",
+        "won": true
+      },
+      {
+        "day": 46,
+        "lost": 3,
+        "target": "clan_3_fleet",
+        "won": true
+      },
+      {
+        "day": 69,
+        "lost": 12,
+        "target": "secret_trader_caravan",
+        "won": true
+      },
+      {
+        "day": 73,
+        "lost": 8,
+        "target": "clan_4_fleet",
+        "won": true
+      }
+    ],
+    "idle_days": 5,
+    "level": 10,
+    "losses": 74,
+    "max_idle": 5,
+    "optional_battles": 1,
+    "profile": 4,
+    "route": "Маяк и караван",
+    "seed": 434,
+    "spent": 94550,
+    "won": true,
+    "run": 10,
+    "exit_code": 0
+  }
+]
