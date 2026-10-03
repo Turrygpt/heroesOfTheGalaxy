@@ -23,6 +23,9 @@ var save_on_start := false
 ## Флаг передаётся из меню только для старта новой случайной карты.
 var random_map_requested := false
 var saturn_mission_requested := false
+## Разовая выплата при переходе с Марса; после старта входит в обычный сейв карты.
+var saturn_artifact_transfer: Dictionary = {}
+const ARTIFACT_RESEARCH_CREDITS := 1000
 ## Ноль выбирает новый сид; положительное число воспроизводит приключение.
 var random_map_seed := 0
 var random_map_options := {"size": 64, "ai_count": 1}
@@ -113,6 +116,7 @@ func prepare_load(path: String = SAVE_PATH) -> bool:
 
 
 func prepare_new_game(random_map: bool = false) -> void:
+	saturn_artifact_transfer.clear()
 	if DEMO.enabled():
 		random_map = false
 	if not random_map:
@@ -132,3 +136,18 @@ func take_map() -> Dictionary:
 	var snapshot := pending_map
 	pending_map = {}
 	return snapshot
+
+## Переход доступен только после победы на Марсе. Армия и экономика новой миссии штатные.
+func prepare_saturn_transition(map: Node) -> bool:
+	if DEMO.enabled() or String(map.campaign_map_id) != "mars_demo_v1" or String(map.campaign_outcome) != "victory":
+		return false
+	var hero: Hero = HeroRoster.player_hero()
+	var carried: Dictionary = hero.to_dict().duplicate(true)
+	var count := hero.artifacts.size()
+	carried["artifacts"] = {}
+	prepare_new_game()
+	HeroRoster.register(Hero.from_dict(carried))
+	HeroRoster.save_state()
+	saturn_artifact_transfer = {"count": count, "credits": count * ARTIFACT_RESEARCH_CREDITS}
+	saturn_mission_requested = true
+	return true

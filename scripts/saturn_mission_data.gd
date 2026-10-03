@@ -52,15 +52,7 @@ static func populate(map: Node2D) -> void:
 	map.production_owners.resize(map.production_sites.size())
 	map.production_owners.fill(0)
 	for entry in data.guardians:
-		map.map_generation.add_guardian(cell(entry.cell), entry.template, -1)
-		var guard: Dictionary = map.guardians[-1]
-		guard.mission_id = entry.id
-		guard.display_name = entry.name
-		guard.aggro_radius = 1
-		guard.spawn_cell = cell(entry.cell)
-		guard.station_id = entry.protects
-		guard.stage = int(entry.stage)
-		guard.patrol_step = 0
+		add_encounter(map, entry)
 	for entry in data.objects:
 		if map.MapObjectDefs.family(entry.kind) == "guardian_reward":
 			map.map_generation.add_object_guardian(cell(entry.cell), entry.kind, int(entry.size))
@@ -78,3 +70,36 @@ static func populate(map: Node2D) -> void:
 		if entry.kind == "resource_cache" and not object.has("resource_name"):
 			object.resource_name = "Руда"
 			object.amount = 10
+
+static func add_encounter(map: Node2D, entry: Dictionary) -> void:
+	var position := cell(entry.cell)
+	# При обновлении сейва в точке новой встречи может оказаться старый патруль или игрок.
+	if map.guardian_at.has(position) or position == map.current_cell:
+		for radius in range(1, 9):
+			var found := false
+			for dy in range(-radius, radius + 1):
+				for dx in range(-radius, radius + 1):
+					var candidate := position + Vector2i(dx, dy)
+					if map._cell_is_inside_map(candidate) and not map.blocked_cells.has(candidate) and not map.guardian_at.has(candidate) and not map.map_object_at.has(candidate) and candidate != map.current_cell:
+						position = candidate
+						found = true
+						break
+				if found:
+					break
+			if found:
+				break
+	map.map_generation.add_guardian(position, entry.template, -1)
+	var guard: Dictionary = map.guardians[-1]
+	guard.mission_id = entry.id
+	guard.display_name = entry.name
+	guard.stage = int(entry.stage)
+	guard.aggro_radius = int(entry.get("aggro_radius", 1))
+	if String(entry.get("protects", "")) != "":
+		guard.spawn_cell = cell(entry.cell)
+		guard.station_id = entry.protects
+		guard.patrol_step = 0
+	if entry.has("artifacts"):
+		guard.artifacts = entry.artifacts.duplicate()
+	if bool(entry.get("protected_from_clans", false)):
+		guard.protected_from_clans = true
+		guard.requires_battle = true

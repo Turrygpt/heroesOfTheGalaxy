@@ -2,7 +2,7 @@
   "id": "saturn_mission_v1",
   "title": "Миссия 2 — Система Сатурна",
   "seed": 270926,
-  "revision": 4,
+  "revision": 5,
   "player_start": [
     4,
     9
@@ -9832,6 +9832,374 @@
       ],
       "size": 1,
       "stage": 5
+    },
+    {
+      "id": "secret_caravan_beacon",
+      "kind": "beacon",
+      "name": "Маяк тихой частоты",
+      "cell": [
+        30,
+        14
+      ],
+      "size": 1,
+      "stage": 2,
+      "target_id": "secret_trader_caravan"
+    },
+    {
+      "id": "exploration_resource_01",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        12,
+        9
+      ],
+      "size": 1,
+      "stage": 1,
+      "resource_name": "Продукты",
+      "amount": 6
+    },
+    {
+      "id": "exploration_resource_02",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        9,
+        24
+      ],
+      "size": 1,
+      "stage": 1,
+      "resource_name": "Руда",
+      "amount": 6
+    },
+    {
+      "id": "exploration_resource_03",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        12,
+        33
+      ],
+      "size": 1,
+      "stage": 1,
+      "resource_name": "Научные данные",
+      "amount": 6
+    },
+    {
+      "id": "exploration_resource_04",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        16,
+        29
+      ],
+      "size": 1,
+      "stage": 1,
+      "resource_name": "Энергокристаллы",
+      "amount": 6
+    },
+    {
+      "id": "exploration_resource_05",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        25,
+        22
+      ],
+      "size": 1,
+      "stage": 2,
+      "resource_name": "Топливо",
+      "amount": 8
+    },
+    {
+      "id": "exploration_resource_06",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        31,
+        30
+      ],
+      "size": 1,
+      "stage": 2,
+      "resource_name": "Радиоизотопы",
+      "amount": 8
+    },
+    {
+      "id": "exploration_resource_07",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        12,
+        47
+      ],
+      "size": 1,
+      "stage": 2,
+      "resource_name": "Продукты",
+      "amount": 8
+    },
+    {
+      "id": "exploration_resource_08",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        22,
+        49
+      ],
+      "size": 1,
+      "stage": 2,
+      "resource_name": "Руда",
+      "amount": 8
+    },
+    {
+      "id": "exploration_resource_09",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        29,
+        43
+      ],
+      "size": 1,
+      "stage": 2,
+      "resource_name": "Научные данные",
+      "amount": 8
+    },
+    {
+      "id": "exploration_resource_10",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        34,
+        13
+      ],
+      "size": 1,
+      "stage": 2,
+      "resource_name": "Энергокристаллы",
+      "amount": 8
+    },
+    {
+      "id": "exploration_resource_11",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        43,
+        26
+      ],
+      "size": 1,
+      "stage": 3,
+      "resource_name": "Топливо",
+      "amount": 10
+    },
+    {
+      "id": "exploration_resource_12",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        39,
+        47
+      ],
+      "size": 1,
+      "stage": 3,
+      "resource_name": "Радиоизотопы",
+      "amount": 10
+    },
+    {
+      "id": "exploration_resource_13",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        44,
+        53
+      ],
+      "size": 1,
+      "stage": 3,
+      "resource_name": "Продукты",
+      "amount": 10
+    },
+    {
+      "id": "exploration_resource_14",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        50,
+        54
+      ],
+      "size": 1,
+      "stage": 4,
+      "resource_name": "Руда",
+      "amount": 12
+    },
+    {
+      "id": "exploration_resource_15",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        59,
+        50
+      ],
+      "size": 1,
+      "stage": 4,
+      "resource_name": "Научные данные",
+      "amount": 12
+    },
+    {
+      "id": "exploration_resource_16",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        57,
+        41
+      ],
+      "size": 1,
+      "stage": 4,
+      "resource_name": "Энергокристаллы",
+      "amount": 12
+    },
+    {
+      "id": "exploration_resource_17",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        10,
+        9
+      ],
+      "size": 1,
+      "stage": 1,
+      "resource_name": "Топливо",
+      "amount": 6
+    },
+    {
+      "id": "exploration_resource_18",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        8,
+        22
+      ],
+      "size": 1,
+      "stage": 1,
+      "resource_name": "Радиоизотопы",
+      "amount": 6
+    },
+    {
+      "id": "exploration_resource_19",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        14,
+        34
+      ],
+      "size": 1,
+      "stage": 1,
+      "resource_name": "Продукты",
+      "amount": 6
+    },
+    {
+      "id": "exploration_resource_20",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        16,
+        27
+      ],
+      "size": 1,
+      "stage": 1,
+      "resource_name": "Руда",
+      "amount": 6
+    },
+    {
+      "id": "exploration_resource_21",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        27,
+        22
+      ],
+      "size": 1,
+      "stage": 2,
+      "resource_name": "Научные данные",
+      "amount": 8
+    },
+    {
+      "id": "exploration_resource_22",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        31,
+        32
+      ],
+      "size": 1,
+      "stage": 2,
+      "resource_name": "Энергокристаллы",
+      "amount": 8
+    },
+    {
+      "id": "exploration_resource_23",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        14,
+        47
+      ],
+      "size": 1,
+      "stage": 2,
+      "resource_name": "Топливо",
+      "amount": 8
+    },
+    {
+      "id": "exploration_resource_24",
+      "kind": "resource_cache",
+      "name": "Груз с заброшенного маршрута",
+      "cell": [
+        20,
+        49
+      ],
+      "size": 1,
+      "stage": 2,
+      "resource_name": "Радиоизотопы",
+      "amount": 8
+    },
+    {
+      "id": "exploration_artifact_1",
+      "kind": "artifact_cache",
+      "name": "Забытый исследовательский контейнер",
+      "cell": [
+        10,
+        54
+      ],
+      "size": 1,
+      "stage": 2
+    },
+    {
+      "id": "exploration_artifact_2",
+      "kind": "artifact_cache",
+      "name": "Забытый исследовательский контейнер",
+      "cell": [
+        28,
+        41
+      ],
+      "size": 1,
+      "stage": 2
+    },
+    {
+      "id": "exploration_artifact_3",
+      "kind": "artifact_cache",
+      "name": "Забытый исследовательский контейнер",
+      "cell": [
+        43,
+        22
+      ],
+      "size": 1,
+      "stage": 3
+    },
+    {
+      "id": "exploration_artifact_4",
+      "kind": "artifact_cache",
+      "name": "Забытый исследовательский контейнер",
+      "cell": [
+        60,
+        57
+      ],
+      "size": 1,
+      "stage": 3
     }
   ],
   "production": [
@@ -10067,7 +10435,7 @@
         15,
         17
       ],
-      "template": "medium",
+      "template": "saturn_rust_fangs",
       "name": "Флот первого клана",
       "stage": 1,
       "protects": "clan_1_station",
@@ -10079,7 +10447,7 @@
         31,
         24
       ],
-      "template": "strong",
+      "template": "saturn_night_veil",
       "name": "Флот второго клана",
       "stage": 2,
       "protects": "clan_2_station",
@@ -10108,6 +10476,166 @@
       "stage": 4,
       "protects": "clan_4_station",
       "aggro_radius": 1
+    },
+    {
+      "id": "secret_trader_caravan",
+      "cell": [
+        37,
+        9
+      ],
+      "template": "trader_heavy",
+      "name": "Безымянный торговый караван",
+      "stage": 3,
+      "protects": "",
+      "aggro_radius": 0,
+      "artifacts": [
+        "precognition_lens"
+      ],
+      "protected_from_clans": true
+    },
+    {
+      "id": "optional_pirates_01",
+      "cell": [
+        9,
+        16
+      ],
+      "template": "weak",
+      "name": "Вольные рейдеры колец",
+      "stage": 1,
+      "protects": "",
+      "aggro_radius": 0
+    },
+    {
+      "id": "optional_pirates_02",
+      "cell": [
+        15,
+        20
+      ],
+      "template": "medium",
+      "name": "Вольные рейдеры колец",
+      "stage": 1,
+      "protects": "",
+      "aggro_radius": 0
+    },
+    {
+      "id": "optional_pirates_03",
+      "cell": [
+        10,
+        33
+      ],
+      "template": "strong",
+      "name": "Вольные рейдеры колец",
+      "stage": 1,
+      "protects": "",
+      "aggro_radius": 0
+    },
+    {
+      "id": "optional_pirates_04",
+      "cell": [
+        17,
+        31
+      ],
+      "template": "medium",
+      "name": "Вольные рейдеры колец",
+      "stage": 2,
+      "protects": "",
+      "aggro_radius": 0
+    },
+    {
+      "id": "optional_pirates_05",
+      "cell": [
+        10,
+        47
+      ],
+      "template": "strong",
+      "name": "Вольные рейдеры колец",
+      "stage": 2,
+      "protects": "",
+      "aggro_radius": 0
+    },
+    {
+      "id": "optional_pirates_06",
+      "cell": [
+        25,
+        47
+      ],
+      "template": "heavy",
+      "name": "Вольные рейдеры колец",
+      "stage": 2,
+      "protects": "",
+      "aggro_radius": 0
+    },
+    {
+      "id": "optional_pirates_07",
+      "cell": [
+        32,
+        38
+      ],
+      "template": "strong",
+      "name": "Вольные рейдеры колец",
+      "stage": 2,
+      "protects": "",
+      "aggro_radius": 0
+    },
+    {
+      "id": "optional_pirates_08",
+      "cell": [
+        43,
+        17
+      ],
+      "template": "heavy",
+      "name": "Вольные рейдеры колец",
+      "stage": 3,
+      "protects": "",
+      "aggro_radius": 0
+    },
+    {
+      "id": "optional_pirates_09",
+      "cell": [
+        41,
+        44
+      ],
+      "template": "elite",
+      "name": "Вольные рейдеры колец",
+      "stage": 3,
+      "protects": "",
+      "aggro_radius": 0
+    },
+    {
+      "id": "optional_pirates_10",
+      "cell": [
+        37,
+        52
+      ],
+      "template": "heavy",
+      "name": "Вольные рейдеры колец",
+      "stage": 3,
+      "protects": "",
+      "aggro_radius": 0
+    },
+    {
+      "id": "optional_pirates_11",
+      "cell": [
+        60,
+        55
+      ],
+      "template": "elite",
+      "name": "Вольные рейдеры колец",
+      "stage": 4,
+      "protects": "",
+      "aggro_radius": 0
+    },
+    {
+      "id": "optional_pirates_12",
+      "cell": [
+        59,
+        44
+      ],
+      "template": "heavy",
+      "name": "Вольные рейдеры колец",
+      "stage": 4,
+      "protects": "",
+      "aggro_radius": 0
     }
   ],
   "pirate_spawns": [
@@ -10119,7 +10647,7 @@
       ],
       "station_id": "clan_1_station",
       "guardian_id": "clan_1_fleet",
-      "fleet_template": "medium"
+      "fleet_template": "saturn_rust_fangs"
     },
     {
       "id": "clan_2_spawn",
@@ -10129,7 +10657,7 @@
       ],
       "station_id": "clan_2_station",
       "guardian_id": "clan_2_fleet",
-      "fleet_template": "strong"
+      "fleet_template": "saturn_night_veil"
     },
     {
       "id": "clan_3_spawn",

@@ -25,6 +25,8 @@ static func remove_guard(map: Node2D, index: int) -> void:
 			map.guardian_at.erase(point)
 
 static func clash(map: Node2D, attacker: int, defender: int) -> void:
+	if bool(map.guardians[attacker].get("protected_from_clans", false)) or bool(map.guardians[defender].get("protected_from_clans", false)):
+		return
 	if int(map.guardians[attacker].get("stage", 0)) == 4 or int(map.guardians[defender].get("stage", 0)) == 4:
 		return
 	var a: Dictionary = map.guardians[attacker]
@@ -79,6 +81,8 @@ static func take_turn(map: Node2D) -> int:
 				return index
 			var other := int(map.guardian_at.get(point, -1))
 			if other >= 0 and other != index and bool(map.guardians[other].alive):
+				if bool(map.guardians[other].get("protected_from_clans", false)):
+					break
 				if int(map.guardians[other].get("clan_id", 0)) == int(guard.clan_id):
 					break
 				if int(map.guardians[other].get("stage", 0)) == 4:
@@ -104,7 +108,7 @@ static func _target(map: Node2D, index: int) -> Vector2i:
 	if map._chebyshev_distance(guard.cell, map.current_cell) <= 6:
 		candidates.append(map.current_cell)
 	for enemy in map.guardians:
-		if bool(enemy.alive) and int(enemy.get("stage", 0)) != 4 and int(enemy.get("clan_id", 0)) != int(guard.clan_id) \
+		if bool(enemy.alive) and not bool(enemy.get("protected_from_clans", false)) and int(enemy.get("stage", 0)) != 4 and int(enemy.get("clan_id", 0)) != int(guard.clan_id) \
 				and BanditAI.fleet_power(enemy.fleet) < own_power * 1.15:
 			candidates.append(enemy.cell)
 	for i in range(map.production_sites.size()):

@@ -3301,6 +3301,7 @@ func _start_guardian_battle(index: int, start_immediately: bool = false) -> void
 	# гарнизоны зданий также всегда требуют боя/осады.
 	var contract_convoy: bool = campaign_story != null and campaign_story.is_required_battle(guardian)
 	var can_diplomacy := not guardian.has("object_kind") \
+			and not bool(guardian.get("requires_battle", false)) \
 			and not guardian.has("station_id") \
 			and not contract_convoy \
 			and String(guardian.get("kind", "")) in ["pirate", "trader"]

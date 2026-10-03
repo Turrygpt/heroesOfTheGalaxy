@@ -4,7 +4,7 @@ extends CanvasLayer
 ## В отличие от _show_object_reward_dialog (маленькая находка-попап), это
 ## самостоятельный полноэкранный итог: игра дальше не идёт (campaign_outcome
 ## уже блокирует день и перемещение, см. space_strategy_map.gd), поэтому
-## единственное действие отсюда — выйти в главное меню.
+## после победы на Марсе можно также начать вторую миссию.
 
 const GOLD := preload("res://scripts/ui_style.gd").GOLD
 const RED := Color("f5826b")
@@ -53,6 +53,19 @@ func setup(victory: bool, headline: String, body_text: String) -> void:
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 8)
 	body.add_child(spacer)
+	var map := get_parent()
+	if victory and String(map.get("campaign_map_id")) == "mars_demo_v1" and not preload("res://scripts/demo_edition.gd").enabled():
+		var next_button := Button.new()
+		next_button.text = "МИССИЯ 2 · САТУРН"
+		next_button.custom_minimum_size.y = 46
+		next_button.tooltip_text = "Артефакты отправятся на Землю для исследования: по 1000 кредитов за каждый."
+		preload("res://scripts/ui_style.gd").apply_button(next_button)
+		next_button.pressed.connect(func() -> void:
+			next_button.disabled = true
+			if get_node("/root/CampaignSave").prepare_saturn_transition(map):
+				get_tree().change_scene_to_file("res://scenes/StrategicMain.tscn")
+		)
+		body.add_child(next_button)
 
 	var menu_button := Button.new()
 	menu_button.text = "В ГЛАВНОЕ МЕНЮ"

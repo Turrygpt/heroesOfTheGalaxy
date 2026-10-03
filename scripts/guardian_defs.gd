@@ -7,6 +7,9 @@ extends RefCounted
 ## см. _generate_guardians() в space_strategy_map.gd.
 
 const TEMPLATES := {
+	## Только Сатурн: усиленные кланы, общие пояса случайной карты не меняются.
+	"saturn_rust_fangs": [{"unit_id": "raider", "count": 24}, {"unit_id": "pirate_gunship", "count": 9}, {"unit_id": "pirate_corvette", "count": 2}],
+	"saturn_night_veil": [{"unit_id": "pirate_gunship", "count": 18}, {"unit_id": "pirate_corvette", "count": 8}, {"unit_id": "pirate_frigate", "count": 2}],
 	"weak": [{"unit_id": "raider", "count": 10}],
 	"medium": [{"unit_id": "raider", "count": 15}, {"unit_id": "pirate_gunship", "count": 5}],
 	"strong": [{"unit_id": "pirate_gunship", "count": 10}, {"unit_id": "pirate_corvette", "count": 4}],

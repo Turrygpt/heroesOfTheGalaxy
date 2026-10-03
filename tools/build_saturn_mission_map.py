@@ -95,8 +95,8 @@ PRODUCTION = [
 
 
 GUARDIANS = [
-    ("clan_1_fleet", (15, 17), "medium", "Флот первого клана", 1, "clan_1_station"),
-    ("clan_2_fleet", (31, 24), "strong", "Флот второго клана", 2, "clan_2_station"),
+    ("clan_1_fleet", (15, 17), "saturn_rust_fangs", "Флот первого клана", 1, "clan_1_station"),
+    ("clan_2_fleet", (31, 24), "saturn_night_veil", "Флот второго клана", 2, "clan_2_station"),
     ("clan_3_fleet", (42, 39), "elite", "Флот третьего клана", 3, "clan_3_station"),
     ("clan_4_fleet", (52, 53), "capital", "Линкоры четвёртого клана", 4, "clan_4_station"),
 ]
@@ -296,6 +296,63 @@ def _place_supplies(grid: list[list[str]]) -> list[dict]:
     return result
 
 
+def _place_exploration(data: dict) -> None:
+    """Дополнительные встречи на готовых боковых путях, без изменения геометрии."""
+    occupied = {tuple(data["player_start"]), (26, 18)}
+    for category in ("objects", "production", "guardians"):
+        for item in data[category]:
+            x, y = item["cell"]
+            size = int(item.get("size", 1))
+            occupied.update((cx, cy) for cy in range(y - 1, y + size + 1)
+                            for cx in range(x - 1, x + size + 1))
+    candidates = {(x, y) for y in range(2, 62) for x in range(2, 62)
+                  if data["terrain"][y][x] == "." and (x, y) not in occupied
+                  and not (x >= 49 and y < 35)}
+
+    def place(anchor: tuple[int, int], fleet: bool = False) -> tuple[int, int]:
+        # Флоты стоят в широком космосе: соседние клетки дают возможность обойти бой.
+        pool = [c for c in candidates if not fleet or
+                sum(data["terrain"][c[1] + dy][c[0] + dx] == "."
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))) >= 3]
+        assert pool, "Нет свободного места для встречи"
+        cell = min(pool, key=lambda c: (math.dist(anchor, c), c[1], c[0]))
+        candidates.difference_update((cell[0] + dx, cell[1] + dy)
+                                     for dx in range(-1, 2) for dy in range(-1, 2))
+        return cell
+
+    caravan_cell = place((39, 9), True)
+    data["guardians"].append({"id": "secret_trader_caravan", "cell": list(caravan_cell),
+        "template": "trader_heavy", "name": "Безымянный торговый караван", "stage": 3,
+        "protects": "", "aggro_radius": 0, "artifacts": ["precognition_lens"],
+        "protected_from_clans": True})
+    data["objects"].append(_object("secret_caravan_beacon", "beacon", "Маяк тихой частоты",
+        place((30, 14)), 1, 2, target_id="secret_trader_caravan"))
+    # Двенадцать необязательных флотов, включая сильные встречи на внешних дугах.
+    encounters = [((8, 16), 1, "weak"), ((16, 22), 1, "medium"),
+        ((10, 31), 1, "strong"), ((19, 32), 2, "medium"),
+        ((10, 48), 2, "strong"), ((23, 47), 2, "heavy"),
+        ((32, 37), 2, "strong"), ((43, 17), 3, "heavy"),
+        ((40, 44), 3, "elite"), ((37, 52), 3, "heavy"),
+        ((60, 55), 4, "elite"), ((58, 44), 4, "heavy")]
+    for number, (anchor, stage, template) in enumerate(encounters, 1):
+        data["guardians"].append({"id": f"optional_pirates_{number:02}",
+            "cell": list(place(anchor, True)), "template": template,
+            "name": "Вольные рейдеры колец", "stage": stage, "protects": "", "aggro_radius": 0})
+    anchors = [(12, 9), (8, 24), (12, 33), (17, 30), (25, 22), (31, 29),
+               (13, 47), (22, 49), (29, 44), (34, 13), (43, 26), (39, 47),
+               (42, 53), (49, 53), (59, 52), (57, 42)]
+    resources = list(PRODUCTION_TEXTURES)
+    for number in range(24):
+        anchor = anchors[number % len(anchors)]
+        stage = 1 if anchor[0] < 23 and anchor[1] < 34 else (2 if anchor[0] < 35 else (3 if anchor[0] < 48 else 4))
+        data["objects"].append(_object(f"exploration_resource_{number + 1:02}", "resource_cache",
+            "Груз с заброшенного маршрута", place(anchor), 1, stage,
+            resource_name=resources[number % len(resources)], amount=4 + stage * 2))
+    for number, anchor in enumerate([(10, 51), (28, 43), (43, 22), (59, 55)], 1):
+        data["objects"].append(_object(f"exploration_artifact_{number}", "artifact_cache",
+            "Забытый исследовательский контейнер", place(anchor), 1, 2 if number <= 2 else 3))
+
+
 def _validate(data: dict) -> None:
     occupied: dict[tuple[int, int], str] = {}
     for category in ("objects", "production", "guardians"):
@@ -392,7 +449,7 @@ def main() -> None:
     terrain = _terrain()
     data = {
         "id": "saturn_mission_v1", "title": "Миссия 2 — Система Сатурна", "seed": SEED,
-        "revision": 4, "player_start": [4, 9], "home_base_at_start": None,
+        "revision": 5, "player_start": [4, 9], "home_base_at_start": None,
         "background": "res://assets/space/far_planets/saturn_parallax.png",
         "legend": {"#": "Плотный пояс обломков", ".": "Свободный космос",
                    "!": "Ледяная аномалия, непроходимая"},
@@ -435,11 +492,12 @@ def main() -> None:
             {"id": "titan_haze", "center": [12, 46], "radius": 2},
         ],
     }
+    _place_exploration(data)
     _validate(data)
     DEST.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     _draw(data)
     print(f"{DEST}: {len(data['objects'])} объектов, {len(PRODUCTION)} производств, "
-          f"{len(GUARDIANS)} флотов. Обзор: {PREVIEW}")
+          f"{len(data['guardians'])} флотов. Обзор: {PREVIEW}")
 
 
 if __name__ == "__main__":

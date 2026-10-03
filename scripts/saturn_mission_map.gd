@@ -35,8 +35,15 @@ func _ready() -> void:
 		pavlova.gain_experience(HeroDefs.experience_for_level(5))
 		BattleRewards.auto_apply(pavlova)
 		pavlova.set_army_from_dict({"interceptor": 40, "gunship": 10})
+		pavlova.artifacts.clear()
+		if not CampaignSave.saturn_artifact_transfer.is_empty():
+			story_state.artifact_transfer = CampaignSave.saturn_artifact_transfer.duplicate(true)
+			player_one_credits += int(story_state.artifact_transfer.credits)
+			CampaignSave.saturn_artifact_transfer.clear()
 		movement_points = _movement_limit(pavlova, weekly_movement_bonus)
 	_migrate_mission()
+	if bool(story_state.get("secret_caravan_found", false)) and bool(secret_caravan().get("alive", false)):
+		beacon_cell = secret_caravan().cell
 	_save_hero_roster()
 	_apply_gate()
 	saturn_story = preload("res://scripts/saturn_story.gd").new()
@@ -96,6 +103,29 @@ func station_patrol(id: String) -> Dictionary:
 			return guard
 	return {}
 
+func secret_caravan() -> Dictionary:
+	for guard in guardians:
+		if String(guard.get("mission_id", "")) == "secret_trader_caravan":
+			return guard
+	return {}
+
+## Активный маяк передаёт обзор стоянки каравана, в том числе после загрузки.
+func _vision_ship_cells() -> Array[Vector2i]:
+	var cells := super._vision_ship_cells()
+	var caravan := secret_caravan()
+	if bool(story_state.get("secret_caravan_found", false)) and bool(caravan.get("alive", false)):
+		cells.append(caravan.cell)
+	return cells
+
+## Линза остаётся гарантированным трофеем секретного каравана.
+func _random_unowned_artifact(hero: Hero) -> String:
+	var caravan := secret_caravan()
+	var candidates: Array[String] = []
+	for id in HeroDefs.ARTIFACTS:
+		if not hero.has_artifact(id) and not (id == "precognition_lens" and bool(caravan.get("alive", false))):
+			candidates.append(id)
+	return candidates[map_random.randi_range(0, candidates.size() - 1)] if not candidates.is_empty() else ""
+
 func _production_owner_color(owner: int) -> Color:
 	return CLANS.color(owner)
 
@@ -150,6 +180,20 @@ func _check_map_object_encounter(cell: Vector2i, previous_cell: Vector2i = Vecto
 	if int(map_object_at.get(previous_cell, -1)) == index:
 		return false
 	var mission_id := String(object.get("mission_id", ""))
+	if mission_id == "secret_caravan_beacon":
+		var caravan := secret_caravan()
+		if caravan.is_empty():
+			return true
+		story_state.secret_caravan_found = true
+		object.consumed = true
+		if bool(caravan.alive):
+			_reveal_around(caravan.cell, 3)
+			_refresh_fog_visibility(true)
+			set_beacon(caravan.cell)
+			saturn_story.enqueue("secret_caravan")
+		else:
+			_show_object_reward_dialog("Тихая частота", "На старой частоте больше никто не отвечает. Караван уже перехвачен.")
+		return true
 	if mission_id in ["clan_3_logs", "clan_4_archive"]:
 		var stage := 3 if mission_id == "clan_3_logs" else 4
 		if not bool(station_by_id("clan_%d_station" % stage).get("claimed_once", false)):
@@ -236,6 +280,7 @@ func _neutralize_clan(stage: int) -> void:
 			set_production_owner(i, 0)
 
 func _migrate_mission() -> void:
+	_migrate_exploration()
 	_player_hero().level_cap = 10
 	# Старые технологии, город и флот сохраняются; владение доками заменяется нейтрализацией.
 	if not story_state.has("neutralized_clans"):
@@ -257,6 +302,43 @@ func _migrate_mission() -> void:
 	var state := HumanPlanetState.load_state()
 	state.bonus_daily_income = 0
 	HumanPlanetState.save_state(state)
+
+## Новые встречи добавляются к старой карте один раз, трофеи и потери не сбрасываются.
+func _migrate_exploration() -> void:
+	if int(story_state.get("exploration_revision", 0)) >= 5:
+		return
+	# Загрузка сейва переприсваивает коллекции карты; привязываем генератор к ним заново.
+	map_generation = preload("res://scripts/map_generation.gd").new(self)
+	var data := SATURN.read()
+	var present := {}
+	for guard in guardians:
+		present[String(guard.get("mission_id", ""))] = true
+	for entry in data.guardians:
+		if String(entry.protects) == "" and not present.has(String(entry.id)):
+			SATURN.add_encounter(self, entry)
+	for object in map_objects:
+		present[String(object.get("mission_id", ""))] = true
+	for entry in data.objects:
+		var id := String(entry.id)
+		if present.has(id) or not (id.begins_with("exploration_") or id == "secret_caravan_beacon"):
+			continue
+		map_generation.add_map_object(SATURN.cell(entry.cell), entry.kind, int(entry.size))
+		var object: Dictionary = map_objects[-1]
+		for key in entry:
+			if key not in ["id", "cell"]:
+				object[key] = entry[key]
+		object.mission_id = id
+	for stage in [1, 2]:
+		var guard := station_patrol("clan_%d_station" % stage)
+		if guard.is_empty():
+			continue
+		var template := "saturn_rust_fangs" if stage == 1 else "saturn_night_veil"
+		if String(guard.template) != template:
+			# Не лечим уже потрёпанный флот, но новый патруль будет усиленным.
+			if guard.fleet == GuardianDefs.fleet_for(String(guard.template)):
+				guard.fleet = GuardianDefs.fleet_for(template)
+			guard.template = template
+	story_state.exploration_revision = 5
 
 func _offer_moon_base() -> void:
 	if human_planet_owner == 1:
@@ -338,7 +420,7 @@ func _open_human_planet() -> void:
 	set_process_unhandled_input(false)
 
 func _start_guardian_battle(index: int, start_immediately: bool = false) -> void:
-	if index >= 0 and index < guardians.size() and int(guardians[index].get("stage", 0)) == 4 and not final_assault_ready():
+	if index >= 0 and index < guardians.size() and String(guardians[index].get("station_id", "")) == "clan_4_station" and not final_assault_ready():
 		_show_object_reward_dialog("Подготовка решающего удара", "Нейтрализуйте три клана, основайте базу на Тефии, изучите архив большой верфи и приведите хотя бы один крейсер. Линейный флот Чёрного Солнца охраняет подступы к Энцеладу.")
 		return
 	if index >= 0 and index < guardians.size() and guardians[index].has("spawn_cell"):
@@ -350,11 +432,13 @@ func _start_guardian_battle(index: int, start_immediately: bool = false) -> void
 	super._start_guardian_battle(index, start_immediately)
 
 func _resolve_guardian_battle(index: int, units: Array, won: bool, retreated: bool = false) -> void:
-	if index >= 0 and index < guardians.size() and int(guardians[index].get("stage", 0)) == 4 and won and not retreated:
+	if index >= 0 and index < guardians.size() and String(guardians[index].get("station_id", "")) == "clan_4_station" and won and not retreated:
 		story_state.black_sun_defeated = true
 	super._resolve_guardian_battle(index, units, won, retreated)
 	if index >= 0 and index < guardians.size() and won and not retreated:
 		guardians[index].defeated_day = current_day
+		if String(guardians[index].get("mission_id", "")) == "secret_trader_caravan" and beacon_cell == guardians[index].cell:
+			clear_beacon()
 		if guardians[index].has("spawn_cell"):
 			PIRATE_AI.remove_guard(self, index)
 
