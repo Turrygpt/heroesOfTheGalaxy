@@ -28,6 +28,10 @@ const ACTIVE_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
 const IDLE_MODULATE := Color(0.46, 0.52, 0.62, 0.72)
 
 const SPEAKERS := {
+	"saturn_cross": {"name": "Кросс · Ржавые Клыки", "side": "left"},
+	"saturn_nyx": {"name": "Никс · Ночная Вуаль", "side": "left"},
+	"saturn_drake": {"name": "Дрейк · Ледяные Змеи", "side": "left"},
+	"saturn_black": {"name": "Командующий Чёрного Солнца", "side": "left"},
 	"admiral": {"name": "Адмирал", "side": "left"},
 	"pavlova": {"name": "Полковник Павлова", "side": "right"},
 	"stein": {"name": "Лорд Штайн · Торговая лига", "side": "left"},
@@ -39,6 +43,10 @@ const SPEAKERS := {
 }
 ## Цвета реплик помогают сразу отличать участников радиообмена.
 const SPEAKER_COLORS := {
+	"saturn_cross": Color("ff9b45"),
+	"saturn_nyx": Color("bf88ff"),
+	"saturn_drake": Color("42d9c8"),
+	"saturn_black": Color("f3d44c"),
 	"admiral": Color("86b7ff"),
 	"pavlova": Color("82c9c1"),
 	"stein": Color("e0b56b"),
@@ -49,6 +57,10 @@ const SPEAKER_COLORS := {
 	"bandit": Color("ed8578"),
 }
 const PORTRAITS := {
+	"saturn_cross": preload("res://assets/persons/officers/pirate_cross.png"),
+	"saturn_nyx": preload("res://assets/persons/officers/pirate_nyx.png"),
+	"saturn_drake": preload("res://assets/persons/officers/pirate_drake.png"),
+	"saturn_black": preload("res://assets/persons/Pirate/portrait.png"),
 	"admiral": ADMIRAL_PORTRAIT, "pavlova": PAVLOVA_PORTRAIT,
 	"stein": preload("res://assets/persons/Trader/portrait.png"),
 	"ridus": preload("res://assets/persons/Pirate/portrait.png"),

@@ -38,6 +38,8 @@ func run() -> void:
 	settings.close_menu()
 	check(not paused, "Настройки закрываются")
 	menu._new_game()
+	check(menu.get_node_or_null("MissionSelection") != null and not menu.transition_started, "Новая игра открывает выбор миссии")
+	menu._select_mission(1)
 	check(menu.transition_started and menu.menu_buttons[0].disabled, "Повторный старт заблокирован")
 	# В репозитории теперь лежит настоящее интро. Тесту не нужно ждать весь
 	# ролик: это эквивалент пользовательского пропуска любой клавишей.
@@ -54,6 +56,17 @@ func run() -> void:
 	menu._load_game()
 	await _await_scene_change(menu)
 	check(current_scene != null and current_scene.name == "StrategicMain", "Загрузка сохранения из меню")
+	change_scene_to_file("res://scenes/MainMenu.tscn")
+	await process_frame
+	await process_frame
+	menu = current_scene
+	menu._new_game()
+	menu._select_mission(2)
+	await _await_scene_change(menu)
+	check(current_scene.get_node("SpaceStrategyMap").campaign_map_id == "saturn_mission_v1", "Выбор второй миссии запускает Сатурн")
+	check(root.get_node("HeroRoster").player_hero().level == 5, "Выбор Сатурна выдаёт Павловой пятый уровень")
+	var saturn_save: Dictionary = root.get_node("CampaignSave").read_save()
+	check(int(saturn_save.heroes.player_admiral.level) == 5, "Стартовый автосейв содержит пятый уровень")
 	print("MENU_TEST_FAILURES=", failures)
 	quit(1 if failures else 0)
 

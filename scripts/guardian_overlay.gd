@@ -48,6 +48,8 @@ func _draw() -> void:
 func _draw_control_zone(strategy_map: Node2D, guardian: Dictionary) -> void:
 	var center: Vector2 = strategy_map._object_footprint_center(guardian["cell"], int(guardian.get("size", 1)))
 	var color := PATROL_COLOR if String(guardian.get("kind", "")) == "patrol" else PIRATE_COLOR
+	if guardian.has("clan_id"):
+		color = preload("res://scripts/saturn_clans.gd").color(int(guardian.clan_id))
 	var radius_cells := int(guardian.get("aggro_radius", CONTROL_RADIUS_CELLS))
 	var pixel_radius := (float(radius_cells) + 0.5) * CELL_SIZE_FOR_FOOTPRINT
 	var phase_offset := float((int(guardian["cell"].x) * 17 + int(guardian["cell"].y) * 31) % 24) / 24.0
@@ -88,7 +90,10 @@ func _draw_guardian(strategy_map: Node2D, guardian: Dictionary) -> void:
 		draw_texture_rect_region(unit["texture"], Rect2(-region.size * 0.5, region.size), region)
 		draw_set_transform(Vector2.ZERO)
 	if guardian.has("display_name"):
-		_draw_object_name(center, String(guardian.display_name), 1, false)
+		var tint := Color.WHITE
+		if guardian.has("clan_id"):
+			tint = preload("res://scripts/saturn_clans.gd").color(int(guardian.clan_id))
+		_draw_object_name(center, String(guardian.display_name), 1, false, tint)
 
 
 ## Стражи с наградой (заброшенная станция/верфь, пиратская база) живут в том

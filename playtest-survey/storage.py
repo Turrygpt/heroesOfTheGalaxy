@@ -67,7 +67,7 @@ def main():
     action = sys.argv[1] if len(sys.argv) > 1 else ""
     if action not in {
         "init", "session", "submit", "stats", "export",
-        "review_public", "review_list", "review_submit", "review_status",
+        "review_public", "review_list", "review_submit", "review_status", "survey_list",
         "download_hit", "download_stats",
     }:
         raise ValueError("Неизвестная команда")
@@ -107,6 +107,18 @@ def main():
             dict(zip(("id", "author", "body", "rating", "status", "created_at", "updated_at", "published_at"), row))
             for row in rows
         ]}
+    elif action == "survey_list":
+        total = connection.execute("SELECT COUNT(*) FROM submissions").fetchone()[0]
+        rows = connection.execute(
+            "SELECT id, answers_json FROM submissions ORDER BY id DESC LIMIT 200"
+        ).fetchall()
+        result = {
+            "total": total,
+            "surveys": [
+                {"id": survey_id, "answers": json.loads(answers_json)}
+                for survey_id, answers_json in rows
+            ],
+        }
     elif action == "review_status":
         payload = json.load(sys.stdin)
         review_id = payload.get("id")

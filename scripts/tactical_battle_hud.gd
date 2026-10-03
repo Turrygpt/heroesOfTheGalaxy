@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 signal end_turn_requested
+signal wait_requested
 signal return_requested
 signal auto_requested
 signal auto_mode_requested
@@ -30,18 +31,19 @@ const INK := preload("res://scripts/ui_style.gd").INK
 ## Состав флотов и характеристики активного отряда больше не показываются
 ## постоянно: число кораблей подписано прямо на карте под каждым отрядом
 ## (см. tactical_battle.gd:_draw_stack_badge).
-const BAR_HEIGHT := 98.0
+const BAR_HEIGHT := 114.0
 const BAR_HEIGHT_MOBILE := 126.0
 const BAR_MARGIN := 16.0
 ## Полоса очереди хода: маленькие иконки пачек в порядке инициативы этого
 ## раунда, начиная с активной. Единственная добавка к "минимальному" HUD
 ## (см. AGENTS.md §7b) — без неё порядок хода не виден и не планируется,
 ## а он строится по инициативе, а не по стороне.
-const TURN_ORDER_ICON_SIZE := 30.0
+const TURN_ORDER_ICON_SIZE := 42.0
 const TURN_ORDER_MAX_ICONS := 10
 
 var round_label: Label
 var end_button: Button
+var wait_button: Button
 var back_button: Button
 var ui: Control
 var turn_order_row: HBoxContainer
@@ -157,13 +159,17 @@ func _build_bottom_bar() -> void:
 	auto_mode_button.pressed.connect(func(): auto_mode_requested.emit())
 	row.add_child(auto_mode_button)
 
-	back_button = _button("←  СБЕЖАТЬ В ЗАМОК", MUTED)
+	back_button = _button("←  ЭВАКУАЦИЯ КОМАНДУЮЩЕГО", MUTED)
 	back_button.custom_minimum_size.x = 220
 	preload("res://scripts/ui_style.gd").apply_button(back_button)
 	back_button.pressed.connect(func(): return_requested.emit())
 	row.add_child(back_button)
 
-	end_button = _button("ЗАВЕРШИТЬ ХОД  →", GOLD)
+	wait_button = _button("ЖДАТЬ", GOLD)
+	wait_button.tooltip_text = "Перенести этот корабль в конец очереди текущего раунда. Один раз за раунд."
+	wait_button.pressed.connect(func(): wait_requested.emit())
+	row.add_child(wait_button)
+	end_button = _button("ПРОПУСТИТЬ ХОД  →", GOLD)
 	end_button.custom_minimum_size.x = 220
 	preload("res://scripts/ui_style.gd").apply_button(end_button)
 	end_button.pressed.connect(func(): end_turn_requested.emit())
@@ -211,7 +217,9 @@ func update_state(units: Array[Dictionary], active_index: int, round_number: int
 	]
 	end_button.visible = not finished
 	end_button.disabled = locked or active["side"] != 1
-	back_button.text = "←  НА КАРТУ" if finished else "←  СБЕЖАТЬ В ЗАМОК"
+	wait_button.visible = not finished
+	wait_button.disabled = locked or active["side"] != 1 or bool(active.get("moved", false)) or bool(active.get("shot", false)) or bool(active.get("waited_round", 0) == round_number) or turn_order.find(active_index) >= turn_order.size() - 1
+	back_button.text = "←  НА КАРТУ" if finished else "←  ЭВАКУАЦИЯ КОМАНДУЮЩЕГО"
 	auto_mode_button.text = "РЕЖИМ: %s" % auto_mode_label
 	auto_mode_button.disabled = finished
 	_refresh_turn_order(units, turn_order, active_index, finished)

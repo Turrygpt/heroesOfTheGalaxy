@@ -49,6 +49,9 @@ class FakeStrategyMap:
 	func _update_hud() -> void:
 		hud_updated = true
 
+	func daily_credit_income() -> int:
+		return 0
+
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -226,6 +229,8 @@ func _check_recruit_cost(unit_id: String, tier: int, cost: Dictionary) -> void:
 	var resources := cost.duplicate()
 	resources.erase("credits")
 	var expected := {"Топливо": 2, "Радиоизотопы": 2} if tier == 5 else {}
+	if unit_id == "earth_cruiser":
+		expected = {"Топливо": 3, "Радиоизотопы": 3}
 	if int(cost.get("credits", 0)) <= 0 or resources != expected:
 		_fail("Неверная цена найма %s: %s" % [unit_id, cost])
 

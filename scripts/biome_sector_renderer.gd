@@ -118,6 +118,8 @@ void fragment() {
 var terrain_source: Node2D
 ## Какой профиль из Defs.PROFILES собирать. Ставится до add_child.
 var biome := "ice"
+## Необязательный район авторской карты. Пустая строка сохраняет поведение случайной карты.
+var sector_tag := ""
 
 var profile: Dictionary = {}
 var drifters: Array[Dictionary] = []
@@ -140,7 +142,8 @@ func _ready() -> void:
 	profile = Defs.PROFILES[biome]
 	var features: Array[Dictionary] = []
 	for feature: Dictionary in map.obstacles:
-		if String(feature.get("biome", "")) == biome and String(feature.kind) != "rift":
+		if String(feature.get("biome", "")) == biome and String(feature.kind) != "rift" \
+				and (sector_tag.is_empty() or String(feature.get("sector", "")) == sector_tag):
 			features.append(feature)
 	if features.is_empty():
 		return

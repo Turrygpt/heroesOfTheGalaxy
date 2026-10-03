@@ -67,6 +67,7 @@ const allowed = {
 const arrayFields = new Set(["friction", "stop_reason", "resource_blocker", "combat_features"]);
 
 const textLimits = {
+  demo_version: 20,
   favorite: 1200,
   confusing: 1600,
   bug: 1800,
@@ -132,6 +133,12 @@ function cleanAnswers(raw) {
     if (!(key in raw)) continue;
     if (arrayFields.has(key)) {
       if (!Array.isArray(raw[key]) || raw[key].length > options.length || raw[key].some((value) => !options.includes(value))) return null;
+      const exclusive = {
+        friction: ["Нигде"],
+        resource_blocker: ["Ничего не мешало", "Не дошёл до развития"],
+        combat_features: ["Не заметил эти возможности"],
+      }[key] || [];
+      if (raw[key].length > 1 && raw[key].some((value) => exclusive.includes(value))) return null;
       result[key] = [...new Set(raw[key])];
       continue;
     }
@@ -143,6 +150,7 @@ function cleanAnswers(raw) {
     if (!(key in raw)) continue;
     if (typeof raw[key] !== "string" || raw[key].length > maxLength) return null;
     const value = raw[key].trim();
+    if (key === "demo_version" && value && !/^[0-9]{1,3}\.[0-9]{1,3}(?:\.[0-9]{1,3})?$/.test(value)) return null;
     if (value) result[key] = value;
   }
 
@@ -313,6 +321,11 @@ async function handleReviewRoute(request, response) {
   if (url === "/admin/reviews" && request.method === "GET") {
     if (!adminSession(request)) { reply(response, 401, { message: "login_required" }); return true; }
     reply(response, 200, await storage("review_list", {}));
+    return true;
+  }
+  if (url === "/admin/surveys" && request.method === "GET") {
+    if (!adminSession(request)) { reply(response, 401, { message: "login_required" }); return true; }
+    reply(response, 200, await storage("survey_list", {}));
     return true;
   }
   if (url === "/admin/stats" && request.method === "GET") {

@@ -303,6 +303,7 @@ var shake_trauma := 0.0
 var last_attack_was_critical := false
 var last_event := "Бой начался"
 var turn_pending := false
+var waiting_turn := false
 var turn_effects_applied := false
 var experience_granted := false
 var last_experience_gained := 0
@@ -323,7 +324,7 @@ var path_distance_cache: Dictionary = {}
 ## Задержка перед показом (курсор должен простоять над одной и той же пачкой
 ## HOVER_TOOLTIP_DELAY секунд) — иначе попап мигал бы при каждом проходе мыши
 ## по полю боя.
-const HOVER_TOOLTIP_DELAY := 2.0
+const HOVER_TOOLTIP_DELAY := 1.0
 var hover_target_index := -1
 var hover_timer := 0.0
 var hover_tooltip_visible := false
@@ -379,6 +380,7 @@ func _ready() -> void:
 	hud.ability_requested.connect(_toggle_precise_salvo)
 	hud.protocols_requested.connect(_toggle_book)
 	hud.end_turn_requested.connect(_end_active_turn)
+	hud.wait_requested.connect(_wait_active_turn)
 	hud.return_requested.connect(_return_to_map)
 	hud.auto_requested.connect(_toggle_auto_battle)
 	hud.auto_mode_requested.connect(_cycle_auto_battle_mode)
@@ -867,6 +869,11 @@ func _tick_battle(delta: float) -> void:
 		results_pending = false
 		_grant_experience()
 	if turn_pending and not _visuals_busy():
+		if waiting_turn:
+			waiting_turn = false
+			turn_pending = false
+			_advance_turn()
+			return
 		if not turn_effects_applied:
 			turn_effects_applied = true
 			_finish_unit_turn_effects(_active_unit())
@@ -1360,6 +1367,12 @@ func _begin_active_turn() -> void:
 	if battle_finished:
 		return
 	var unit := _active_unit()
+	if bool(unit.get("waiting_resume", false)):
+		unit["waiting_resume"] = false
+		last_event = "Ожидание завершено: %s ×%d" % [unit["label"], _stack_count(unit)]
+		_update_hud()
+		queue_redraw()
+		return
 	_apply_burning(unit)
 	if int(unit["hp"]) <= 0:
 		turn_pending = true
@@ -1456,6 +1469,24 @@ func _end_active_turn() -> void:
 	turn_pending = true
 
 
+func _wait_active_turn() -> void:
+	if battle_finished or _actions_locked() or _active_unit()["side"] != 1:
+		return
+	var unit := _active_unit()
+	if int(unit.get("waited_round", 0)) == round_number or bool(unit.get("moved", false)) or bool(unit.get("shot", false)) or order_position >= turn_order.size() - 1:
+		return
+	unit["waited_round"] = round_number
+	unit["waiting_resume"] = true
+	_cancel_targeting()
+	turn_order.remove_at(order_position)
+	turn_order.append(active_unit_index)
+	order_position -= 1
+	last_event = "%s ожидает в конце раунда" % UnitDefs.display_name_from_unit(unit)
+	turn_pending = true
+	waiting_turn = true
+	_update_hud()
+
+
 ## Ответный залп срабатывает синхронно внутри _attack_unit и может убить
 ## самого стрелка раньше, чем он успел походить (moved остаётся false) —
 ## мёртвый отряд всё равно ничего больше не может, ход обязан пойти дальше.
@@ -1529,6 +1560,7 @@ func _advance_turn() -> void:
 # вслед за более резвыми отрядами, которые походили раньше по очереди хода.
 func _begin_round() -> void:
 	for unit in units:
+		unit["waiting_resume"] = false
 		unit["round_start_cell"] = unit["cell"]
 		var kept: Array = []
 		for effect in unit.get("effects", []):
@@ -2859,6 +2891,7 @@ func _draw() -> void:
 			_draw_hex(Vector2i(column, row), origin)
 	_draw_obstacles(origin)
 	_draw_scorch_marks()
+	_draw_inspected_movement(origin)
 	_draw_hover_preview(origin)
 	_draw_formation_overlay(origin)
 	for index in range(units.size()):
@@ -3236,6 +3269,29 @@ func _draw_hex(cell: Vector2i, origin: Vector2) -> void:
 	draw_polyline(outline, outline_color, 1.2, true)
 
 
+func _draw_inspected_movement(origin: Vector2) -> void:
+	if battle_finished or selected_protocol != "":
+		return
+	var inspected := _unit_at_cell(hovered_cell)
+	if inspected < 0 or inspected == active_unit_index or int(units[inspected].get("hp", 0)) <= 0:
+		return
+	var unit: Dictionary = units[inspected]
+	var reach := _stat(unit, "move")
+	var color := PLAYER_COLOR if int(unit.get("side", 0)) == 1 else ENEMY_COLOR
+	for x in range(GRID_COLUMNS):
+		for y in range(GRID_ROWS):
+			var cell := Vector2i(x, y)
+			if cell == unit["cell"] or _hex_distance(unit["cell"], cell) > reach:
+				continue
+			if not _footprint_valid(_footprint_for_move(unit, cell), inspected):
+				continue
+			var distance := _path_distance(unit["cell"], cell)
+			if distance < 0 or distance > reach:
+				continue
+			draw_colored_polygon(_hex_points(_hex_center(cell, origin)), Color(color, 0.17))
+			draw_arc(_hex_center(cell, origin), 26.0, 0.0, TAU, 24, Color(color, 0.52), 1.5, true)
+
+
 ## Одна крупная нашлёпка из атласа SpaceObstacles на клетку — в отличие от
 ## многослойного поля на глобальной карте (space_obstacle_renderer.gd), гекс
 ## боя маленький и не нуждается в отдельных заносах и осыпи по краю.
@@ -3311,6 +3367,8 @@ func _draw_unit(index: int, origin: Vector2) -> void:
 			draw_arc(center, ship_size.x * 0.52, PI * 0.12, PI * 0.88, 32, Color(0.35, 0.88, 1.0, 0.55), 2.0, true)
 		if SHIP_RULES.has_ability(unit, "flagship"):
 			draw_string(ThemeDB.fallback_font, center + Vector2(-38, -43), "ФЛАГМАН", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("70dfff"))
+		elif not unit.get("abilities", []).is_empty():
+			draw_string(ThemeDB.fallback_font, center + Vector2(-29, -42), "★ УМЕНИЕ", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, GOLD_COLOR)
 		if bool(unit.get("precise_armed", false)):
 			draw_arc(center, ship_size.x * 0.55, visual_time, visual_time + PI * 1.6, 40, GOLD_COLOR, 2.0, true)
 		if _unit_shield(unit) > 0:

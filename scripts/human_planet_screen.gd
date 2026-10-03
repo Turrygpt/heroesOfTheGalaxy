@@ -94,6 +94,11 @@ const BUILDING_CATALOG := [
 ## инвариант (все цифры ниже внутри него) и проверяется
 ## tools/ship_buildings_regression.gd.
 var BUILDING_DEFS := {
+	"cruiser_yard": {
+		"name": "Тяжёлая верфь · VI ранг", "max_level": 1, "level_names": ["КРЕЙСЕР"],
+		"costs": [{"credits": 6000, "Руда": 20, "Энергокристаллы": 10, "Радиоизотопы": 8}],
+		"requirements": [{"fort": 3, "destroyer_yard": 1, "townhall": 4}],
+	},
 	"townhall": {
 		"name": "Планетарный совет", "max_level": 4, "level_names": ["I", "II", "III", "IV"],
 		"costs": [
@@ -187,7 +192,7 @@ var BUILDING_DEFS := {
 		"requirements": [{"townhall": 1}],
 	},
 	"marketplace": {
-		"name": "Биржа", "max_level": 1, "level_names": ["I"],
+		"name": "Солнечная биржа", "max_level": 1, "level_names": ["I"],
 		"costs": [{"credits": 500, "Продукты": 5}],
 		"requirements": [{"townhall": 1}],
 	},
@@ -338,6 +343,8 @@ var hovered_building: Sprite2D
 ## отличие от GarrisonScreen, у которого уже была разметка в сцене, поэтому
 ## живёт только пока открыт, а не как скрытый узел сцены.
 var exchange_screen: PanelContainer = null
+var building_hover_hint: Label
+var building_hover_time := 0.0
 var exchange_list: VBoxContainer = null
 var exchange_credits_label: Label = null
 var university_screen: CanvasLayer = null
@@ -399,6 +406,17 @@ func _ready() -> void:
 	_update_university_button()
 	_sync_university_protocols()
 	_rebuild_building_visuals()
+	building_hover_hint = Label.new()
+	building_hover_hint.visible = false
+	building_hover_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	building_hover_hint.z_index = 100
+	building_hover_hint.custom_minimum_size.x = 330
+	building_hover_hint.size.x = 330
+	building_hover_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	building_hover_hint.add_theme_font_size_override("font_size", 16)
+	building_hover_hint.add_theme_color_override("font_color", Color("e7f0f5"))
+	building_hover_hint.add_theme_stylebox_override("normal", preload("res://scripts/ui_style.gd").surface(Color("82c9ff"), Color("071620"), 10, 8))
+	$Root.add_child(building_hover_hint)
 	_update_planet_info()
 	_update_resource_bar()
 	_update_size_label()
@@ -533,7 +551,13 @@ func _input(event: InputEvent) -> void:
 			_close_building_editor()
 			get_viewport().set_input_as_handled()
 			return
-		# Иначе Esc открывает меню настроек (GameSettings).
+		if construction_menu.visible:
+			_close_construction_menu()
+			get_viewport().set_input_as_handled()
+			return
+		_request_close()
+		get_viewport().set_input_as_handled()
+		return
 	# Редактор слотов правит планету, а не окно карты: в режиме модалки
 	# (флот героя, торговый пост) вся разметка планеты скрыта, и F8 оставил бы
 	# игрока в пустом экране без единственной кнопки выхода.
@@ -930,13 +954,31 @@ func _update_catalog_buttons() -> void:
 func _update_building_hover(delta: float) -> void:
 	if editor_panel.visible:
 		hovered_building = null
+		if is_instance_valid(building_hover_hint):
+			building_hover_hint.hide()
 		return
 	var next_hovered: Sprite2D
 	var mouse_position := get_viewport().get_mouse_position()
 	if not construction_menu.visible and not building_modal.visible and not garrison_screen.visible \
 	and not is_instance_valid(exchange_screen) and not _pointer_is_over_interface(mouse_position):
 		next_hovered = _get_building_at(mouse_position)
+	if next_hovered != hovered_building:
+		building_hover_time = 0.0
+	else:
+		building_hover_time += delta
 	hovered_building = next_hovered
+	if is_instance_valid(building_hover_hint):
+		building_hover_hint.visible = is_instance_valid(hovered_building) and building_hover_time >= 1.0
+		if building_hover_hint.visible:
+			if building_hover_time - delta < 1.0:
+				var kind := String(hovered_building.get_meta("kind", ""))
+				var level := int(hovered_building.get_meta("level", 1))
+				var unit_id := UnitDefs.recruitable_for_dwelling(kind, level, String(HumanPlanetState.load_state().get("faction", "earth")))
+				building_hover_hint.text = "%s\n%s" % [_building_display_name(kind, level), _building_hint(kind, level, unit_id)]
+			var viewport_size := get_viewport().get_visible_rect().size
+			building_hover_hint.position = Vector2(
+				clampf(mouse_position.x + 20.0, 8.0, maxf(8.0, viewport_size.x - 340.0)),
+				clampf(mouse_position.y + 20.0, 8.0, maxf(8.0, viewport_size.y - building_hover_hint.size.y - 8.0)))
 	var blend := 1.0 - exp(-BUILDING_HOVER_SPEED * delta)
 	for building in placed_buildings:
 		if not is_instance_valid(building):
@@ -1019,7 +1061,7 @@ func _set_modal_recruitment(unit_id: String) -> void:
 	modal_recruit_spin.max_value = maximum
 	modal_recruit_spin.value = 1
 	modal_recruit_button.disabled = available <= 0 or affordable <= 0
-	modal_recruit_button.tooltip_text = "Доступно: %d · %s" % [available, _format_cost(_ship_recruit_cost(UnitDefs.get_unit(unit_id).get("cost", {})))] if available > 0 else "Нет кораблей в недельном приросте."
+	modal_recruit_button.tooltip_text = "Доступно: %d · %s" % [available, _format_cost(_ship_recruit_cost(UnitDefs.get_unit(unit_id).get("cost", {})))] if available > 0 else "Нет кораблей в наличии."
 
 
 func _recruit_from_modal() -> void:
@@ -1180,6 +1222,8 @@ func _buy_protocol_module(hero: Hero) -> void:
 	strategy_map.pay_cost({"credits": 500})
 	hero.has_protocol_module = true
 	_save_hero_roster()
+	if strategy_map != null:
+		strategy_map._teach_protocols_on_home_planet_visit(strategy_map.current_cell)
 	_commit_strategy_economy_change()
 	_update_resource_bar()
 	_update_university_button()
@@ -1404,11 +1448,18 @@ func _build_recruitment_row(unit_id: String) -> Control:
 	var content := HBoxContainer.new()
 	content.add_theme_constant_override("separation", 10)
 	row.add_child(content)
-	content.add_child(_unit_icon(unit, Vector2(96, 56)))
+	var recruit_icon := _unit_icon(unit, Vector2(96, 56))
+	recruit_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	recruit_icon.tooltip_text = _ship_stat_tooltip(unit)
+	content.add_child(recruit_icon)
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_child(text)
 	text.add_child(_trading_label(UnitDefs.display_name(unit_id), 15, Color(0.9, 0.92, 0.95, 1)))
+	if not unit.get("abilities", []).is_empty():
+		var ability_label := _trading_label("★ ОСОБЕННОСТЬ КОРАБЛЯ", 12, Color("e5bd70"))
+		ability_label.tooltip_text = preload("res://scripts/ship_combat_rules.gd").ability_text(unit)
+		text.add_child(ability_label)
 	text.add_child(_trading_label(_trading_post_cost_text(unit_id), 12, Color(0.6, 0.63, 0.68, 1)))
 	var stock := _trading_label("", 14, Color(1, 0.85, 0.35, 1))
 	stock.custom_minimum_size = Vector2(96, 0)
@@ -1888,7 +1939,10 @@ func _build_production_row(unit_id: String, weekly: int, available: int) -> Cont
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 10)
 	row.add_child(hbox)
-	hbox.add_child(_unit_icon(unit, Vector2(54, 54)))
+	var production_icon := _unit_icon(unit, Vector2(54, 54))
+	production_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	production_icon.tooltip_text = _ship_stat_tooltip(unit)
+	hbox.add_child(production_icon)
 
 	var text_box := VBoxContainer.new()
 	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1901,6 +1955,13 @@ func _build_production_row(unit_id: String, weekly: int, available: int) -> Cont
 	name_label.text = UnitDefs.display_name(unit_id)
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	text_box.add_child(name_label)
+	if not unit.get("abilities", []).is_empty():
+		var ability_label := Label.new()
+		ability_label.text = "★ ОСОБЕННОСТЬ КОРАБЛЯ"
+		ability_label.add_theme_font_size_override("font_size", 12)
+		ability_label.add_theme_color_override("font_color", Color("e5bd70"))
+		ability_label.tooltip_text = preload("res://scripts/ship_combat_rules.gd").ability_text(unit)
+		text_box.add_child(ability_label)
 
 	var status_label := Label.new()
 	status_label.add_theme_font_size_override("font_size", 13)
@@ -2196,6 +2257,20 @@ func _fleet_card_combat_tooltip(unit: Dictionary, count: int, hero: Hero = null)
 	return "\n".join(lines)
 
 
+func _ship_stat_tooltip(unit: Dictionary) -> String:
+	var rules := preload("res://scripts/ship_combat_rules.gd")
+	var lines := [
+		String(unit.get("label", "Корабль")),
+		"Прочность %d · поле %d%%" % [int(unit.get("hull", 0)), rules.field(unit)],
+		"Урон %d–%d · %s" % [int(unit.get("damage_min", 0)), int(unit.get("damage_max", 0)), rules.damage_name(unit)],
+		"Скорость %d · дальность %d · инициатива %d%%" % [int(unit.get("move", 0)), int(unit.get("range", 0)), rules.initiative(unit)],
+	]
+	var abilities := String(rules.ability_text(unit))
+	if not abilities.is_empty():
+		lines.append("Особенности: " + abilities)
+	return "\n".join(lines)
+
+
 func _build_empty_fleet_slot(zone_id: String, slot_index: int, enabled: bool) -> Control:
 	var slot := FLEET_TRANSFER_ZONE.new()
 	slot.target_id = zone_id
@@ -2331,7 +2406,7 @@ func _max_affordable_recruits(unit_id: String, available: int) -> int:
 
 func _recruitment_blocker_reason(unit_id: String, available: int, can_store: bool) -> String:
 	if available <= 0:
-		return "Нет кораблей в недельном запасе."
+		return "Нет кораблей в наличии."
 	if not can_store:
 		return "Гарнизон заполнен: освободите слот."
 	if strategy_map == null:
@@ -2476,6 +2551,8 @@ func _update_construction_menu() -> void:
 	construction_options_list.add_theme_constant_override("separation", 12)
 	_construction_section("ИНФРАСТРУКТУРА", ["townhall", "fort", "marketplace", "mage_guild", "tavern"])
 	_construction_section("КОРАБЛЕСТРОЕНИЕ", SHIP_BUILDING_KINDS)
+	if strategy_map != null and strategy_map.has_method("building_lock_reason"):
+		_construction_section("ТЯЖЁЛЫЕ КОРАБЛИ", ["cruiser_yard"])
 
 
 func _construction_section(title: String, kinds: Array) -> void:
@@ -2656,6 +2733,9 @@ func _construction_cost_icon(resource: String) -> Texture2D:
 
 
 func _construction_action_state(kind: String) -> Dictionary:
+	var lock_reason := _mission_building_lock(kind)
+	if lock_reason != "":
+		return {"disabled": true, "color": Color("8b9aa7"), "label": "НЕТ ТЕХНОЛОГИИ", "tooltip": lock_reason, "missing_text": lock_reason}
 	var def: Dictionary = BUILDING_DEFS[kind]
 	var max_level := int(def["max_level"])
 	var level := int(built_levels.get(kind, 0))
@@ -2828,6 +2908,8 @@ func _build_construction_row(kind: String) -> Control:
 
 
 func _construct_kind(kind: String) -> void:
+	if _mission_building_lock(kind) != "":
+		return
 	if kind == "tavern" and strategy_map != null and strategy_map.campaign_map_id == "mars_demo_v1":
 		return
 	if _find_slot_index(kind) < 0:
@@ -2950,6 +3032,8 @@ func _building_effect(kind: String, level: int) -> String:
 			return "Найм %s фрегатов каждую неделю" % ("элитных" if level > 1 else "обычных")
 		"destroyer_yard":
 			return "Найм %s эсминцев каждую неделю" % ("элитных" if level > 1 else "обычных")
+		"cruiser_yard":
+			return "Крейсер VI ранга: прирост 1 в неделю; занимает две клетки в бою"
 		"marketplace":
 			return "Обмен ресурсов на бирже"
 		"tavern":
@@ -3078,7 +3162,7 @@ func _teach_university_protocols(state: Dictionary) -> void:
 	if not _commander_at_city():
 		return
 	var hero := _player_hero()
-	if hero == null:
+	if hero == null or not hero.has_protocol_module:
 		return
 	var available := UNIVERSITY_DEFS.protocols_through_level(state, int(built_levels.get("mage_guild", 0)))
 	if not hero.learn_protocols(available).is_empty():
@@ -3119,10 +3203,18 @@ func _find_catalog_index(kind: String, level: int) -> int:
 
 
 func _find_catalog_texture(kind: String, level: int) -> Texture2D:
+	if kind == "cruiser_yard":
+		return load("res://assets/station/human/v2/sources/cruiser_yard_1.png")
 	var catalog_index := _find_catalog_index(kind, level)
 	if catalog_index < 0:
 		return null
 	return BUILDING_CATALOG[catalog_index]["texture"]
+
+
+func _mission_building_lock(kind: String) -> String:
+	if strategy_map != null and strategy_map.has_method("building_lock_reason"):
+		return strategy_map.building_lock_reason(kind)
+	return "Технология доступна в миссии Сатурна." if kind == "cruiser_yard" else ""
 
 
 func _save_building_slots() -> void:

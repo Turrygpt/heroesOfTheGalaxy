@@ -22,6 +22,7 @@ var pending_map: Dictionary = {}
 var save_on_start := false
 ## Флаг передаётся из меню только для старта новой случайной карты.
 var random_map_requested := false
+var saturn_mission_requested := false
 ## Ноль выбирает новый сид; положительное число воспроизводит приключение.
 var random_map_seed := 0
 var random_map_options := {"size": 64, "ai_count": 1}

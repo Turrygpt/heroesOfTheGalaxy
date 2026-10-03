@@ -56,6 +56,8 @@ func _visited_this_week(object: Dictionary, hero_id: String, week: int) -> bool:
 
 
 func _draw_object(strategy_map: Node2D, object: Dictionary) -> void:
+	if object.has("texture") and strategy_map.campaign_map_id == "saturn_mission_v1":
+		return # Авторские спутники и станции рисует SaturnMapVisuals.
 	var size := int(object.get("size", 1))
 	var center: Vector2 = strategy_map._object_footprint_center(object["cell"], size)
 	var def := MapObjectDefs.get_kind(object["kind"])

@@ -21,6 +21,7 @@ var master_volume := 100
 var music_volume := 100
 var sfx_volume := 100
 var auto_battle_mode := "balanced"
+var windowed_mode := false
 
 var _root: Control
 var _master_slider: HSlider
@@ -33,6 +34,8 @@ var _preview_player: AudioStreamPlayer
 var _preview_stream: AudioStreamWAV
 var _paused_by_us := false
 var _save_button: Button
+var _load_button: Button
+var _window_mode_button: Button
 var _menu_button: Button
 var _campaign_separator: HSeparator
 var _status_label: Label
@@ -83,6 +86,8 @@ func open_menu() -> void:
 	if is_open():
 		return
 	_sync_slider_labels()
+	if is_instance_valid(_window_mode_button):
+		_window_mode_button.text = "Режим: оконный" if windowed_mode else "Режим: полный экран"
 	_refresh_campaign_actions()
 	_root.show()
 	if not get_tree().paused:
@@ -124,12 +129,28 @@ func set_auto_battle_mode(mode: String) -> void:
 	save_state()
 
 
+func set_windowed_mode(enabled: bool) -> void:
+	windowed_mode = enabled
+	_apply_window_mode()
+	save_state()
+
+
+func _apply_window_mode() -> void:
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if windowed_mode else DisplayServer.WINDOW_MODE_FULLSCREEN)
+	if windowed_mode and not OS.has_feature("headless"):
+		var screen := DisplayServer.screen_get_size()
+		var size := Vector2i(mini(1440, maxi(800, screen.x - 100)), mini(810, maxi(600, screen.y - 100)))
+		DisplayServer.window_set_size(size)
+		DisplayServer.window_set_position((screen - size) / 2)
+
+
 func save_state() -> void:
 	var payload := {
 		"master_volume": master_volume,
 		"music_volume": music_volume,
 		"sfx_volume": sfx_volume,
 		"auto_battle_mode": auto_battle_mode,
+		"windowed_mode": windowed_mode,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -158,6 +179,8 @@ func load_state() -> bool:
 		sfx_volume = clampi(int(data["sfx_volume"]), 0, 100)
 	if data.has("auto_battle_mode") and AUTO_BATTLE_MODES.has(String(data["auto_battle_mode"])):
 		auto_battle_mode = String(data["auto_battle_mode"])
+	windowed_mode = bool(data.get("windowed_mode", false))
+	_apply_window_mode()
 	return true
 
 
@@ -290,6 +313,9 @@ func _build_ui() -> void:
 	preload("res://scripts/ui_style.gd").apply_button(_save_button)
 	_save_button.pressed.connect(_save_game)
 	body.add_child(_save_button)
+	_load_button = _button("Загрузить игру", BLUE)
+	_load_button.pressed.connect(_load_game)
+	body.add_child(_load_button)
 	_menu_button = _button("В главное меню", MUTED)
 	preload("res://scripts/ui_style.gd").apply_button(_menu_button)
 	_menu_button.pressed.connect(_to_main_menu)
@@ -300,6 +326,12 @@ func _build_ui() -> void:
 	_campaign_separator = HSeparator.new()
 	body.add_child(_campaign_separator)
 	body.add_child(_label("Звук", 16, MUTED))
+	_window_mode_button = _button("Режим: оконный" if windowed_mode else "Режим: полный экран", BLUE)
+	_window_mode_button.pressed.connect(func() -> void:
+		set_windowed_mode(not windowed_mode)
+		_window_mode_button.text = "Режим: оконный" if windowed_mode else "Режим: полный экран"
+	)
+	body.add_child(_window_mode_button)
 
 	var sliders := VBoxContainer.new()
 	sliders.add_theme_constant_override("separation", 10)
@@ -446,6 +478,9 @@ func _refresh_campaign_actions() -> void:
 	if is_instance_valid(_save_button):
 		_save_button.visible = on_map
 		_save_button.disabled = not on_map or bool(map.is_moving)
+	if is_instance_valid(_load_button):
+		_load_button.visible = on_map
+		_load_button.disabled = not on_map or bool(map.is_moving) or CampaignSave.read_save().is_empty()
 	if is_instance_valid(_menu_button):
 		_menu_button.visible = on_map
 		_menu_button.disabled = not on_map or bool(map.is_moving)
@@ -465,6 +500,15 @@ func _save_game() -> void:
 	else:
 		_status_label.text = CampaignSave.error_message
 	_status_label.visible = true
+
+
+func _load_game() -> void:
+	if not CampaignSave.prepare_load():
+		_status_label.text = CampaignSave.error_message
+		_status_label.visible = true
+		return
+	close_menu()
+	get_tree().change_scene_to_file("res://scenes/StrategicMain.tscn")
 
 
 func _to_main_menu() -> void:

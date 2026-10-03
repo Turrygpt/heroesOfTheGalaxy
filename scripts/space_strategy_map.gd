@@ -52,6 +52,7 @@ const PLAYER_TWO_COLOR := Color("ef5350")
 const MapObjectDefs := preload("res://scripts/map_object_defs.gd")
 const SpaceDecorations := preload("res://scripts/space_decorations.gd")
 const STRATEGIC_NEBULA_TEXTURE := preload("res://assets/space/backdrops/strategic_nebula_background.png")
+const WEEK_ANNOUNCEMENT := preload("res://scripts/week_announcement.gd")
 const TradingPost := preload("res://scripts/trading_post.gd")
 const BanditAI := preload("res://scripts/bandit_ai.gd")
 const HERO_PROTOCOLS := preload("res://scripts/hero_protocols.gd")
@@ -299,6 +300,8 @@ var map_generation: MapGeneration = MapGeneration.new(self)
 ## (см. space_decorations.gd).
 var space_decorations: Dictionary = {}
 var space_comets: Array[Dictionary] = []
+var map_hover_time := 0.0
+var map_hover_popup: Label
 var far_planet_camera_origin := Vector2.ZERO
 var obstacle_sprites: Node2D
 var music_player: AudioStreamPlayer
@@ -629,6 +632,11 @@ func _process(delta: float) -> void:
 		end_day_button.modulate = Color.WHITE.lerp(Color("ffd166"), 0.25 + 0.25 * sin(end_day_hint_time * 4.0))
 	else:
 		end_day_button.modulate = Color.WHITE
+	if campaign_story != null and campaign_map_id != "" and not story_state.has("passage") \
+			and "supply" in story_state.get("seen", []) and beacon_cell == Vector2i(-1, -1):
+		ping_button.modulate = Color.WHITE.lerp(Color("8ae7ff"), 0.4 + 0.35 * sin(Time.get_ticks_msec() * 0.006))
+	else:
+		ping_button.modulate = Color.WHITE
 	_refresh_fog_visibility()
 	# Кометы летят непрерывно, поэтому фон карты теперь перерисовывается каждый
 	# кадр - дёшево: пара кругов на туманность/комету и сетка, которая и так
@@ -636,6 +644,8 @@ func _process(delta: float) -> void:
 	SpaceDecorations.tick_comets(space_comets, Vector2(MAP_SIZE) * CELL_SIZE, delta)
 	queue_redraw()
 	_update_hover()
+	map_hover_time += delta
+	_update_map_hover_popup()
 	_process_camera_pan(delta)
 	if is_moving:
 		var destination := _cell_center(next_cell)
@@ -932,6 +942,7 @@ func _swap_to_battle(battle: Node) -> void:
 func _open_human_planet() -> void:
 	if human_planet_owner != 1:
 		return
+	_teach_protocols_on_home_planet_visit(current_cell)
 	var planet_screen = load("res://scenes/TraderPlanetTown.tscn").instantiate() if player_faction == "trader" else HUMAN_PLANET_TOWN.instantiate()
 	planet_screen.town_faction = player_faction
 	planet_screen.strategy_map = self
@@ -1205,6 +1216,7 @@ func clear_beacon() -> void:
 
 
 func _style_ping_button() -> void:
+	ping_button.tooltip_text = "Пеленг: введите координаты цели, чтобы отметить её на миникарте. ПКМ сбрасывает отметку."
 	var base := StyleBoxFlat.new()
 	base.bg_color = Color("263b56")
 	base.border_color = Color("82c9c1")
@@ -1393,9 +1405,71 @@ func _update_hover() -> void:
 	if cell == hovered_cell:
 		return
 	hovered_cell = cell
+	map_hover_time = 0.0
+	if is_instance_valid(map_hover_popup):
+		map_hover_popup.hide()
 	hovered_obstacle = obstacle_at.get(cell, -1)
 	_update_navigation_hud()
 	route_overlay.queue_redraw()
+
+
+func _update_map_hover_popup() -> void:
+	if map_hover_time < 1.0 or hovered_cell == Vector2i(-1, -1) or not is_cell_visible(hovered_cell):
+		return
+	var hint := ""
+	if bandit_ai != null and bandit_ai.hero_alive and hovered_cell == bandit_ai.hero_cell:
+		hint = "Главарь бандитов\nПрогноз: %s" % _map_fleet_forecast(bandit_ai.hero_fleet(self))
+	elif guardian_at.has(hovered_cell):
+		var guardian: Dictionary = guardians[guardian_at[hovered_cell]]
+		if bool(guardian.get("alive", false)):
+			var fleet: Array = guardian.get("fleet", [])
+			if bool(guardian.get("neutral", false)):
+				hint = "%s\nПропуск действует: флот не атакует." % String(guardian.get("display_name", "Патруль"))
+			else:
+				var enemy_fleet: Array = fleet.duplicate()
+				if String(guardian.get("object_kind", "")) in MapObjectDefs.FORTIFIED_PLANET_KINDS:
+					enemy_fleet.append({"unit_id": "orbital_platform", "count": MapObjectDefs.FORTIFIED_PLANET_FORT_LEVEL})
+				hint = "%s\nФлот противника: %d отрядов.\nПрогноз: %s" % [
+					String(guardian.get("display_name", "Вражеский флот")), fleet.size(),
+					_map_fleet_forecast(enemy_fleet)]
+	elif map_object_at.has(hovered_cell):
+		var object: Dictionary = map_objects[map_object_at[hovered_cell]]
+		if not bool(object.get("consumed", false)):
+			var definition: Dictionary = MapObjectDefs.get_kind(String(object.get("kind", "")))
+			hint = "%s\n%s" % [String(definition.get("name", "Объект")), String(definition.get("description", ""))]
+	else:
+		var site := _production_index_at(hovered_cell)
+		if site >= 0:
+			hint = _production_hover_text(site)
+	if hint.is_empty():
+		if is_instance_valid(map_hover_popup):
+			map_hover_popup.hide()
+		return
+	if not is_instance_valid(map_hover_popup):
+		map_hover_popup = Label.new()
+		map_hover_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		map_hover_popup.z_index = 100
+		map_hover_popup.custom_minimum_size.x = 350
+		map_hover_popup.size.x = 350
+		map_hover_popup.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		map_hover_popup.add_theme_font_size_override("font_size", 16)
+		map_hover_popup.add_theme_color_override("font_color", Color("e7f0f5"))
+		map_hover_popup.add_theme_stylebox_override("normal", preload("res://scripts/ui_style.gd").surface(Color("82c9ff"), Color("071620"), 10, 8))
+		$HUD.add_child(map_hover_popup)
+	map_hover_popup.text = hint
+	var mouse_position := get_viewport().get_mouse_position()
+	var viewport_size := get_viewport_rect().size
+	map_hover_popup.position = Vector2(
+		clampf(mouse_position.x + 18.0, 8.0, maxf(8.0, viewport_size.x - 360.0)),
+		clampf(mouse_position.y + 18.0, 8.0, maxf(8.0, viewport_size.y - map_hover_popup.size.y - 8.0)))
+	map_hover_popup.show()
+
+
+func _map_fleet_forecast(enemy_fleet: Array) -> String:
+	var opponent: Array[Dictionary] = []
+	for entry in enemy_fleet:
+		opponent.append(entry as Dictionary)
+	return preload("res://scripts/battle_preview_dialog.gd").forecast(_player_battle_fleet(false), opponent)
 
 
 func _update_navigation_hud() -> void:
@@ -1613,6 +1687,10 @@ func _end_day() -> void:
 			else:
 				navigation_message = growth_text
 	_run_bandit_turn()
+	if current_day % 7 == 1 and not OS.has_feature("headless") and campaign_outcome == "":
+		var announcement := WEEK_ANNOUNCEMENT.new()
+		add_child(announcement)
+		announcement.show_week(current_day)
 
 
 ## Порядок проверок при входе в клетку: стражи, потом марсианские бандиты (планета важнее
@@ -1640,7 +1718,7 @@ func _teach_protocols_on_home_planet_visit(cell: Vector2i) -> Array[String]:
 	if UNIVERSITY_DEFS.ensure_offers(state, level):
 		HumanPlanetState.save_state(state)
 	var hero := _player_hero()
-	if hero == null:
+	if hero == null or not hero.has_protocol_module:
 		return learned
 	learned = hero.learn_protocols(UNIVERSITY_DEFS.protocols_through_level(state, level))
 	if not learned.is_empty():
@@ -2330,7 +2408,7 @@ func _production_hover_text(index: int) -> String:
 	var site: Dictionary = production_sites[index]
 	var daily := int(site["daily_income"])
 	if production_owners[index] == 1:
-		return "⚑ %s · ваша · +%d %s каждый сол" % [
+		return "⚑ %s · ваша · +%d %s каждый сол\nВраг может отбить объект. Отдельный слот армии его не охраняет: перехватывайте врага флотом командующего." % [
 			String(site["name"]), daily, String(site["resource"])]
 	if _site_has_living_guard(index):
 		return "%s · охраняется · захватите, победив стража" % String(site["name"])
@@ -2356,7 +2434,7 @@ func _capture_production_at(cell: Vector2i) -> String:
 	var resource_name: String = site["resource"]
 	var bonus_amount := map_random.randi_range(5, 10)
 	add_resource(resource_name, bonus_amount)
-	return "Захвачен объект «%s»: +%d %s сразу, затем +%d %s каждый сол." % [
+	return "Захвачен объект «%s»: +%d %s сразу, затем +%d %s каждый сол. Враг может отбить его — перехватывайте вражеский флот командующим." % [
 		String(site["name"]), bonus_amount, resource_name,
 		int(site["daily_income"]), resource_name]
 
@@ -3223,6 +3301,7 @@ func _start_guardian_battle(index: int, start_immediately: bool = false) -> void
 	# гарнизоны зданий также всегда требуют боя/осады.
 	var contract_convoy: bool = campaign_story != null and campaign_story.is_required_battle(guardian)
 	var can_diplomacy := not guardian.has("object_kind") \
+			and not guardian.has("station_id") \
 			and not contract_convoy \
 			and String(guardian.get("kind", "")) in ["pirate", "trader"]
 	var player_fleet: Array[Dictionary] = _player_battle_fleet(false)
@@ -4077,6 +4156,12 @@ const PROTOCOL_LEARNING_DIALOG := preload("res://scripts/protocol_learning_dialo
 func _trigger_university(index: int) -> void:
 	var hero := _player_hero()
 	if hero == null:
+		return
+	if not hero.has_protocol_module:
+		var missing_module := "Для изучения протоколов установите модуль протоколов на родной планете."
+		navigation_message = missing_module
+		_show_object_reward_dialog("Станция ретрансляции знаний", missing_module)
+		_update_hud()
 		return
 	var object: Dictionary = map_objects[index]
 	var used_by: Array = object.get("university_used_by", [])

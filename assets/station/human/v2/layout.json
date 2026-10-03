@@ -1,0 +1,356 @@
+[
+  {
+    "kind": "townhall",
+    "name": "Командный центр",
+    "max": 4,
+    "desc": "Central vertical octagonal COMMAND AND CONTROL SPINE. Compact stacked armored cylinder of four engineering decks, a broad squat bridge with cyan slit windows, a thin industrial antenna mast at its top, machinery keel below. Several short rectangular radial mounting sockets around lower hub. NO surrounding ring, NO attached modules. This is the central load bearing mast visible in the master. LEVEL IV fully upgraded maximum version.",
+    "box": [
+      628,
+      24,
+      845,
+      566
+    ],
+    "size": [
+      260,
+      550
+    ],
+    "anchor": [
+      748,
+      540
+    ],
+    "requirements_by_level": [
+      {},
+      {
+        "fort": 1
+      },
+      {
+        "fort": 2,
+        "marketplace": 1
+      },
+      {
+        "fort": 3,
+        "mage_guild": 1
+      }
+    ]
+  },
+  {
+    "kind": "fort",
+    "name": "Форт",
+    "max": 3,
+    "desc": "The horizontal octagonal DEFENSE RING surrounding the central station mast in reference. Isolate ONLY the complete horizontal ring with four short inward structural spokes and four compact twin-gun defense batteries on the ring, blue armored rim, thruster packs underside. BIG EMPTY TRANSPARENT CENTRAL HOLE, do not include the central vertical mast or any other buildings or branches. Camera sees ring as wide horizontal ellipse. LEVEL III maximum heavy fort.",
+    "box": [
+      523,
+      274,
+      964,
+      552
+    ],
+    "size": [
+      500,
+      300
+    ],
+    "anchor": [
+      745,
+      546
+    ],
+    "requirements_by_level": [
+      {
+        "townhall": 1
+      },
+      {
+        "townhall": 2
+      },
+      {
+        "townhall": 3,
+        "corvette_yard": 1
+      }
+    ]
+  },
+  {
+    "kind": "fighter_yard",
+    "name": "Ангар истребителей",
+    "max": 2,
+    "desc": "A single ELITE FIGHTER HANGAR station module, two small recessed rectangular cyan-lit hangar mouths side by side with small sleek fighters inside. Chunky blue-gray rectangular pressure hull, armored blast doors and a short heavy box-truss mounting neck on its REAR RIGHT side. Bay mouths face lower-left of image as in left-middle hangars in reference. No runway, no ground, no turret crown. Level II elite.",
+    "box": [
+      198,
+      308,
+      537,
+      466
+    ],
+    "size": [
+      320,
+      195
+    ],
+    "anchor": [
+      420,
+      416
+    ],
+    "requirements_by_level": [
+      {
+        "fort": 1
+      },
+      {
+        "mage_guild": 1
+      }
+    ]
+  },
+  {
+    "kind": "gunship_yard",
+    "name": "Ангар штурмовиков",
+    "max": 2,
+    "desc": "A single ELITE ASSAULT CRAFT HANGAR station module: two large deep rectangular hangar cavities, heavy blast shutters, blue armor top panels, squat industrial gantry. Short heavy box truss mounting neck on REAR RIGHT side. Mouths face lower-left, exactly same camera as large left-front hangars in reference. Two compact chunky gunships inside for scale. Larger heavier than fighter hangar. Level II elite.",
+    "box": [
+      53,
+      450,
+      543,
+      736
+    ],
+    "size": [
+      430,
+      300
+    ],
+    "anchor": [
+      357,
+      611
+    ],
+    "requirements_by_level": [
+      {
+        "fort": 1,
+        "fighter_yard": 1
+      },
+      {
+        "fighter_yard": 2,
+        "mage_guild": 1
+      }
+    ]
+  },
+  {
+    "kind": "corvette_yard",
+    "name": "Док корветов",
+    "max": 2,
+    "desc": "A single ELITE CORVETTE CONSTRUCTION DOCK: compact open rectangular ship assembly cradle with maintenance arms, low side trusses, one modest corvette nestled inside, small safety amber lifting rails. Long axis runs from FRONT LOWER LEFT to REAR UPPER RIGHT in image. Short mounting neck at REAR UPPER RIGHT. Read as functional orbital dock, not ground platform. Level II elite.",
+    "box": [
+      271,
+      606,
+      612,
+      864
+    ],
+    "size": [
+      335,
+      250
+    ],
+    "anchor": [
+      429,
+      751
+    ],
+    "requirements_by_level": [
+      {
+        "fort": 2,
+        "gunship_yard": 1
+      },
+      {
+        "gunship_yard": 2,
+        "mage_guild": 1
+      }
+    ]
+  },
+  {
+    "kind": "frigate_yard",
+    "name": "Верфь фрегатов",
+    "max": 2,
+    "desc": "A single ELITE FRIGATE DRYDOCK: medium-long open assembly cradle with two structural gantry ribs and slim side machinery pods, one frigate held inside, tiny safety amber cranes. Long axis runs FRONT LOWER LEFT to REAR UPPER RIGHT; slightly more vertical in projection than corvette dock. Mounting neck at REAR UPPER RIGHT. Level II elite.",
+    "box": [
+      530,
+      647,
+      812,
+      974
+    ],
+    "size": [
+      300,
+      360
+    ],
+    "anchor": [
+      667,
+      834
+    ],
+    "requirements_by_level": [
+      {
+        "fort": 2,
+        "corvette_yard": 1,
+        "townhall": 3
+      },
+      {
+        "corvette_yard": 2,
+        "mage_guild": 1
+      }
+    ]
+  },
+  {
+    "kind": "destroyer_yard",
+    "name": "Верфь эсминцев",
+    "max": 2,
+    "desc": "A single ELITE DESTROYER DRYDOCK: long open rectangular shipbuilding cradle, heavy overhead bracing, two large service cranes, dark blue armor side containers, a long destroyer under construction inside. Axis from REAR UPPER LEFT to FRONT LOWER RIGHT, matching lower-right dock in master. Box-truss mounting neck on REAR UPPER LEFT. Level II elite.",
+    "box": [
+      821,
+      615,
+      1254,
+      974
+    ],
+    "size": [
+      390,
+      345
+    ],
+    "anchor": [
+      1015,
+      802
+    ],
+    "requirements_by_level": [
+      {
+        "fort": 3,
+        "frigate_yard": 1,
+        "townhall": 4
+      },
+      {
+        "frigate_yard": 2,
+        "mage_guild": 1
+      }
+    ]
+  },
+  {
+    "kind": "cruiser_yard",
+    "name": "Верфь крейсеров",
+    "max": 2,
+    "desc": "A single ELITE HEAVY CRUISER SHIPYARD station module. Largest extended double-gantry open drydock, robust mechanical ribs, shielded industrial service containers, 3 overhead maintenance rails. One long gray cruiser with blue trim held within the structure, not white civilian yacht. Axis from REAR UPPER LEFT to FRONT LOWER RIGHT. Heavy mounting neck on REAR UPPER LEFT. A restrained credible scaled-up industrial facility, same technology as reference. Level II elite.",
+    "box": [
+      944,
+      445,
+      1500,
+      813
+    ],
+    "size": [
+      480,
+      340
+    ],
+    "anchor": [
+      1250,
+      680
+    ],
+    "requirements_by_level": [
+      {
+        "mission_reward": "Победа над четвёртым пиратским кланом миссии 2"
+      }
+    ]
+  },
+  {
+    "kind": "mage_guild",
+    "name": "Академия протоколов",
+    "max": 4,
+    "desc": "A single orbital RESEARCH / PROTOCOL ACADEMY MODULE at maximum LEVEL IV. Long pressure laboratory block with four small attached sealed scientific equipment pods, two radio dishes and phased radar antennas, vertical dark blue radiator arrays and solar fins. Dense credible instruments. Long axis REAR UPPER LEFT to FRONT LOWER RIGHT, mounting collar at FRONT LOWER RIGHT, matching upper-left science branch in reference. No glass observatory dome, no civic architecture. Industrial station research array.",
+    "box": [
+      85,
+      33,
+      571,
+      350
+    ],
+    "size": [
+      420,
+      280
+    ],
+    "anchor": [
+      352,
+      241
+    ],
+    "requirements_by_level": [
+      {
+        "townhall": 2
+      },
+      {
+        "townhall": 2,
+        "fort": 1
+      },
+      {
+        "townhall": 3,
+        "fort": 2
+      },
+      {
+        "townhall": 4,
+        "fort": 3
+      }
+    ]
+  },
+  {
+    "kind": "tavern",
+    "name": "Офицерский клуб",
+    "max": 1,
+    "desc": "A single sealed OFFICERS HABITAT / CLUB module. Three compact horizontal cylindrical pressure cabins packed together, external rib armor, small warm amber horizontal slit windows, airlock, life-support equipment and tiny attitude thrusters. No open balconies, no bar signs, no civilian building silhouette. Long axis left-to-right slightly diagonal, short structural mounting socket at upper rear edge. Small utilitarian inhabited station module, same dark blue and light gray palette.",
+    "box": [
+      650,
+      538,
+      936,
+      656
+    ],
+    "size": [
+      270,
+      165
+    ],
+    "anchor": [
+      760,
+      594
+    ],
+    "requirements_by_level": [
+      {
+        "townhall": 1
+      }
+    ]
+  },
+  {
+    "kind": "marketplace",
+    "name": "Биржа ресурсов",
+    "max": 1,
+    "desc": "A single CARGO EXCHANGE orbital terminal arm. Long heavy rectangular box truss lined with four pairs of stacked pressure-rated gray cargo containers and orange safety bands, docking claws and retractable cargo manipulators. Long axis LEFT LOWER to RIGHT UPPER; mounting collar at LEFT LOWER end. Same geometry as upper-right cargo arm in reference. No glass civic hall, no gold. Dense mechanical credible logistics facility.",
+    "box": [
+      954,
+      282,
+      1467,
+      443
+    ],
+    "size": [
+      440,
+      180
+    ],
+    "anchor": [
+      1210,
+      370
+    ],
+    "requirements_by_level": [
+      {
+        "townhall": 1
+      }
+    ]
+  },
+  {
+    "kind": "bank",
+    "name": "Банк",
+    "max": 1,
+    "desc": "A single BANK / SECURE VAULT module, heavy squat rectangular armored box with 3 ribbed vault compartments, small turret and encrypted communications antenna, recessed cyan status slits, shielded locking door, dense dark steel reinforcement. Long axis from LOWER LEFT to UPPER RIGHT, mounting collar at lower-left end. Compact heavy secure industrial station module matching armored upper-right block in reference. No dome, no money symbols, no palace.",
+    "box": [
+      856,
+      146,
+      1101,
+      330
+    ],
+    "size": [
+      275,
+      210
+    ],
+    "anchor": [
+      998,
+      246
+    ],
+    "requirements_by_level": [
+      {
+        "townhall": 2,
+        "fort": 1
+      }
+    ]
+  }
+]

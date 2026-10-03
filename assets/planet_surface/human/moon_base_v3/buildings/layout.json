@@ -1,0 +1,224 @@
+{
+	"assets": [
+		{
+			"file": "fort_1.png",
+			"height": 151.0,
+			"kind": "fort",
+			"level": 1,
+			"width": 433.0,
+			"x": 35.0,
+			"y": 95.0
+		},
+		{
+			"file": "fort_2.png",
+			"height": 151.0,
+			"kind": "fort",
+			"level": 2,
+			"width": 433.0,
+			"x": 35.0,
+			"y": 95.0
+		},
+		{
+			"file": "fort_3.png",
+			"height": 151.0,
+			"kind": "fort",
+			"level": 3,
+			"width": 433.0,
+			"x": 35.0,
+			"y": 95.0
+		},
+		{
+			"file": "frigate_yard_1.png",
+			"height": 184.0,
+			"kind": "frigate_yard",
+			"level": 1,
+			"width": 202.0,
+			"x": 1018.0,
+			"y": 94.0
+		},
+		{
+			"file": "frigate_yard_2.png",
+			"height": 184.0,
+			"kind": "frigate_yard",
+			"level": 2,
+			"width": 202.0,
+			"x": 1018.0,
+			"y": 94.0
+		},
+		{
+			"file": "destroyer_yard_1.png",
+			"height": 162.0,
+			"kind": "destroyer_yard",
+			"level": 1,
+			"width": 330.0,
+			"x": 1200.0,
+			"y": 171.0
+		},
+		{
+			"file": "destroyer_yard_2.png",
+			"height": 162.0,
+			"kind": "destroyer_yard",
+			"level": 2,
+			"width": 330.0,
+			"x": 1200.0,
+			"y": 171.0
+		},
+		{
+			"file": "fighter_yard_1.png",
+			"height": 128.0,
+			"kind": "fighter_yard",
+			"level": 1,
+			"width": 406.0,
+			"x": 0.0,
+			"y": 242.0
+		},
+		{
+			"file": "fighter_yard_2.png",
+			"height": 128.0,
+			"kind": "fighter_yard",
+			"level": 2,
+			"width": 406.0,
+			"x": 0.0,
+			"y": 242.0
+		},
+		{
+			"file": "townhall_1.png",
+			"height": 416.0,
+			"kind": "townhall",
+			"level": 1,
+			"width": 403.0,
+			"x": 482.0,
+			"y": 0.0
+		},
+		{
+			"file": "townhall_2.png",
+			"height": 416.0,
+			"kind": "townhall",
+			"level": 2,
+			"width": 403.0,
+			"x": 482.0,
+			"y": 0.0
+		},
+		{
+			"file": "townhall_3.png",
+			"height": 416.0,
+			"kind": "townhall",
+			"level": 3,
+			"width": 403.0,
+			"x": 482.0,
+			"y": 0.0
+		},
+		{
+			"file": "townhall_4.png",
+			"height": 416.0,
+			"kind": "townhall",
+			"level": 4,
+			"width": 403.0,
+			"x": 482.0,
+			"y": 0.0
+		},
+		{
+			"file": "gunship_yard_1.png",
+			"height": 161.0,
+			"kind": "gunship_yard",
+			"level": 1,
+			"width": 437.0,
+			"x": 0.0,
+			"y": 367.0
+		},
+		{
+			"file": "gunship_yard_2.png",
+			"height": 161.0,
+			"kind": "gunship_yard",
+			"level": 2,
+			"width": 437.0,
+			"x": 0.0,
+			"y": 367.0
+		},
+		{
+			"file": "corvette_yard_1.png",
+			"height": 151.0,
+			"kind": "corvette_yard",
+			"level": 1,
+			"width": 420.0,
+			"x": 1050.0,
+			"y": 326.0
+		},
+		{
+			"file": "corvette_yard_2.png",
+			"height": 151.0,
+			"kind": "corvette_yard",
+			"level": 2,
+			"width": 420.0,
+			"x": 1050.0,
+			"y": 326.0
+		},
+		{
+			"file": "mage_guild_1.png",
+			"height": 239.0,
+			"kind": "mage_guild",
+			"level": 1,
+			"width": 388.0,
+			"x": 363.0,
+			"y": 392.0
+		},
+		{
+			"file": "mage_guild_2.png",
+			"height": 239.0,
+			"kind": "mage_guild",
+			"level": 2,
+			"width": 388.0,
+			"x": 363.0,
+			"y": 392.0
+		},
+		{
+			"file": "mage_guild_3.png",
+			"height": 239.0,
+			"kind": "mage_guild",
+			"level": 3,
+			"width": 388.0,
+			"x": 363.0,
+			"y": 392.0
+		},
+		{
+			"file": "mage_guild_4.png",
+			"height": 239.0,
+			"kind": "mage_guild",
+			"level": 4,
+			"width": 388.0,
+			"x": 363.0,
+			"y": 392.0
+		},
+		{
+			"file": "cruiser_yard_1.png",
+			"height": 428.0,
+			"kind": "cruiser_yard",
+			"level": 1,
+			"width": 429.0,
+			"x": 1230.0,
+			"y": 440.0
+		},
+		{
+			"file": "tavern_1.png",
+			"height": 323.0,
+			"kind": "tavern",
+			"level": 1,
+			"width": 471.0,
+			"x": 0.0,
+			"y": 510.0
+		},
+		{
+			"file": "marketplace_1.png",
+			"height": 352.0,
+			"kind": "marketplace",
+			"level": 1,
+			"width": 394.0,
+			"x": 779.0,
+			"y": 527.0
+		}
+	],
+	"canvas": [
+		1659,
+		948
+	]
+}

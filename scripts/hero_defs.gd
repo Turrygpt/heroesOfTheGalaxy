@@ -7,7 +7,8 @@ extends RefCounted
 
 const PROTOCOLS := preload("res://scripts/hero_protocols.gd")
 
-## Потолок уровня героя. На потолке опыт перестаёт начисляться совсем
+## Потолок первой миссии и значение по умолчанию. Сатурн задаёт Hero.level_cap = 10.
+## На потолке опыт перестаёт начисляться совсем
 ## (см. Hero.can_gain_experience), а награды, которые давали опыт,
 ## предлагают только альтернативу.
 const MAX_LEVEL := 5
@@ -363,9 +364,9 @@ static func experience_for_level(level: int) -> int:
 	return int(value)
 
 
-static func level_for_experience(experience: int) -> int:
+static func level_for_experience(experience: int, level_cap: int = MAX_LEVEL) -> int:
 	var level := 1
-	while level < MAX_LEVEL and experience >= experience_for_level(level + 1):
+	while level < level_cap and experience >= experience_for_level(level + 1):
 		level += 1
 	return level
 

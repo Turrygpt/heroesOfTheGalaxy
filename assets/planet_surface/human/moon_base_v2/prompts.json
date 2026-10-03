@@ -1,0 +1,180 @@
+{
+  "tool": "built-in image_gen",
+  "reference": "../moon_base_v1/concept.png",
+  "assets": [
+    {
+      "file": "townhall_1.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony central command headquarters, low octagonal pressure habitat, armored panoramic observation windows, communications antennas. Upgrade level 1 of 4. Simple compact initial design. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-9955c1cf-eef9-400c-bdd1-b11f8074d75e.png"
+    },
+    {
+      "file": "townhall_2.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony central command headquarters, low octagonal pressure habitat, armored panoramic observation windows, communications antennas. Upgrade level 2 of 4. Preserve recognizable core design but add side annexes, reinforced details and extra equipment. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-8a6cb418-6a72-4e44-9d7c-8f4ae016e630.png"
+    },
+    {
+      "file": "townhall_3.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony central command headquarters, low octagonal pressure habitat, armored panoramic observation windows, communications antennas. Upgrade level 3 of 4. Preserve recognizable core design but add larger connected wings, additional upper command or equipment tier and reinforced structure. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-7f086fd3-867d-43bc-afad-472c19f0ff0d.png"
+    },
+    {
+      "file": "townhall_4.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony central command headquarters, low octagonal pressure habitat, armored panoramic observation windows, communications antennas. Upgrade level 4 of 4. Preserve recognizable core design but add prestigious complete complex with substantial connected wings and advanced roof equipment. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-ca83d8dc-bc12-412d-be21-e7a7121911a1.png"
+    },
+    {
+      "file": "fort_1.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony compact fortified security bunker with pressure airlock, armored walls and integrated defensive turrets. Upgrade level 1 of 3. Simple compact initial design. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-a02d1658-d5b6-46c0-b785-a5aa2cd52024.png"
+    },
+    {
+      "file": "fort_2.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony compact fortified security bunker with pressure airlock, armored walls and integrated defensive turrets. Upgrade level 2 of 3. Preserve recognizable core design but add side annexes, reinforced details and extra equipment. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-d81e6173-d839-431f-bf9c-1155e425a424.png"
+    },
+    {
+      "file": "fort_3.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony compact fortified security bunker with pressure airlock, armored walls and integrated defensive turrets. Upgrade level 3 of 3. Preserve recognizable core design but add larger connected wings, additional upper command or equipment tier and reinforced structure. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-415d1e97-1842-4bf4-ab3e-80afd8f66cd4.png"
+    },
+    {
+      "file": "mage_guild_1.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony science and protocol research laboratory with sealed geodesic glass dome, instruments and adjacent pressure laboratory. Upgrade level 1 of 4. Simple compact initial design. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-863c314a-152a-435b-8031-1b75a53f1cc0.png"
+    },
+    {
+      "file": "mage_guild_2.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony science and protocol research laboratory with sealed geodesic glass dome, instruments and adjacent pressure laboratory. Upgrade level 2 of 4. Preserve recognizable core design but add side annexes, reinforced details and extra equipment. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-0b445edc-81ee-4e6d-9d03-44581b9eb0a9.png"
+    },
+    {
+      "file": "mage_guild_3.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony science and protocol research laboratory with sealed geodesic glass dome, instruments and adjacent pressure laboratory. Upgrade level 3 of 4. Preserve recognizable core design but add larger connected wings, additional upper command or equipment tier and reinforced structure. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-1c4192f6-c17d-4c7b-90c6-579321192ca7.png"
+    },
+    {
+      "file": "mage_guild_4.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony science and protocol research laboratory with sealed geodesic glass dome, instruments and adjacent pressure laboratory. Upgrade level 4 of 4. Preserve recognizable core design but add prestigious complete complex with substantial connected wings and advanced roof equipment. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-639a1efb-581c-426c-b4ea-f2aec0209b3a.png"
+    },
+    {
+      "file": "tavern_1.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony crew residential and officers club habitat, connected low cylindrical sealed living pods, warm small windows. Upgrade level 1 of 1. Simple compact initial design. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-420f23e7-1208-49ac-ad40-7c13589c1f3e.png"
+    },
+    {
+      "file": "marketplace_1.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony logistics exchange depot, closed cargo pressure warehouse, attached sealed storage cylinders. Upgrade level 1 of 1. Simple compact initial design. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-54819897-d9e5-4809-805a-ccbae9fe6073.png"
+    },
+    {
+      "file": "fighter_yard_1.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony small fighter hangar, one closed ribbed barrel vault, reinforced pressure door. Upgrade level 1 of 2. Simple compact initial design. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-7450d204-762b-4d8d-a2fa-b4a3848c59d7.png"
+    },
+    {
+      "file": "fighter_yard_2.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony small fighter hangar, one closed ribbed barrel vault, reinforced pressure door. Upgrade level 2 of 2. Preserve recognizable core design but add side annexes, reinforced details and extra equipment. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-33e73898-9650-4795-8b63-ea72117ea7b0.png"
+    },
+    {
+      "file": "gunship_yard_1.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony gunship workshop hangar, two adjacent compact closed pressure hangar bays. Upgrade level 1 of 2. Simple compact initial design. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-6818e59d-33af-4c0a-a6fc-28aa90df1020.png"
+    },
+    {
+      "file": "gunship_yard_2.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony gunship workshop hangar, two adjacent compact closed pressure hangar bays. Upgrade level 2 of 2. Preserve recognizable core design but add side annexes, reinforced details and extra equipment. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-e9414e61-d401-4812-94cd-a899f1bb7630.png"
+    },
+    {
+      "file": "corvette_yard_2.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony corvette assembly hangar, broad enclosed long industrial vault with paired pressure doors. Upgrade level 2 of 2. Preserve recognizable core design but add side annexes, reinforced details and extra equipment. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-a30013dc-ae00-47d8-a274-88f82a9e73e4.png"
+    },
+    {
+      "file": "corvette_yard_1.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony corvette assembly hangar, broad enclosed long industrial vault with paired pressure doors. Upgrade level 1 of 2. Simple compact initial design. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-7579623f-ab76-4992-96ba-64f8f4b43add.png"
+    },
+    {
+      "file": "frigate_yard_1.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony frigate shipyard, large long enclosed rectangular assembly hall with rounded reinforced roof. Upgrade level 1 of 2. Simple compact initial design. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-c125069e-346b-4d15-baa2-6c3f1dbc0749.png"
+    },
+    {
+      "file": "frigate_yard_2.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony frigate shipyard, large long enclosed rectangular assembly hall with rounded reinforced roof. Upgrade level 2 of 2. Preserve recognizable core design but add side annexes, reinforced details and extra equipment. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-adf23ba6-8934-4025-8173-9a16e1960ade.png"
+    },
+    {
+      "file": "destroyer_yard_1.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony destroyer shipyard, massive sealed segmented hangar with service annexes and very broad pressure gate. Upgrade level 1 of 2. Simple compact initial design. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-15099a60-b37e-44dc-ad51-bf5f76edf3c4.png"
+    },
+    {
+      "file": "destroyer_yard_2.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony destroyer shipyard, massive sealed segmented hangar with service annexes and very broad pressure gate. Upgrade level 2 of 2. Preserve recognizable core design but add side annexes, reinforced details and extra equipment. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-80d8379c-e0da-4e4e-8739-2dce1c94757c.png"
+    },
+    {
+      "file": "cruiser_yard_1.png",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Generate ONE standalone game building sprite on genuine transparent background. Reference image is architectural STYLE and camera reference only; do NOT reproduce whole base. Human moon colony capital cruiser assembly works, monumental long enclosed hangar with heavy ribbed roof and huge closed pressure gate. Upgrade level 1 of 1. Simple compact initial design. Cohesive realistic cinematic game art, weathered ivory ceramic, graphite ribs, tiny muted blue markings and amber windows. All airtight, all exterior doors closed, grounded on shallow flat footings. Camera elevated 22 degrees, front and right side visible, almost orthographic, sunlight upper left. A single connected building, not a space station, no other buildings, no sky or terrain island, only small soft neutral contact shadow. Whole silhouette fully inside canvas with 12 percent margins, base at 80 percent canvas height. Square 1024 image. No text, labels, numbers, logos or frame.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-476a3a12-4040-462c-966e-d3a9e017ac3d.png"
+    },
+    {
+      "file": "terrain_titan.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Wide 1792x1024 game environment background matching the reference moon base ground perspective, but EMPTY of buildings. Titan surface: flat dark ochre organic sand and water-ice pebbles, distant low dark dunes ONLY at horizon, thick opaque orange-brown nitrogen atmospheric haze, soft diffuse amber daylight, no stars, no visible planet, no blue sky. Camera elevated 22 degrees across a perfectly level broad construction plain. Horizon exactly 28 percent down from top, upper 28 percent sky, lower 72 percent FLAT land. No large rocks, craters, pits or slopes on construction area. Detailed realistic cinematic texture. No buildings, vehicles, roads, structures, text or UI. No Saturn baked in. This landscape will receive separately rendered human buildings.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-6e39968e-6800-4e66-af7b-dee4c9407892.png"
+    },
+    {
+      "file": "terrain_tethys.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Wide 1792x1024 game environment background matching the reference moon base ground perspective, but EMPTY of buildings. Tethys: flat pale grey-white finely powdered icy regolith, sparse tiny ice stones, distant low worn rounded ice ridge. Airless black sky, sharp neutral sunlight upper left. Camera elevated 22 degrees across a perfectly level broad construction plain. Horizon exactly 28 percent down from top, upper 28 percent sky, lower 72 percent FLAT land. No large rocks, craters, pits or slopes on construction area. Detailed realistic cinematic texture. No buildings, vehicles, roads, structures, text or UI. No Saturn baked in. This landscape will receive separately rendered human buildings.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-e65b25da-e670-4d30-9b4a-86b2103de617.png"
+    },
+    {
+      "file": "terrain_dione.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Wide 1792x1024 game environment background matching the reference moon base ground perspective, but EMPTY of buildings. Dione: flat slightly darker grey icy regolith with sparse small stones, distant craggy pale ice scarps ONLY at horizon, airless black sky, sunlight upper left. Camera elevated 22 degrees across a perfectly level broad construction plain. Horizon exactly 28 percent down from top, upper 28 percent sky, lower 72 percent FLAT land. No large rocks, craters, pits or slopes on construction area. Detailed realistic cinematic texture. No buildings, vehicles, roads, structures, text or UI. No Saturn baked in. This landscape will receive separately rendered human buildings.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-1c74f845-5eb5-4b57-808c-cb8cc200c21f.png"
+    },
+    {
+      "file": "terrain_enceladus.png",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Wide 1792x1024 game environment background matching the reference moon base ground perspective, but EMPTY of buildings. Enceladus: pristine bright white finely textured water ice plain, subtle icy blue shadow, smooth flat buildable ground, only distant low blue-white ridges and subtle remote fissures at horizon, airless black sky, sunlight upper left. Camera elevated 22 degrees across a perfectly level broad construction plain. Horizon exactly 28 percent down from top, upper 28 percent sky, lower 72 percent FLAT land. No large rocks, craters, pits or slopes on construction area. Detailed realistic cinematic texture. No buildings, vehicles, roads, structures, text or UI. No Saturn baked in. This landscape will receive separately rendered human buildings.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-8d2dd824-2f46-41c6-98e9-c58acda4e3f2.png"
+    },
+    {
+      "file": "saturn.png",
+      "transparent": true,
+      "prompt": "One realistic Saturn celestial sprite on genuine transparent background, complete sphere and complete rings inside 12 percent margins, warm pale cream atmospheric bands, upper left sunlight. View from a moon close to Saturn equatorial plane: rings nearly edge-on, a very narrow elliptical belt crossing the EQUATOR, perfectly parallel and aligned with horizontal atmospheric latitude bands. No wrong tilted rings relative to bands. Fine rings, subtle shadow. Whole planet visible, no crop, no stars, no background, no text. Landscape composition.",
+      "source": "C:\\Users\\Admin\\.codex\\generated_images\\01a0e01c-842d-71e2-b473-a2aa4b437cd3\\exec-35aaf6e4-a720-4fae-9dbc-161627ddf60b.png"
+    }
+  ]
+}

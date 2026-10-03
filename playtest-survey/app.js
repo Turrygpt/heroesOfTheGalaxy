@@ -95,7 +95,24 @@ function updateProgress() {
   progressCount.textContent = `Этап ${step} из ${totalSteps}`;
 }
 
-form.addEventListener("change", updateProgress);
+const exclusiveCheckboxes = {
+  friction: ["Нигде"],
+  resource_blocker: ["Ничего не мешало", "Не дошёл до развития"],
+  combat_features: ["Не заметил эти возможности"],
+};
+
+form.addEventListener("change", (event) => {
+  const input = event.target;
+  if (input instanceof HTMLInputElement && input.type === "checkbox" && input.checked) {
+    const exclusive = exclusiveCheckboxes[input.name] || [];
+    if (exclusive.length > 0) {
+      for (const other of form.querySelectorAll(`input[type="checkbox"][name="${input.name}"]`)) {
+        if (other !== input && (exclusive.includes(input.value) || exclusive.includes(other.value))) other.checked = false;
+      }
+    }
+  }
+  updateProgress();
+});
 form.addEventListener("input", updateProgress);
 
 form.addEventListener("submit", async (event) => {

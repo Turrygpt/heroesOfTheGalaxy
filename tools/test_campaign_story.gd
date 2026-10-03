@@ -142,9 +142,15 @@ func _run() -> void:
 	story.update_progress()
 	check(not map.story_state.trader_line.paid and map.player_one_credits == 10000,
 		"Депозит Лиги списался вне базы без подтверждения")
+	check(story._trader_contract_status().contains("ВСЕ три условия")
+		and story._trader_contract_status().contains("○ Депозит"),
+		"На базе Штайна не объяснены обязательные условия пропуска")
 	story.resolve_trader_delivery("credits")
 	check(map.story_state.trader_line.paid and map.player_one_credits == 0,
 		"Подтверждённый депозит Лиги не передан")
+	check(not map.story_state.trader_line.clearance
+		and story._trader_contract_status().contains("✓ Депозит"),
+		"Один депозит ошибочно открыл кордон")
 	if pirate_base_index >= 0:
 		var artifact_id := String(map.story_state.trader_line.artifact_id)
 		var hero: Hero = map._player_hero()

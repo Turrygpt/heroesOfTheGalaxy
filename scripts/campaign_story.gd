@@ -73,6 +73,7 @@ func _ready() -> void:
 		map.story_state.trader_line["artifact_id"] = ""
 	if not map.story_state.trader_line.has("clearance"):
 		map.story_state.trader_line["clearance"] = false
+	_sync_contract_victory_counts()
 	if map.story_state.pirate_line.active and not map.story_state.pirate_line.cruiser:
 		_spawn_pirate_quest_cruiser()
 	if map.story_state.pirate_line.active and map.story_state.pirate_line.traders < 2:
@@ -147,6 +148,21 @@ func guardian_won(id: String) -> void:
 		map.story_state.pirate_line.cruiser = true
 	if id == "pirate_base_quest" and map.story_state.trader_line.active:
 		map.story_state.trader_line.base = true
+	_refresh_active_quests()
+
+
+func _sync_contract_victory_counts() -> void:
+	var won: Array = map.story_state.won
+	var trader_victories := 0
+	for id in PIRATE_CONTRACT_CONVOY_IDS:
+		if id in won:
+			trader_victories += 1
+	map.story_state.pirate_line.traders = maxi(int(map.story_state.pirate_line.traders), trader_victories)
+	var pirate_victories := 0
+	for id in TRADER_CONTRACT_PIRATE_IDS:
+		if id in won:
+			pirate_victories += 1
+	map.story_state.trader_line.pirates = maxi(int(map.story_state.trader_line.pirates), pirate_victories)
 
 
 func captured(id: String) -> void:
@@ -156,6 +172,7 @@ func captured(id: String) -> void:
 
 
 func update_progress() -> void:
+	_sync_contract_victory_counts()
 	# Старые сохранения могли потерять обязательную цель из-за ИИ или
 	# дипломатии. Восстанавливаем только непобеждённые флоты.
 	for guardian in map.guardians:
@@ -175,6 +192,8 @@ func update_progress() -> void:
 	# а не оставлять ветку с прогрессом 1 / 2 без второй цели.
 	if map.story_state.pirate_line.active and map.story_state.pirate_line.traders < 2:
 		_spawn_pirate_contract_convoys()
+	if map.story_state.trader_line.active and map.story_state.trader_line.pirates < 2:
+		_spawn_trader_contract_pirates()
 	if map.story_state.trader_line.active \
 			and map.story_state.trader_line.pirates >= 2 \
 			and map.story_state.trader_line.paid \
@@ -246,7 +265,7 @@ func _refresh_active_quests() -> void:
 	else:
 		var passage_done: bool = state.has("passage")
 		if not passage_done:
-			rows.append("1. Встретиться с Ковальски\n   Координаты: (20, 20)")
+			rows.append("1. Встретиться с Ковальски\n   Пеленг: кнопка в верхней панели → (20, 20)")
 		elif not has_seen("marshal_rendezvous_done"):
 			rows.append("1. Выйти к рандеву маршала\n   Координаты: (37, 35)")
 		else:
@@ -255,13 +274,13 @@ func _refresh_active_quests() -> void:
 	if state.pirate_line.active and not has_seen("pirate_complete"):
 		rows.append("\nПИРАТСКАЯ ВЕТКА")
 		var traders_done := int(state.pirate_line.traders) >= 2
-		rows.append(("✓ " if traders_done else "○ ") + "Победить торговые флоты: %d / 2" % mini(state.pirate_line.traders, 2))
+		rows.append(("✓ " if traders_done else "○ ") + "Победить конвои Лиги: %d / 2 · %s" % [mini(state.pirate_line.traders, 2), _guardian_coordinates(PIRATE_CONTRACT_CONVOY_IDS)])
 		rows.append("○ Доставить 3 фрегата на базу Ридуса" if not state.pirate_line.frigates else "✓ Фрегаты переданы Ридусу")
-		rows.append("○ Победить пиратский крейсер" if not state.pirate_line.cruiser else "✓ Пиратский крейсер разбит")
+		rows.append("○ Победить пиратский крейсер: %s" % _guardian_coordinates(["pirate_quest_cruiser"]) if not state.pirate_line.cruiser else "✓ Пиратский крейсер разбит")
 	if state.trader_line.active and not has_seen("trader_complete"):
-		rows.append("\nТОРГОВАЯ ВЕТКА")
+		rows.append("\nТОРГОВАЯ ВЕТКА — нужны все три условия")
 		var pirates_done := int(state.trader_line.pirates) >= 2
-		rows.append(("✓ " if pirates_done else "○ ") + "Победить пиратские флоты: %d / 2" % mini(state.trader_line.pirates, 2))
+		rows.append(("✓ " if pirates_done else "○ ") + "Победить рейдеров: %d / 2 · %s" % [mini(state.trader_line.pirates, 2), _guardian_coordinates(TRADER_CONTRACT_PIRATE_IDS)])
 		rows.append("○ Доставить 10000 кредитов на базу Лиги" if not state.trader_line.paid else "✓ Депозит передан Лиге")
 		rows.append("○ Взять пиратскую базу и вернуть артефакт Лиге" if not state.trader_line.artifact else "✓ Артефакт передан Лиге")
 	active_quests_label.text = "\n".join(rows)
@@ -310,12 +329,12 @@ func _visit_stein_base() -> bool:
 		_refresh_active_quests()
 		return true
 	_refresh_active_quests()
-	if _offer_trader_delivery():
-		return true
 	if has_seen("trader_complete") and not has_seen("stein_after"):
 		enqueue("stein_after")
 		return true
-	map.navigation_message = "База Торговой лиги на связи. Штайн ждёт исполнения контракта."
+	if not has_seen("trader_complete"):
+		return _offer_trader_delivery()
+	map.navigation_message = "База Торговой лиги на связи. Транзитный пропуск уже выдан."
 	return true
 
 
@@ -351,6 +370,15 @@ func resolve_pirate_delivery(choice: String) -> void:
 
 ## Передача ценностей происходит только из контакта с базой Штайна: нахождение
 ## денег в казне не завершает контракт само по себе.
+func _trader_contract_status() -> String:
+	var line: Dictionary = map.story_state.trader_line
+	return "Для пропуска нужны ВСЕ три условия:\n%s Рейдеры: %d/2\n%s Депозит: 10 000 кредитов\n%s Артефакт с пиратской базы" % [
+		"✓" if int(line.pirates) >= 2 else "○", mini(int(line.pirates), 2),
+		"✓" if bool(line.paid) else "○",
+		"✓" if bool(line.artifact) else "○",
+	]
+
+
 func _offer_trader_delivery() -> bool:
 	var line: Dictionary = map.story_state.trader_line
 	var hero: Variant = map._player_hero()
@@ -361,10 +389,8 @@ func _offer_trader_delivery() -> bool:
 	if bool(line.base) and not bool(line.artifact) and hero != null and artifact_id != "" and hero.artifacts.has(artifact_id):
 		var artifact: Dictionary = HeroDefs.ARTIFACTS.get(artifact_id, {})
 		choices.append({"id": "artifact", "label": "Передать артефакт «%s»" % String(artifact.get("name", artifact_id))})
-	if choices.is_empty():
-		return false
-	choices.append({"id": "later", "label": "Оставить у себя"})
-	map._show_object_choice_dialog("База Торговой лиги", "Штайн готов принять часть обязательств по контракту.", choices, Dialogue.PORTRAITS.stein, resolve_trader_delivery)
+	choices.append({"id": "later", "label": "Закрыть"})
+	map._show_object_choice_dialog("База Торговой лиги", _trader_contract_status(), choices, Dialogue.PORTRAITS.stein, resolve_trader_delivery)
 	return true
 
 
@@ -374,15 +400,17 @@ func resolve_trader_delivery(choice: String) -> void:
 	if choice == "credits" and not bool(line.paid) and map.player_one_credits >= TRADER_DEPOSIT:
 		map.player_one_credits -= TRADER_DEPOSIT
 		line.paid = true
-		map.navigation_message = "Торговая лига приняла депозит: %d кредитов." % TRADER_DEPOSIT
+		map.navigation_message = "Лига приняла депозит. Пропуск будет выдан после выполнения всех трёх условий контракта."
 	elif choice == "artifact" and bool(line.base) and not bool(line.artifact) and hero != null:
 		var artifact_id := String(line.get("artifact_id", ""))
 		if artifact_id != "" and hero.artifacts.has(artifact_id):
 			hero.artifacts.erase(artifact_id)
 			line.artifact = true
-			map.navigation_message = "Артефакт передан представителям Торговой лиги."
+			map.navigation_message = "Артефакт передан. Пропуск будет выдан после выполнения всех трёх условий контракта."
 	_refresh_active_quests()
 	update_progress()
+	if bool(line.get("clearance", false)):
+		map.navigation_message = "Все условия выполнены: Лига выдала пропуск через центральный кордон."
 	map._update_hud()
 
 
@@ -780,11 +808,12 @@ func journal_text() -> String:
 		rows.append("Награда: координаты южного фарватера (22, 40)." if has_seen("pirate_complete") else "Награда: координаты обхода центрального кордона.")
 	var trader: Dictionary = map.story_state.trader_line
 	if trader.active:
-		rows.append("\nКОНТРАКТ ШТАЙНА" + (" — выполнен" if has_seen("trader_complete") else ""))
+		rows.append("\nКОНТРАКТ ШТАЙНА" + (" — выполнен" if has_seen("trader_complete") else " — выполните все три условия"))
 		rows.append("Пиратские рейдеры: %d / 2. Оставшиеся цели: %s." % [mini(int(trader.pirates), 2), _guardian_coordinates(TRADER_CONTRACT_PIRATE_IDS)])
 		rows.append(("✓ " if trader.paid else "○ ") + "Передать 10 000 кредитов на базе Лиги (54, 4).")
 		rows.append(("✓ " if trader.artifact else "○ ") + "Захватить базу (46, 20) и доставить её артефакт Лиге (54, 4).")
 		rows.append("Награда: мирный проход через центральный патруль.")
+	rows.append("\nАРТЕФАКТ-МАЯКИ\nАктивировано: %d / %d. Награда выдаётся сразу при посещении последнего маяка; координаты отдельного тайника не требуются." % [map.obelisks_collected, MapObjectDefs.OBELISK_TARGET])
 	rows.append("\nНАВИГАЦИЯ\nГолубые ионные облака: 2 очка за клетку. Фиолетовый фронт и астероиды непроходимы. Захваченные индустрии приносят ресурс каждый сол.")
 	rows.append("\nРАДИОЖУРНАЛ")
 	for id in map.story_state.history:

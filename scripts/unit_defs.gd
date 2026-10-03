@@ -29,6 +29,15 @@ const FACTION_PROFILES := preload("res://scripts/faction_ship_profiles.gd")
 ## эсминцы дополнительно требуют по 2 Топлива и Радиоизотопов за корабль.
 ## Руда, продукты и прочие ресурсы остаются затратами на строительство.
 const UNITS := {
+	"earth_cruiser": {
+		"label": "Крейсер", "role": "тяжёлый крейсер экспедиции", "tier": 6,
+		"hull": 340, "attack": 0, "defense": 0, "damage_min": 55, "damage_max": 72,
+		"move": 3, "range": 9, "initiative": 105, "sprite_width": 270.0, "weapon_type": "laser",
+		"texture": preload("res://assets/ships/human_new/elite_cruiser.png"), "region": Rect2(30, 194, 1722, 526),
+		"kind": "dwelling", "dwelling": "cruiser_yard", "dwelling_level": 1,
+		"cost": {"credits": 3200, "Топливо": 3, "Радиоизотопы": 3}, "weekly_growth": 1,
+		"force_field": 18, "damage_type": "beam", "accuracy": "normal", "abilities": [],
+	},
 # --- Покупаемые юниты Земного флота ----------------------------------------
 	"interceptor": {
 		"label": "Истребитель", "role": "обычный истребитель 1 ранга (короткая дистанция)", "tier": 1,
@@ -175,7 +184,7 @@ const UNITS := {
 		"damage_factor": 1.1,
 	},
 	"pirate_battleship": {
-		"label": "Пиратский крейсер", "role": "пиратский крейсер", "tier": 6,
+		"label": "Пиратский линкор", "role": "пиратский линкор", "tier": 6,
 		"hull": 165, "attack": 21, "defense": 13, "damage_min": 42, "damage_max": 61, "move": 4, "range": 5, "initiative": 6,
 		"sprite_width": 172.0, "weapon_type": "laser",
 		"texture": preload("res://assets/ships/pirates/tier_6.png"),

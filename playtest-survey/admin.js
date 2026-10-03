@@ -12,12 +12,105 @@ const reviewCount = document.getElementById("admin-review-count");
 const statusFilter = document.getElementById("admin-status-filter");
 const downloadTotal = document.getElementById("admin-download-total");
 const downloadVersions = document.getElementById("admin-download-versions");
+const surveyList = document.getElementById("admin-survey-list");
+const surveyCount = document.getElementById("admin-survey-count");
+const surveyTotal = document.getElementById("admin-survey-total");
+const surveyStatus = document.getElementById("admin-survey-status");
+const reviewsTab = document.getElementById("admin-reviews-tab");
+const surveysTab = document.getElementById("admin-surveys-tab");
+const reviewsPanel = document.getElementById("admin-reviews-panel");
+const surveysPanel = document.getElementById("admin-surveys-panel");
 let reviews = [];
+let surveys = [];
+
+const surveySections = [
+  {
+    title: "Ваш игровой заход",
+    fields: [
+      ["play_time", "Сколько времени вы провели в игре?"],
+      ["progress", "До какого момента вы дошли?"],
+      ["demo_version", "Версия игры"],
+      ["sessions", "Сколько отдельных игровых сессий у вас было?"],
+      ["stop_reason", "Если вы остановились до финала, что повлияло на это?"],
+      ["strategy_experience", "Насколько вам знакомы пошаговые стратегии?"],
+    ],
+  },
+  {
+    title: "Первые впечатления",
+    fields: [
+      ["clarity_map", "Глобальная карта: куда двигаться и что можно посетить"],
+      ["clarity_economy", "Ресурсы, постройки и найм флота"],
+      ["clarity_battle", "Тактические бои: правила, ходы и управление"],
+      ["clarity_mission", "Цели миссии, журнал заданий и радиопереговоры"],
+      ["difficulty", "Как вам общая сложность миссии?"],
+      ["friction", "Где вы чаще всего теряли время или не понимали, что делать дальше?"],
+    ],
+  },
+  {
+    title: "Карта, экономика и решения",
+    fields: [
+      ["clarity_route", "Построить маршрут и понять, что мешает пройти дальше"],
+      ["clarity_map_info", "По значкам и подсказкам понять, что находится на карте и где опасно"],
+      ["clarity_turn_cycle", "Понять, что меняется после завершения дня и недели"],
+      ["clarity_buildings", "Понять, что строить или нанимать, сколько это стоит и что откроет"],
+      ["clarity_rewards", "Понять, что дают станции, нейтральные объекты и найденные награды"],
+      ["clarity_enemy_threat", "Оценить угрозу от патрулей, пиратов и других флотов до столкновения"],
+      ["strategic_choice", "Насколько значимыми казались решения о маршруте и развитии?"],
+      ["resource_blocker", "Что чаще всего мешало выполнить задуманное?"],
+      ["route_taken", "Как вы прошли или планировали пройти центральный рубеж?"],
+      ["strategic_stuck", "В какой момент на карте вы в последний раз не понимали, что делать дальше?"],
+      ["resource_example", "Если ресурсы останавливали ваш план, приведите конкретный пример"],
+    ],
+  },
+  {
+    title: "Тактические бои",
+    fields: [
+      ["combat_clarity_turn_order", "Понимать, чей ход и кто будет действовать следующим"],
+      ["combat_clarity_move", "Понимать, куда отряд может переместиться и где встанет корабль"],
+      ["combat_clarity_range", "Понимать, до кого можно достать и как расстояние влияет на урон"],
+      ["combat_clarity_preview", "Предсказать результат атаки по стрелке, подсказке и показу урона"],
+      ["combat_clarity_abilities", "Понять способности кораблей, протоколы и их цели"],
+      ["combat_clarity_losses", "Понять, сколько кораблей потеряно и почему"],
+      ["combat_clarity_result", "Понять итог боя и последствия для флота после возвращения на карту"],
+      ["combat_difficulty", "Как ощущалась сложность боёв?"],
+      ["combat_losses", "Как ваши потери обычно соотносились с тем, чего вы ожидали?"],
+      ["combat_features", "Какими возможностями вы пользовались?"],
+      ["battle_example", "Опишите бой, в котором пришлось менять план или который запомнился"],
+      ["battle_problem", "Что в бою вы бы исправили в первую очередь?"],
+    ],
+  },
+  {
+    title: "Сюжет, впечатления и предложения",
+    fields: [
+      ["story_clarity", "Насколько вам были понятны мотивы сторон и происходящее в сюжете?"],
+      ["mission_journal", "Насколько полезными были журнал миссии и история радиопереговоров?"],
+      ["optional_interest", "Насколько хотелось разбираться в необязательных контрактах и встречах?"],
+      ["text_readability", "Насколько комфортно читались тексты интерфейса и диалогов?"],
+      ["technical_issues", "Как игра работала на вашем компьютере?"],
+      ["platform", "На какой системе запускали игру? Это поможет воспроизвести технические проблемы."],
+      ["overall_fun", "Насколько вам в целом понравилась игра?"],
+      ["recommend", "Какова вероятность, что вы посоветуете попробовать игру другу?"],
+      ["favorite", "Какой момент, корабль или система запомнились больше всего?"],
+      ["confusing", "Где было непонятно, скучно или слишком трудно?"],
+      ["bug", "Встретили ошибку или техническую проблему?"],
+      ["add_change", "Чего не хватило? Что добавить, убрать или переделать?"],
+      ["top_priority", "Если исправить только одну вещь — что важнее всего?"],
+      ["preserve", "Что в игре точно стоит сохранить и не потерять при изменениях?"],
+      ["continue_reason", "Что должно появиться или измениться, чтобы вам захотелось сыграть ещё раз?"],
+    ],
+  },
+];
+const surveyLabels = new Map(surveySections.flatMap((section) => section.fields));
 
 function showLogin() {
   loginPanel.hidden = false;
   dashboard.hidden = true;
   reviews = [];
+  surveys = [];
+  reviewList.replaceChildren();
+  surveyList.replaceChildren();
+  surveyCount.textContent = "—";
+  surveyTotal.textContent = "";
 }
 
 function showDashboard() {
@@ -27,6 +120,7 @@ function showDashboard() {
   loginForm.elements.username.value = "admin";
   loginStatus.textContent = "";
   loadReviews();
+  loadSurveys();
   loadStats();
 }
 
@@ -120,6 +214,102 @@ function renderReviews() {
   for (const review of visible) reviewList.append(reviewCard(review));
 }
 
+function answerText(value) {
+  if (Array.isArray(value)) return value.map(String).join(" · ") || "—";
+  if (value && typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function surveyAnswerRow(key, value) {
+  const row = document.createElement("div");
+  row.className = "admin-survey-answer";
+  const question = document.createElement("dt");
+  question.textContent = surveyLabels.get(key) || key.replaceAll("_", " ");
+  const answer = document.createElement("dd");
+  answer.textContent = answerText(value);
+  row.append(question, answer);
+  return row;
+}
+
+function surveyCard(survey) {
+  const answers = survey.answers && typeof survey.answers === "object" && !Array.isArray(survey.answers)
+    ? survey.answers
+    : {};
+  const card = document.createElement("details");
+  card.className = "admin-survey-card";
+
+  const summary = document.createElement("summary");
+  const title = document.createElement("strong");
+  title.textContent = `Анкета №${survey.id}`;
+  summary.append(title);
+  if (answers.play_time) {
+    const playTime = document.createElement("span");
+    playTime.className = "admin-survey-tag";
+    playTime.textContent = answers.play_time;
+    summary.append(playTime);
+  }
+  if (answers.overall_fun) {
+    const rating = document.createElement("span");
+    rating.className = "admin-survey-tag admin-survey-rating";
+    rating.textContent = `Оценка ${answerText(answers.overall_fun)} из 5`;
+    summary.append(rating);
+  }
+  card.append(summary);
+
+  const response = document.createElement("div");
+  response.className = "admin-survey-response";
+  const knownKeys = new Set();
+  for (const section of surveySections) {
+    const answered = section.fields.filter(([key]) => {
+      knownKeys.add(key);
+      const value = answers[key];
+      return value !== undefined && value !== null && value !== "" && !(Array.isArray(value) && value.length === 0);
+    });
+    if (answered.length === 0) continue;
+    const group = document.createElement("section");
+    group.className = "admin-survey-section";
+    const heading = document.createElement("h3");
+    heading.textContent = section.title;
+    const list = document.createElement("dl");
+    list.className = "admin-survey-answers";
+    for (const [key] of answered) list.append(surveyAnswerRow(key, answers[key]));
+    group.append(heading, list);
+    response.append(group);
+  }
+
+  const extraKeys = Object.keys(answers).filter((key) => !knownKeys.has(key) && key !== "website");
+  if (extraKeys.length > 0) {
+    const group = document.createElement("section");
+    group.className = "admin-survey-section";
+    const heading = document.createElement("h3");
+    heading.textContent = "Другие ответы";
+    const list = document.createElement("dl");
+    list.className = "admin-survey-answers";
+    for (const key of extraKeys) list.append(surveyAnswerRow(key, answers[key]));
+    group.append(heading, list);
+    response.append(group);
+  }
+  card.append(response);
+  return card;
+}
+
+function renderSurveys() {
+  surveyList.replaceChildren();
+  surveyCount.textContent = Number(surveyTotal.dataset.count || 0).toLocaleString("ru-RU");
+  const total = Number(surveyTotal.dataset.count || 0);
+  surveyTotal.textContent = surveys.length < total
+    ? `Показаны ${surveys.length} последних из ${total}`
+    : `Всего анкет: ${total}`;
+  if (surveys.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "review-empty";
+    empty.textContent = "Пока нет отправленных анкет.";
+    surveyList.append(empty);
+    return;
+  }
+  for (const survey of surveys) surveyList.append(surveyCard(survey));
+}
+
 async function loadReviews() {
   try {
     const response = await fetch(`${ADMIN_API}/reviews`, { credentials: "same-origin" });
@@ -131,6 +321,23 @@ async function loadReviews() {
   } catch {
     actionStatus.classList.remove("is-success");
     actionStatus.textContent = "Не удалось загрузить отзывы. Попробуйте обновить список.";
+  }
+}
+
+async function loadSurveys() {
+  surveyStatus.classList.remove("is-success");
+  surveyStatus.textContent = "Загружаем анкеты…";
+  try {
+    const response = await fetch(`${ADMIN_API}/surveys`, { credentials: "same-origin" });
+    if (response.status === 401) { showLogin(); return; }
+    if (!response.ok) throw new Error("load_failed");
+    const data = await response.json();
+    surveys = Array.isArray(data.surveys) ? data.surveys : [];
+    surveyTotal.dataset.count = String(Number(data.total || 0));
+    surveyStatus.textContent = "";
+    renderSurveys();
+  } catch {
+    surveyStatus.textContent = "Не удалось загрузить анкеты. Попробуйте обновить список.";
   }
 }
 
@@ -196,6 +403,7 @@ loginForm.addEventListener("submit", async (event) => {
 
 document.getElementById("admin-refresh").addEventListener("click", () => {
   loadReviews();
+  loadSurveys();
   loadStats();
 });
 document.getElementById("admin-logout").addEventListener("click", async () => {
@@ -206,6 +414,28 @@ document.getElementById("admin-logout").addEventListener("click", async () => {
   }
 });
 statusFilter.addEventListener("change", renderReviews);
+
+function selectAdminTab(selectedTab) {
+  const showSurveys = selectedTab === surveysTab;
+  reviewsTab.setAttribute("aria-selected", String(!showSurveys));
+  reviewsTab.tabIndex = showSurveys ? -1 : 0;
+  surveysTab.setAttribute("aria-selected", String(showSurveys));
+  surveysTab.tabIndex = showSurveys ? 0 : -1;
+  reviewsPanel.hidden = showSurveys;
+  surveysPanel.hidden = !showSurveys;
+}
+
+reviewsTab.addEventListener("click", () => selectAdminTab(reviewsTab));
+surveysTab.addEventListener("click", () => selectAdminTab(surveysTab));
+for (const tab of [reviewsTab, surveysTab]) {
+  tab.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const nextTab = tab === reviewsTab ? surveysTab : reviewsTab;
+    selectAdminTab(nextTab);
+    nextTab.focus();
+  });
+}
 
 fetch(`${ADMIN_API}/session`, { credentials: "same-origin" })
   .then((response) => response.ok ? response.json() : { authenticated: false })

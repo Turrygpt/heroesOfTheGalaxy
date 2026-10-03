@@ -67,8 +67,8 @@ func setup(hero: Hero, units: Array, player_won: bool, xp_gained: int) -> void:
 			xp_column.add_child(_label("Надбавка за победу: +%d%%" % REWARDS.VICTORY_BONUS_PERCENT, 12, MUTED, true))
 		xp_column.add_child(_label("Всего опыта: %d" % hero.experience, 13, INK, true))
 		# Опыт уже начислен, но hero.level растёт только после выбора навыков.
-		var earned_level := DEFS.level_for_experience(hero.experience)
-		if earned_level >= DEFS.MAX_LEVEL:
+		var earned_level := DEFS.level_for_experience(hero.experience, hero.level_cap)
+		if earned_level >= hero.level_cap:
 			xp_column.add_child(_label("Максимальный уровень достигнут", 13, MUTED, true))
 		else:
 			var remaining := DEFS.experience_for_level(earned_level + 1) - hero.experience

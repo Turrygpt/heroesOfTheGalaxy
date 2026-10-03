@@ -291,14 +291,67 @@ func _button(parent: Node, text: String, action: Callable) -> Button:
 func _new_game() -> void:
 	if transition_started:
 		return
+	if not DEMO.enabled():
+		_show_mission_selection()
+		return
+	_start_mission(1)
+
+
+func _show_mission_selection() -> void:
+	if get_node_or_null("MissionSelection") != null:
+		return
+	var dialog := AcceptDialog.new()
+	dialog.name = "MissionSelection"
+	dialog.title = "Выбор миссии кампании"
+	dialog.get_ok_button().text = "Назад"
+	var choices := VBoxContainer.new()
+	choices.add_theme_constant_override("separation", 16)
+	dialog.add_child(choices)
+	for mission in [
+		{"number": 1, "title": "Миссия 1 · Марс", "description": "Начало кампании. Экспедиция Павловой освобождает Марс."},
+		{"number": 2, "title": "Миссия 2 · Сатурн", "description": "Павлова: уровни 5–10. База на Тефии, три клана и крейсерский удар ради тайны Энцелада."},
+	]:
+		var button := Button.new()
+		button.text = mission.title
+		button.custom_minimum_size = Vector2(580, 52)
+		choices.add_child(button)
+		var description := Label.new()
+		description.text = mission.description
+		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		choices.add_child(description)
+		button.pressed.connect(_select_mission.bind(int(mission.number)))
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered(Vector2i(620, 300))
+	choices.get_child(0).grab_focus()
+
+
+func _select_mission(number: int) -> void:
+	var dialog := get_node_or_null("MissionSelection")
+	if dialog != null:
+		dialog.hide()
+		dialog.queue_free()
+	_start_mission(number)
+
+
+func _start_mission(number: int) -> void:
+	if transition_started or number not in [1, 2] or (number == 2 and DEMO.enabled()):
+		return
 	requested_load = false
-	_start_intro(false)
+	CampaignSave.saturn_mission_requested = number == 2
+	if number == 1:
+		_start_intro(false)
 	_fade_out_and_change_scene("res://scenes/StrategicMain.tscn")
 
 
 ## Ставит вступление поверх меню, если оно положено этому старту
 ## (см. IntroVideoPlayer.should_play). Пока ролик в дереве, intro_active
 ## держит смену сцены.
+func _saturn_game() -> void:
+	_start_mission(2)
+
+
 func _start_intro(random_map: bool) -> void:
 	if not IntroVideoPlayer.should_play(random_map):
 		return
@@ -324,6 +377,7 @@ func _try_apply_pending_scene() -> void:
 
 
 func _random_game() -> void:
+	CampaignSave.saturn_mission_requested = false
 	if DEMO.enabled():
 		return
 	if transition_started or get_node_or_null("FactionSelection") != null:
@@ -359,6 +413,7 @@ func _random_game() -> void:
 
 
 func _load_game() -> void:
+	CampaignSave.saturn_mission_requested = false
 	if transition_started:
 		return
 	requested_load = true

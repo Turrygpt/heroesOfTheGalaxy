@@ -13,6 +13,8 @@ var id := "hero"
 var hero_name := "Безымянный"
 var class_id := "admiral"
 var level := 1
+## Лимит текущей кампании; первая миссия и обычные герои сохраняют прежний потолок.
+var level_cap := DEFS.MAX_LEVEL
 var experience := 0
 var stats := {"attack": 0, "defense": 0, "power": 0, "wisdom": 0}
 var skills := {}  # skill_id -> ранг 1..3
@@ -57,7 +59,7 @@ static func create(new_id: String, new_name: String, new_class_id: String) -> He
 ## но ещё не подтверждённые уровни, иначе счётчик опыта продолжал бы расти
 ## между боем и окном выбора навыка.
 func can_gain_experience() -> bool:
-	return level + pending_level_ups < DEFS.MAX_LEVEL
+	return level + pending_level_ups < level_cap
 
 
 ## Начисляет опыт с учётом навыка «Обучение». Возвращает число новых уровней.
@@ -66,7 +68,7 @@ func gain_experience(amount: int) -> int:
 		return 0
 	var gained := int(round(float(amount) * experience_multiplier()))
 	experience += gained
-	var target_level: int = DEFS.level_for_experience(experience)
+	var target_level: int = DEFS.level_for_experience(experience, level_cap)
 	var new_levels := target_level - level - pending_level_ups
 	if new_levels <= 0:
 		return 0
@@ -79,14 +81,14 @@ func experience_multiplier() -> float:
 
 
 func experience_for_next_level() -> int:
-	if level >= DEFS.MAX_LEVEL:
+	if level >= level_cap:
 		return experience
 	return DEFS.experience_for_level(level + 1)
 
 
 ## Прогресс полосы опыта до следующего уровня, 0..1.
 func level_progress() -> float:
-	if level >= DEFS.MAX_LEVEL:
+	if level >= level_cap:
 		return 1.0
 	var current: int = DEFS.experience_for_level(level)
 	var next: int = DEFS.experience_for_level(level + 1)
@@ -587,6 +589,7 @@ func to_dict() -> Dictionary:
 		"hero_name": hero_name,
 		"class_id": class_id,
 		"level": level,
+		"level_cap": level_cap,
 		"experience": experience,
 		"stats": stats.duplicate(),
 		"skills": skills.duplicate(),
@@ -609,6 +612,7 @@ static func from_dict(data: Dictionary) -> Hero:
 	if not DEFS.CLASSES.has(hero.class_id):
 		hero.class_id = "admiral"
 	hero.level = int(data.get("level", 1))
+	hero.level_cap = clampi(int(data.get("level_cap", DEFS.MAX_LEVEL)), DEFS.MAX_LEVEL, 10)
 	hero.experience = int(data.get("experience", 0))
 	hero.stats = {"attack": 0, "defense": 0, "power": 0, "wisdom": 0}
 	for stat_id in (data.get("stats", {}) as Dictionary):

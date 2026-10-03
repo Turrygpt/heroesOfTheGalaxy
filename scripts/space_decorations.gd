@@ -28,6 +28,8 @@ const FAR_PLANET_TEXTURES := [
 	preload("res://assets/space/far_planets/far_blue_gas_giant.png"),
 	preload("res://assets/space/far_planets/far_volcanic_world.png"),
 ]
+const COMET_ASTEROID_TEXTURE := preload("res://assets/ui/main_menu_layers/asteroids.png")
+const COMET_ASTEROID_REGION := Rect2(950, 405, 290, 260)
 const COMET_TINT := Color(0.75, 0.88, 1.0)
 ## Пылевой хвост тёплого оттенка - настоящая пыль светится отражённым светом
 ## звезды, а не ионным свечением, поэтому у него другой цвет, чем у ионного.
@@ -38,13 +40,6 @@ const COMET_ION_CORE_TINT := Color(0.85, 0.97, 1.0)
 ## Искры-обломки, срывающиеся с ядра: почти белые с тёплой искрой, чтобы их
 ## было видно и на пылевом хвосте, и на ионном.
 const COMET_SPARK_TINT := Color(1.0, 0.95, 0.84)
-## Каменные тона ядра - оно астероидное, а не ледяной шар без деталей.
-const COMET_ROCK_TINTS := [
-	Color(0.42, 0.38, 0.34),
-	Color(0.5, 0.44, 0.36),
-	Color(0.38, 0.4, 0.42),
-]
-
 const COMET_SPEED_MIN := 26.0
 const COMET_SPEED_MAX := 46.0
 ## Пылевой хвост собирается из нескольких расходящихся прядей: одной сплошной
@@ -75,10 +70,6 @@ const COMET_JET_STEPS := 8
 ## Запас за краем карты, на котором комета ещё не телепортируется на
 ## противоположную сторону - иначе была бы видна резкая подмена на границе.
 const COMET_WRAP_MARGIN := 220.0
-## Число точек неровного контура ядра-астероида и число кратеров на нём.
-const NUCLEUS_SHAPE_POINTS := 10
-const NUCLEUS_CRATER_COUNT := 3
-
 
 static func generate(seed_value: int, map_pixel_size: Vector2) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
@@ -111,16 +102,6 @@ static func make_comets(seed_value: int, map_pixel_size: Vector2) -> Array[Dicti
 	for _index in range(COMET_COUNT):
 		var angle := rng.randf_range(0.0, TAU)
 		var speed := rng.randf_range(COMET_SPEED_MIN, COMET_SPEED_MAX)
-		var nucleus_offsets: Array[float] = []
-		for _point in range(NUCLEUS_SHAPE_POINTS):
-			nucleus_offsets.append(rng.randf_range(0.72, 1.18))
-		var craters: Array[Dictionary] = []
-		for _crater in range(NUCLEUS_CRATER_COUNT):
-			craters.append({
-				"angle": rng.randf_range(0.0, TAU),
-				"dist": rng.randf_range(0.15, 0.55),
-				"radius": rng.randf_range(0.18, 0.34),
-			})
 		var sparks: Array[Dictionary] = []
 		for _spark in range(COMET_SPARK_COUNT):
 			sparks.append({
@@ -144,9 +125,6 @@ static func make_comets(seed_value: int, map_pixel_size: Vector2) -> Array[Dicti
 			"velocity": Vector2.RIGHT.rotated(angle) * speed,
 			"radius": rng.randf_range(14.0, 20.0),
 			"color": COMET_TINT,
-			"rock_color": COMET_ROCK_TINTS[rng.randi_range(0, COMET_ROCK_TINTS.size() - 1)],
-			"nucleus_offsets": nucleus_offsets,
-			"craters": craters,
 			"rotation": rng.randf_range(0.0, TAU),
 			"spin": rng.randf_range(-1.2, 1.2),
 			"tail_curve": 1.0 if rng.randf() < 0.5 else -1.0,
@@ -265,7 +243,7 @@ static func _draw_comet(canvas: CanvasItem, comet: Dictionary) -> void:
 	# Вспышка идёт ПОД ядро: поверх она забивала камень белым крестом, а снизу
 	# лучи торчат из-за глыбы, и ядро остаётся тёмным силуэтом в свете комы.
 	_draw_comet_flare(canvas, position, tail_dir, radius, color, time, phase)
-	_draw_comet_nucleus(canvas, position, radius, tail_dir, comet)
+	_draw_comet_nucleus(canvas, position, radius, comet)
 
 
 ## Настоящая комета несёт два хвоста. Этот - пылевой: широкий, тёплый (пыль
@@ -435,24 +413,10 @@ static func _draw_star_flare(canvas: CanvasItem, position: Vector2, axis: Vector
 	canvas.draw_colored_polygon(points, color)
 
 
-## Ядро - неровная каменная глыба (астероид), а не идеальный шар: контур
-## строится по случайным смещениям nucleus_offsets, на нём несколько тёмных
-## кратеров, а сторона, обращённая против хвоста (то есть "к солнцу"),
-## подсвечена светлой дугой.
-static func _draw_comet_nucleus(canvas: CanvasItem, position: Vector2, radius: float, tail_dir: Vector2, comet: Dictionary) -> void:
-	var offsets: Array = comet["nucleus_offsets"]
-	var rotation: float = comet.get("rotation", 0.0)
-	var rock_color: Color = comet.get("rock_color", Color(0.4, 0.38, 0.35))
-	var point_count := offsets.size()
-	var points := PackedVector2Array()
-	for index in range(point_count):
-		var angle := rotation + float(index) / float(point_count) * TAU
-		var point_radius := radius * float(offsets[index])
-		points.append(position + Vector2.RIGHT.rotated(angle) * point_radius)
-	canvas.draw_colored_polygon(points, rock_color.darkened(0.25))
-	for crater in comet.get("craters", []):
-		var crater_center := position + Vector2.RIGHT.rotated(rotation + float(crater["angle"])) * radius * float(crater["dist"])
-		canvas.draw_circle(crater_center, radius * float(crater["radius"]), rock_color.darkened(0.55))
-	var sun_angle := (-tail_dir).angle()
-	canvas.draw_arc(position, radius * 0.8, sun_angle - 0.9, sun_angle + 0.9,
-		10, rock_color.lightened(0.35), radius * 0.5, true)
+## Ядро кометы — отдельный астероид из уже существующего атласа игры.
+static func _draw_comet_nucleus(canvas: CanvasItem, position: Vector2, radius: float, comet: Dictionary) -> void:
+	var texture_size := COMET_ASTEROID_REGION.size
+	var scale_value := radius * 2.4 / maxf(texture_size.x, texture_size.y)
+	canvas.draw_set_transform(position, float(comet.get("rotation", 0.0)), Vector2.ONE * scale_value)
+	canvas.draw_texture_rect_region(COMET_ASTEROID_TEXTURE, Rect2(-texture_size * 0.5, texture_size), COMET_ASTEROID_REGION, Color(0.9, 0.9, 0.92))
+	canvas.draw_set_transform(Vector2.ZERO)

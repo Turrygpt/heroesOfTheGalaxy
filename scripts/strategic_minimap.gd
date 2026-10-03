@@ -71,6 +71,12 @@ func _draw() -> void:
 		_draw_planet(strategy_map.home_planet_cell, PLAYER_ONE_COLOR)
 		for ai in strategy_map.opponents:
 			_draw_planet(ai.home_cell, strategy_map._production_owner_color(ai.base_owner))
+	elif strategy_map.campaign_map_id == "saturn_mission_v1":
+		if strategy_map.human_planet_owner == 1:
+			_draw_planet(strategy_map.home_planet_cell, PLAYER_ONE_COLOR)
+		for object in strategy_map.map_objects:
+			if object.kind == "pirate_clan_station":
+				_draw_planet(Vector2i(object.cell) + Vector2i.ONE, strategy_map._production_owner_color(int(object.get("captured_by", 0))))
 	else:
 		_draw_planet(strategy_map.home_planet_cell, PLAYER_ONE_COLOR)
 		_draw_planet(strategy_map.opponent_planet_cell, PLAYER_TWO_COLOR)
@@ -81,7 +87,7 @@ func _draw() -> void:
 		var owner := int(strategy_map.production_owners[index]) if index < strategy_map.production_owners.size() else 0
 		var site_color := Color(site["color"])
 		var owner_color := site_color
-		if (strategy_map.network_game or strategy_map.has_method("random_session_snapshot")) and owner > 0:
+		if (strategy_map.network_game or strategy_map.has_method("random_session_snapshot") or strategy_map.campaign_map_id == "saturn_mission_v1") and owner > 0:
 			owner_color = strategy_map._production_owner_color(owner)
 		elif owner == 1:
 			owner_color = PLAYER_ONE_COLOR
@@ -95,6 +101,13 @@ func _draw() -> void:
 	# разведанное под туманом и текущий обзор.
 	if strategy_map.fog_texture != null:
 		draw_texture_rect(strategy_map.fog_texture, Rect2(Vector2.ZERO, size), false)
+	if strategy_map.campaign_map_id == "saturn_mission_v1":
+		for guard in strategy_map.guardians:
+			if bool(guard.alive) and guard.has("spawn_cell") and strategy_map.is_cell_visible(guard.cell):
+				var point := _cell_to_minimap(guard.cell)
+				var clan := int(guard.clan_id)
+				draw_circle(point, 5, Color("090f1c"))
+				draw_string(ThemeDB.fallback_font, point + Vector2(-5, 4), preload("res://scripts/saturn_clans.gd").SIGNS[clan], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, strategy_map._production_owner_color(clan))
 
 	# Подписи рисуются поверх тумана войны: координатная сетка доступна всегда.
 	var font := ThemeDB.fallback_font
